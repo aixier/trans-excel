@@ -246,22 +246,27 @@ class TranslationEngine:
                     api_calls = 1
                     tokens_used = response.usage.total_tokens if response.usage else 0
 
-                    await self.project_manager.update_task_progress(
-                        db, task_id,
-                        api_calls=api_calls,
-                        tokens_used=tokens_used
-                    )
+                    # 减少数据库更新频率，只在特定批次更新
+                    if batch_id % 5 == 0 or batch_id == self.total_batches:
+                        try:
+                            await self.project_manager.update_task_progress(
+                                db, task_id,
+                                api_calls=api_calls,
+                                tokens_used=tokens_used
+                            )
+                        except Exception as update_error:
+                            logger.warning(f"更新进度失败: {update_error}")
 
                     # 构建返回结果
                     batch_results = {}
                     for i, translation in enumerate(translations):
                         if i < len(batch):
                             task = batch[i]
-                            batch_results[task.row_index] = {
-                                'pt': translation.get('pt', ''),
-                                'th': translation.get('th', ''),
-                                'ind': translation.get('ind', '')
-                            }
+                            # 动态构建结果，根据实际的目标语言
+                            lang_result = {}
+                            for lang in target_languages:
+                                lang_result[lang] = translation.get(lang, '')
+                            batch_results[task.row_index] = lang_result
 
                     elapsed = time.time() - start_time
                     self.completed_batches += 1
@@ -291,11 +296,26 @@ class TranslationEngine:
         for row_index, translations in results.items():
             for lang, translation in translations.items():
                 if translation and translation.strip():
-                    # 找到对应的语言列
-                    lang_cols = [col for col in df.columns if lang.lower() in col.lower()]
-                    if lang_cols:
-                        df.at[row_index, lang_cols[0]] = translation
+                    # 找到对应的语言列 - 更精确的匹配
+                    lang_upper = lang.upper()
+                    matched_col = None
+
+                    # 首先尝试精确匹配
+                    if lang_upper in df.columns:
+                        matched_col = lang_upper
+                    # 其次尝试小写匹配
+                    elif lang.lower() in [col.lower() for col in df.columns]:
+                        for col in df.columns:
+                            if col.lower() == lang.lower():
+                                matched_col = col
+                                break
+
+                    if matched_col:
+                        df.at[row_index, matched_col] = translation
                         translated_count += 1
+                        logger.debug(f"应用翻译: 行{row_index}, 列{matched_col} = {translation[:30]}...")
+                    else:
+                        logger.warning(f"找不到语言列: {lang} (可用列: {list(df.columns)})")
 
         return translated_count
 

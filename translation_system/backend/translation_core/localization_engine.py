@@ -55,6 +55,13 @@ class LocalizationEngine:
                 languages=['en', 'es', 'pt'],
                 cultural_context='Diverse European cultures, formal communication',
                 localization_notes='Use precise, well-structured language. Consider cultural diversity.'
+            ),
+            'cn-hangzhou': RegionConfig(
+                code='cn-hangzhou',
+                name='China Hangzhou (中国杭州)',
+                languages=['en', 'pt', 'th', 'ind', 'tr', 'ja', 'ko'],
+                cultural_context='Chinese culture with international gaming community, tech-savvy players',
+                localization_notes='Balance between localization and maintaining original game terminology. Consider Chinese gaming culture influence.'
             )
         }
 

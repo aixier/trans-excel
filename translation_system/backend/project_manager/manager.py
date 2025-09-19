@@ -173,9 +173,13 @@ class ProjectManager:
 
     async def get_task_progress(self, db: AsyncSession, task_id: str) -> Dict:
         """获取任务进度详情 - 基于Demo中的进度显示逻辑"""
-        task_query = select(TranslationTask).where(TranslationTask.id == task_id)
-        result = await db.execute(task_query)
-        task = result.scalar_one_or_none()
+        # 使用新的数据库会话避免并发问题
+        from database.connection import get_async_session
+
+        async with get_async_session() as new_session:
+            task_query = select(TranslationTask).where(TranslationTask.id == task_id)
+            result = await new_session.execute(task_query)
+            task = result.scalar_one_or_none()
 
         if not task:
             raise ValueError("Task not found")

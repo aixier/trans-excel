@@ -30,21 +30,18 @@ def get_async_engine():
             f"@{settings.mysql_host}:{settings.mysql_port}/{settings.mysql_database}"
         )
 
-        # 创建异步引擎，使用连接池优化
+        # 创建异步引擎，使用NullPool避免连接复用问题
         async_engine = create_async_engine(
             database_url,
-            # 使用连接池而不是NullPool
-            pool_size=5,  # 连接池大小
-            max_overflow=10,  # 最大溢出连接数
-            pool_timeout=30,  # 连接超时时间
-            pool_recycle=3600,  # 连接回收时间（1小时）
-            pool_pre_ping=True,  # 检查连接是否有效
+            # 使用NullPool避免并发问题
+            poolclass=NullPool,  # 不使用连接池，每次创建新连接
             echo=settings.debug_mode,  # 调试模式下打印SQL
             future=True,
             connect_args={
                 "charset": "utf8mb4",
                 "autocommit": False,
-                "connect_timeout": 10  # 连接超时时间
+                "connect_timeout": 60,  # 增加连接超时时间
+                "server_public_key": None  # 避免认证问题
             }
         )
 
@@ -63,7 +60,7 @@ def get_async_session_factory():
             bind=engine,
             class_=AsyncSession,
             expire_on_commit=False,
-            autoflush=True,
+            autoflush=False,  # 关闭自动刷新避免并发问题
             autocommit=False
         )
 
@@ -81,8 +78,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with session_factory() as session:
         try:
             yield session
-            await session.commit()
-        except Exception:
+            # 不自动提交，让调用方决定是否提交
+        except Exception as e:
             await session.rollback()
             raise
         finally:
@@ -141,15 +138,30 @@ async def init_database():
         from .models import Base
         engine = get_async_engine()
 
-        async with engine.begin() as conn:
+        # 使用独立连接避免超时
+        async with engine.connect() as conn:
+            # 检查表是否已存在
+            from sqlalchemy import text
+            result = await conn.execute(
+                text("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = :db"),
+                {"db": settings.mysql_database}
+            )
+            table_count = result.scalar()
+
+            if table_count > 0:
+                logger.info(f"✅ 数据库已有 {table_count} 个表，跳过初始化")
+                return
+
             # 创建所有表
             await conn.run_sync(Base.metadata.create_all)
+            await conn.commit()
 
         logger.info("✅ 数据库表初始化完成")
 
     except Exception as e:
         logger.error(f"❌ 数据库表初始化失败: {str(e)}")
-        raise
+        # 不要抛出异常，允许系统继续启动
+        logger.warning("⚠️ 系统将尝试继续启动，表可能已存在")
 
 
 async def close_connections():
