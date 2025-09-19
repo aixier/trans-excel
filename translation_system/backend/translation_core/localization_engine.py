@@ -59,7 +59,7 @@ class LocalizationEngine:
             'cn-hangzhou': RegionConfig(
                 code='cn-hangzhou',
                 name='China Hangzhou (中国杭州)',
-                languages=['en', 'pt', 'th', 'ind', 'tr', 'ja', 'ko'],
+                languages=['en', 'pt', 'th', 'ind', 'tr', 'ja', 'ko', 'vn', 'es'],
                 cultural_context='Chinese culture with international gaming community, tech-savvy players',
                 localization_notes='Balance between localization and maintaining original game terminology. Consider Chinese gaming culture influence.'
             )
@@ -180,9 +180,13 @@ class LocalizationEngine:
             'ind': 'Indonesian (印尼语)',
             'es': 'Spanish (西班牙语)',
             'ar': 'Arabic (阿拉伯语)',
-            'ru': 'Russian (俄语)'
+            'ru': 'Russian (俄语)',
+            'tr': 'Turkish (土耳其语)',
+            'ja': 'Japanese (日语)',
+            'ko': 'Korean (韩语)',
+            'vn': 'Vietnamese (越南语)'
         }
-        return lang_names.get(lang_code, lang_code)
+        return lang_names.get(lang_code.lower(), lang_code)
 
     def validate_region_language(self, region_code: str, language: str) -> bool:
         """验证地区是否支持指定语言"""

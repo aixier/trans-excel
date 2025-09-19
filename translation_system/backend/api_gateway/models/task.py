@@ -19,6 +19,25 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"       # 已取消
 
 
+class SheetInfo(BaseModel):
+    """Sheet信息"""
+    name: str = Field(..., description="Sheet名称")
+    total_rows: int = Field(..., description="总行数")
+    total_columns: int = Field(..., description="总列数")
+    columns: List[str] = Field(..., description="列名列表")
+    language_columns: List[str] = Field(..., description="语言列")
+    sample_data: Optional[List[Dict]] = Field(None, description="样本数据")
+
+
+class SheetProgress(BaseModel):
+    """Sheet进度"""
+    name: str = Field(..., description="Sheet名称")
+    total_rows: int = Field(..., description="总行数")
+    translated_rows: int = Field(..., description="已翻译行数")
+    status: str = Field(..., description="状态: pending, processing, completed")
+    percentage: float = Field(..., description="完成百分比")
+
+
 class TaskProgress(BaseModel):
     """任务进度模型"""
     total_rows: int = Field(..., description="总行数")
@@ -42,12 +61,13 @@ class TranslationMetrics(BaseModel):
 
 class TranslationUploadRequest(BaseModel):
     """翻译上传请求"""
-    target_languages: str = Field(..., description="目标语言列表，逗号分隔")
-    total_rows: int = Field(190, description="处理总行数")
+    target_languages: str = Field(..., description="目标语言列表，逗号分隔，支持: pt,th,ind,tw,vn,es,tr,ja,ko")
+    sheet_names: Optional[str] = Field(None, description="要处理的Sheet名称，逗号分隔，不填则处理所有")
     batch_size: int = Field(3, description="批次大小")
     max_concurrent: int = Field(10, description="最大并发数")
-    region_code: str = Field("na", description="地区代码")
+    region_code: str = Field("cn-hangzhou", description="地区代码")
     game_background: Optional[str] = Field(None, description="游戏背景")
+    auto_detect: bool = Field(True, description="自动检测需要翻译的sheets")
 
 
 class ProjectCreateRequest(BaseModel):
@@ -74,6 +94,10 @@ class TaskStatusResponse(BaseModel):
     task_id: str = Field(..., description="任务ID")
     status: TaskStatus = Field(..., description="任务状态")
     progress: TaskProgress = Field(..., description="任务进度")
+    sheet_progress: Optional[List[SheetProgress]] = Field(None, description="Sheet进度列表")
+    current_sheet: Optional[str] = Field(None, description="当前处理的Sheet")
+    total_sheets: int = Field(1, description="总Sheet数量")
+    completed_sheets: int = Field(0, description="已完成Sheet数量")
     error_message: Optional[str] = Field(None, description="错误消息")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
@@ -85,8 +109,19 @@ class TaskProgressResponse(BaseModel):
     task_id: str = Field(..., description="任务ID")
     status: TaskStatus = Field(..., description="任务状态")
     progress: TaskProgress = Field(..., description="进度详情")
+    sheet_progress: Optional[List[SheetProgress]] = Field(None, description="Sheet进度列表")
+    current_sheet: Optional[str] = Field(None, description="当前处理的Sheet")
+    total_sheets: int = Field(1, description="总Sheet数量")
+    completed_sheets: int = Field(0, description="已完成Sheet数量")
     statistics: TranslationMetrics = Field(..., description="统计信息")
     last_updated: datetime = Field(..., description="最后更新时间")
+
+
+class FileAnalysisResponse(BaseModel):
+    """文件分析响应"""
+    file_name: str = Field(..., description="文件名")
+    total_sheets: int = Field(..., description="Sheet总数")
+    sheets: List[SheetInfo] = Field(..., description="Sheet列表信息")
 
 
 class TaskListResponse(BaseModel):

@@ -5,7 +5,10 @@
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
 import pandas as pd
+import logging
 from .header_analyzer import SheetInfo, ColumnType
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -41,6 +44,10 @@ class TranslationDetector:
     ) -> List[TranslationTask]:
         """检测需要翻译的任务 - 按行动态检测源语言和翻译需求"""
         tasks = []
+
+        # 清理DataFrame列名（去除冒号等特殊字符）- 如果还没有清理
+        if any(':' in col for col in df.columns):
+            df.columns = [col.strip(':').strip() for col in df.columns]
 
         # 获取所有语言列
         language_cols = [col for col in sheet_info.columns if col.language is not None]
@@ -163,6 +170,41 @@ class TranslationDetector:
             batches.append(current_batch)
 
         return batches
+
+    def merge_sheet_tasks(
+        self,
+        sheet_tasks: Dict[str, List[TranslationTask]],
+        batch_size: int
+    ) -> List[List[TranslationTask]]:
+        """
+        合并多个Sheet的翻译任务进行批处理
+        优化：相同语言对的任务可以合并处理
+        """
+        # 按源语言和目标语言分组
+        grouped_tasks = {}
+
+        for sheet_name, tasks in sheet_tasks.items():
+            for task in tasks:
+                # 创建分组键（基于目标语言）
+                key = f"{task.target_language}"
+
+                if key not in grouped_tasks:
+                    grouped_tasks[key] = []
+
+                # 添加Sheet信息到任务
+                task.sheet_name = sheet_name
+                grouped_tasks[key].append(task)
+
+        # 创建批次
+        all_batches = []
+        for key, tasks in grouped_tasks.items():
+            # 按批次大小分组
+            for i in range(0, len(tasks), batch_size):
+                batch = tasks[i:i + batch_size]
+                all_batches.append(batch)
+
+        logger.info(f"跨Sheet批处理：{len(all_batches)}个批次")
+        return all_batches
 
     def get_task_statistics(self, tasks: List[TranslationTask]) -> Dict[str, int]:
         """获取任务统计信息"""

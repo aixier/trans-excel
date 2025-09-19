@@ -52,9 +52,11 @@ class TranslationEngine:
         max_concurrent: int = 10,
         max_iterations: int = 5,
         region_code: str = 'na',
-        game_background: str = None
+        game_background: str = None,
+        sheet_names: List[str] = None,  # None = 处理所有sheets
+        auto_detect: bool = True  # 自动检测需要翻译的sheets
     ):
-        """处理翻译任务 - 基于Demo的完整流程"""
+        """处理翻译任务 - 支持多Sheet处理"""
         try:
             logger.info(f"开始处理翻译任务: {task_id}")
 
@@ -63,77 +65,128 @@ class TranslationEngine:
                 db, task_id, status='analyzing'
             )
 
-            # 1. 加载和分析Excel文件 (基于Demo的文件读取逻辑)
-            df = pd.read_excel(file_path)
-            logger.info(f"加载Excel文件成功，总行数: {len(df)}")
+            # 1. 分析Excel文件结构
+            xl_file = pd.ExcelFile(file_path)
+            all_sheet_names = xl_file.sheet_names
+            logger.info(f"Excel文件包含 {len(all_sheet_names)} 个Sheet: {all_sheet_names}")
 
-            # 2. 智能分析表头结构
-            sheet_info = self.header_analyzer.analyze_sheet(df, "Sheet1")
-            logger.info(f"表头分析完成，可翻译行数: {sheet_info.translatable_rows}")
+            # 2. 确定要处理的sheets
+            if sheet_names:
+                sheets_to_process = [s for s in sheet_names if s in all_sheet_names]
+            else:
+                sheets_to_process = all_sheet_names
 
-            # 3. 检测翻译任务
-            translation_tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
-            logger.info(f"检测到翻译任务: {len(translation_tasks)}个")
+            # 3. 自动检测需要翻译的sheets
+            if auto_detect:
+                sheets_to_process = await self._detect_translatable_sheets(
+                    file_path, sheets_to_process, target_languages
+                )
 
-            if not translation_tasks:
-                logger.info("没有需要翻译的内容")
+            logger.info(f"将处理 {len(sheets_to_process)}/{len(all_sheet_names)} 个Sheets: {sheets_to_process}")
+
+            if not sheets_to_process:
+                logger.info("没有需要翻译的Sheet")
                 await self.project_manager.update_task_progress(
                     db, task_id, status='completed'
                 )
                 return
 
-            # 4. 创建批次 (基于Demo的批处理逻辑)
-            batches = self.translation_detector.group_tasks_by_batch(translation_tasks, batch_size)
-            self.total_batches = len(batches)
+            # 4. 存储所有Sheet的结果
+            all_results = {}
+            total_translated = 0
 
-            await self.project_manager.update_task_progress(
-                db, task_id,
-                status='translating',
-                translated_rows=0
-            )
+            # 5. 逐个处理每个Sheet
+            for sheet_idx, sheet_name in enumerate(sheets_to_process, 1):
+                logger.info(f"\n{'='*50}")
+                logger.info(f"处理Sheet {sheet_idx}/{len(sheets_to_process)}: {sheet_name}")
+                logger.info(f"{'='*50}")
 
-            # 5. 迭代翻译 (基于Demo的迭代逻辑)
-            current_df = df.copy()
-            iteration = 0
+                # 加载当前Sheet
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                logger.info(f"Sheet '{sheet_name}' 加载成功，总行数: {len(df)}")
 
-            while iteration < max_iterations:
-                iteration += 1
-                logger.info(f"开始第{iteration}轮迭代翻译")
+                # 清理列名（去除特殊字符如冒号）
+                df.columns = [col.strip(':').strip() for col in df.columns]
 
-                # 更新迭代状态
-                status = 'iterating' if iteration > 1 else 'translating'
+                # 动态调整批次大小（大文件优化）
+                if len(df) > 5000:
+                    current_batch_size = min(30, batch_size * 3)  # 最大30行
+                    logger.info(f"大文件优化：批次大小调整为 {current_batch_size}")
+                elif len(df) > 1000:
+                    current_batch_size = min(20, batch_size * 2)  # 中等文件20行
+                    logger.info(f"中等文件优化：批次大小调整为 {current_batch_size}")
+                else:
+                    current_batch_size = min(10, batch_size)  # 小文件10行
+
+                # 2. 智能分析表头结构
+                sheet_info = self.header_analyzer.analyze_sheet(df, sheet_name)
+                logger.info(f"表头分析完成，可翻译行数: {sheet_info.translatable_rows}")
+
+                # 3. 检测翻译任务
+                translation_tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
+                logger.info(f"检测到翻译任务: {len(translation_tasks)}个")
+
+                if not translation_tasks:
+                    logger.info(f"Sheet '{sheet_name}' 没有需要翻译的内容")
+                    all_results[sheet_name] = df
+                    continue
+
+                # 4. 创建批次 (基于Demo的批处理逻辑)
+                batches = self.translation_detector.group_tasks_by_batch(translation_tasks, current_batch_size)
+                self.total_batches = len(batches)
+
                 await self.project_manager.update_task_progress(
                     db, task_id,
-                    current_iteration=iteration,
-                    status=status
+                    status='translating',
+                    current_sheet=sheet_name
                 )
 
-                # 并发处理批次 (基于Demo的并发逻辑)
-                semaphore = asyncio.Semaphore(max_concurrent)
-                translation_results = await self._process_batches_concurrent(
-                    db, task_id, batches, target_languages, semaphore,
-                    region_code, game_background, iteration
-                )
+                # 5. 迭代翻译 (基于Demo的迭代逻辑)
+                current_df = df.copy()
+                iteration = 0
 
-                # 应用翻译结果到DataFrame
-                translated_count = self._apply_translation_results(current_df, translation_results)
+                while iteration < max_iterations:
+                    iteration += 1
+                    logger.info(f"Sheet '{sheet_name}' - 开始第{iteration}轮迭代翻译")
 
-                # 更新进度
-                await self.project_manager.update_task_progress(
-                    db, task_id,
-                    translated_rows=translated_count
-                )
+                    # 更新迭代状态
+                    status = 'iterating' if iteration > 1 else 'translating'
+                    await self.project_manager.update_task_progress(
+                        db, task_id,
+                        current_iteration=iteration,
+                        status=status
+                    )
 
-                # 检查是否完成
-                remaining_tasks = self._count_remaining_tasks(current_df, sheet_info)
-                if remaining_tasks == 0:
-                    logger.info(f"第{iteration}轮迭代完成所有翻译")
-                    break
+                    # 并发处理批次 (基于Demo的并发逻辑)
+                    semaphore = asyncio.Semaphore(max_concurrent)
+                    translation_results = await self._process_batches_concurrent(
+                        db, task_id, batches, target_languages, semaphore,
+                        region_code, game_background, iteration
+                    )
 
-                logger.info(f"第{iteration}轮迭代完成，剩余任务: {remaining_tasks}")
+                    # 应用翻译结果到DataFrame
+                    translated_count = self._apply_translation_results(current_df, translation_results)
+                    total_translated += translated_count
 
-            # 6. 保存结果并完成任务
-            await self._save_and_complete_task(db, task_id, current_df, file_path)
+                    # 更新进度
+                    await self.project_manager.update_task_progress(
+                        db, task_id,
+                        translated_rows=total_translated
+                    )
+
+                    # 检查是否完成
+                    remaining_tasks = self._count_remaining_tasks(current_df, sheet_info)
+                    if remaining_tasks == 0:
+                        logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代完成所有翻译")
+                        break
+
+                    logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代完成，剩余任务: {remaining_tasks}")
+
+                # 保存当前Sheet结果
+                all_results[sheet_name] = current_df
+
+            # 6. 保存所有Sheet结果并完成任务
+            await self._save_multi_sheet_results(db, task_id, all_results, file_path)
 
         except Exception as e:
             logger.error(f"翻译任务处理失败: {task_id}, 错误: {e}")
@@ -324,8 +377,79 @@ class TranslationEngine:
         tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
         return len([task for task in tasks if task.task_type in ['new', 'modify', 'shorten']])
 
+    async def _detect_translatable_sheets(
+        self,
+        file_path: str,
+        sheet_names: List[str],
+        target_languages: List[str]
+    ) -> List[str]:
+        """自动检测需要翻译的sheets"""
+        translatable_sheets = []
+
+        for sheet_name in sheet_names:
+            try:
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+
+                # 清理列名
+                df.columns = [col.strip(':').strip() for col in df.columns]
+
+                # 检查是否有目标语言列且为空
+                has_empty_target = False
+                for lang in target_languages:
+                    lang_upper = lang.upper()
+                    if lang_upper in [col.upper() for col in df.columns]:
+                        # 找到对应列
+                        for col in df.columns:
+                            if col.upper() == lang_upper:
+                                # 检查是否有空值
+                                if df[col].isna().any() or (df[col] == '').any():
+                                    has_empty_target = True
+                                    break
+
+                if has_empty_target:
+                    translatable_sheets.append(sheet_name)
+                    logger.info(f"✅ Sheet '{sheet_name}' 需要翻译")
+                else:
+                    logger.info(f"⏭️ Sheet '{sheet_name}' 跳过（无需翻译）")
+
+            except Exception as e:
+                logger.warning(f"检测Sheet '{sheet_name}' 失败: {e}")
+
+        return translatable_sheets
+
+    async def _save_multi_sheet_results(
+        self,
+        db: AsyncSession,
+        task_id: str,
+        all_results: Dict[str, pd.DataFrame],
+        original_file_path: str
+    ):
+        """保存多Sheet结果"""
+        try:
+            # 生成输出文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_name = original_file_path.rsplit('.', 1)[0]
+            output_path = f"{base_name}_translated_{timestamp}.xlsx"
+
+            # 使用ExcelWriter保存多个sheets
+            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                for sheet_name, df in all_results.items():
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+            logger.info(f"✅ 多Sheet翻译结果已保存: {output_path}")
+
+            # 更新任务状态
+            await self.project_manager.update_task_progress(
+                db, task_id,
+                status='completed'
+            )
+
+        except Exception as e:
+            logger.error(f"保存多Sheet结果失败: {e}")
+            raise
+
     async def _save_and_complete_task(self, db: AsyncSession, task_id: str, df: pd.DataFrame, original_file_path: str):
-        """保存结果并完成任务"""
+        """保存结果并完成任务（单Sheet兼容）"""
         try:
             # 生成输出文件名 (基于Demo的命名规则)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -52,11 +52,16 @@ class TranslationConfig(BaseSettings):
         return int(v)
 
     # 翻译配置
-    default_batch_size: int = 3
-    default_max_concurrent: int = 10
+    default_batch_size: int = 10  # 默认批次大小
+    default_max_concurrent: int = 20  # 最大并发数：20
     default_max_iterations: int = 5
-    default_target_languages: List[str] = ["pt", "th", "ind"]
-    default_region_code: str = "na"
+    default_target_languages: List[str] = ["pt", "th", "ind", "tw"]
+    default_region_code: str = "cn-hangzhou"
+
+    # 批次大小限制（用户要求）
+    max_batch_size: int = 30  # 最大每次30行
+    large_file_threshold: int = 5000  # 大文件阈值
+    medium_file_threshold: int = 1000  # 中等文件阈值
 
     # 应用配置
     app_name: str = "游戏本地化智能翻译系统"

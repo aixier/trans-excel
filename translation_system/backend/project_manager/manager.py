@@ -197,6 +197,18 @@ class ProjectManager:
             remaining_rows = task.total_rows - task.translated_rows
             estimated_time_remaining = int(remaining_rows * avg_time_per_row)
 
+        # 添加Sheet进度信息
+        sheet_progress_list = []
+        if task.sheet_progress:
+            for sheet_name, progress in task.sheet_progress.items():
+                sheet_progress_list.append({
+                    'name': sheet_name,
+                    'total_rows': progress.get('total', 0),
+                    'translated_rows': progress.get('translated', 0),
+                    'status': progress.get('status', 'pending'),
+                    'percentage': (progress.get('translated', 0) / progress.get('total', 1)) * 100
+                })
+
         return {
             'task_id': task.id,
             'status': task.status,
@@ -213,6 +225,10 @@ class ProjectManager:
                 'total_tokens_used': task.total_tokens_used,
                 'total_cost': task.total_cost
             },
+            'sheet_progress': sheet_progress_list,
+            'current_sheet': task.current_sheet,
+            'total_sheets': task.total_sheets,
+            'completed_sheets': task.completed_sheets,
             'error_message': task.error_message,
             'created_at': task.created_at,
             'updated_at': task.updated_at
@@ -227,7 +243,9 @@ class ProjectManager:
         api_calls: int = None,
         tokens_used: int = None,
         cost: float = None,
-        status: str = None
+        status: str = None,
+        current_sheet: str = None,
+        error_message: str = None
     ):
         """更新任务进度 - 基于Demo中的进度更新逻辑"""
         task_query = select(TranslationTask).where(TranslationTask.id == task_id)
@@ -252,6 +270,43 @@ class ProjectManager:
             task.status = status
             if status == 'completed':
                 task.completed_at = datetime.utcnow()
+        if current_sheet is not None:
+            task.current_sheet = current_sheet
+        if error_message is not None:
+            task.error_message = error_message
+
+        task.updated_at = datetime.utcnow()
+        await db.commit()
+
+    async def update_task_sheets(
+        self,
+        db: AsyncSession,
+        task_id: str,
+        sheet_names: List[str] = None,
+        sheet_progress: Dict = None,
+        current_sheet: str = None,
+        total_sheets: int = None,
+        completed_sheets: int = None
+    ):
+        """更新任务的Sheet信息"""
+        task_query = select(TranslationTask).where(TranslationTask.id == task_id)
+        result = await db.execute(task_query)
+        task = result.scalar_one_or_none()
+
+        if not task:
+            raise ValueError("Task not found")
+
+        # 更新Sheet信息
+        if sheet_names is not None:
+            task.sheet_names = sheet_names
+        if sheet_progress is not None:
+            task.sheet_progress = sheet_progress
+        if current_sheet is not None:
+            task.current_sheet = current_sheet
+        if total_sheets is not None:
+            task.total_sheets = total_sheets
+        if completed_sheets is not None:
+            task.completed_sheets = completed_sheets
 
         task.updated_at = datetime.utcnow()
         await db.commit()

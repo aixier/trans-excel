@@ -3,10 +3,12 @@
 基于SQLAlchemy的异步数据库连接
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import QueuePool
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import logging
+import asyncio
+from functools import wraps
 
 from config.settings import settings
 
@@ -17,6 +19,34 @@ logger = logging.getLogger(__name__)
 # 全局引擎实例
 async_engine = None
 async_session_factory = None
+
+
+def retry_on_disconnect(max_retries=3, delay=1.0):
+    """数据库操作重试装饰器"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            last_error = None
+            for attempt in range(max_retries):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    error_msg = str(e)
+                    if any(err in error_msg.lower() for err in ['lost connection', '2013', '2006', 'gone away']):
+                        last_error = e
+                        logger.warning(f"数据库连接丢失，尝试重连 ({attempt + 1}/{max_retries}): {error_msg}")
+                        await asyncio.sleep(delay * (attempt + 1))
+                        # 清理旧连接
+                        global async_engine, async_session_factory
+                        if async_engine:
+                            await async_engine.dispose()
+                            async_engine = None
+                            async_session_factory = None
+                    else:
+                        raise
+            raise last_error
+        return wrapper
+    return decorator
 
 
 def get_async_engine():
@@ -30,18 +60,19 @@ def get_async_engine():
             f"@{settings.mysql_host}:{settings.mysql_port}/{settings.mysql_database}"
         )
 
-        # 创建异步引擎，使用NullPool避免连接复用问题
+        # 创建异步引擎，使用NullPool避免连接同步问题
+        from sqlalchemy.pool import NullPool
         async_engine = create_async_engine(
             database_url,
-            # 使用NullPool避免并发问题
-            poolclass=NullPool,  # 不使用连接池，每次创建新连接
             echo=settings.debug_mode,  # 调试模式下打印SQL
             future=True,
+            # 使用NullPool避免Command Out of Sync错误
+            poolclass=NullPool,  # 每次创建新连接，避免连接复用问题
             connect_args={
                 "charset": "utf8mb4",
                 "autocommit": False,
-                "connect_timeout": 60,  # 增加连接超时时间
-                "server_public_key": None  # 避免认证问题
+                "connect_timeout": 30,  # 连接超时
+                "server_public_key": None,  # 避免认证问题
             }
         )
 
@@ -75,15 +106,23 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     session_factory = get_async_session_factory()
 
-    async with session_factory() as session:
+    session = session_factory()
+    try:
+        yield session
+        # 不自动提交，让调用方决定是否提交
+    except Exception as e:
+        # 捕获并发问题并安全处理
         try:
-            yield session
-            # 不自动提交，让调用方决定是否提交
-        except Exception as e:
-            await session.rollback()
-            raise
-        finally:
+            if session.in_transaction():
+                await session.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"回滚时出现错误，忽略: {rollback_error}")
+        raise
+    finally:
+        try:
             await session.close()
+        except Exception as close_error:
+            logger.warning(f"关闭会话时出现错误，忽略: {close_error}")
 
 
 @asynccontextmanager
@@ -149,7 +188,34 @@ async def init_database():
             table_count = result.scalar()
 
             if table_count > 0:
-                logger.info(f"✅ 数据库已有 {table_count} 个表，跳过初始化")
+                logger.info(f"✅ 数据库已有 {table_count} 个表，检查并更新表结构")
+
+                # 检查translation_tasks表是否需要添加新列
+                try:
+                    result = await conn.execute(text("DESCRIBE translation_tasks"))
+                    existing_columns = {row[0] for row in result.fetchall()}
+
+                    columns_to_add = []
+                    if 'sheet_names' not in existing_columns:
+                        columns_to_add.append("ADD COLUMN sheet_names JSON")
+                    if 'sheet_progress' not in existing_columns:
+                        columns_to_add.append("ADD COLUMN sheet_progress JSON")
+                    if 'current_sheet' not in existing_columns:
+                        columns_to_add.append("ADD COLUMN current_sheet VARCHAR(100)")
+                    if 'total_sheets' not in existing_columns:
+                        columns_to_add.append("ADD COLUMN total_sheets INT DEFAULT 1")
+                    if 'completed_sheets' not in existing_columns:
+                        columns_to_add.append("ADD COLUMN completed_sheets INT DEFAULT 0")
+
+                    if columns_to_add:
+                        alter_sql = f"ALTER TABLE translation_tasks {', '.join(columns_to_add)}"
+                        logger.info(f"更新表结构: {alter_sql}")
+                        await conn.execute(text(alter_sql))
+                        await conn.commit()
+                        logger.info("✅ 表结构更新成功")
+                except Exception as e:
+                    logger.warning(f"检查表结构时出现问题: {e}")
+
                 return
 
             # 创建所有表

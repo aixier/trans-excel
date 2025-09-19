@@ -54,7 +54,8 @@ class HeaderAnalyzer:
     def __init__(self):
         # 语言识别规则
         self.language_patterns = {
-            'ch': ['中文', 'chinese', 'cn', 'zh', 'chi', 'ch'],  # 添加 'ch' 识别
+            'ch': ['中文', 'chinese', 'cn', 'zh', 'chi', 'ch'],  # 简体中文
+            'tw': ['繁体中文', 'traditional', 'tw', 'cht', 'tc', 'hk'],  # 繁体中文
             'en': ['english', 'eng', 'en'],
             'pt': ['portuguese', 'pt', 'por', 'brazil', 'br'],
             'th': ['thai', 'th', 'thailand', 'tha'],
@@ -65,6 +66,7 @@ class HeaderAnalyzer:
             'ru': ['russian', 'ru', 'rus'],
             'ja': ['japanese', 'ja', 'jp', 'jpn'],  # 日语
             'ko': ['korean', 'ko', 'kr', 'kor'],  # 韩语
+            'vn': ['vietnamese', 'vn', 'vi', 'vie', 'vietnam'],  # 越南语
             'de': ['german', 'de', 'ger', 'deu'],  # 德语
             'fr': ['french', 'fr', 'fra'],  # 法语
             'it': ['italian', 'it', 'ita']  # 意大利语
@@ -102,7 +104,9 @@ class HeaderAnalyzer:
 
     def _analyze_column(self, index: int, name: str, data: pd.Series) -> ColumnInfo:
         """分析单个列的类型和语言"""
-        name_lower = name.lower().strip()
+        # 清理列名中的特殊字符（如冒号）
+        clean_name = name.strip(':').strip()
+        name_lower = clean_name.lower()
 
         # 识别语言
         language = None

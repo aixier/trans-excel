@@ -72,6 +72,13 @@ class TranslationTask(Base):
     current_iteration = Column(Integer, default=0)
     max_iterations = Column(Integer, default=5)
 
+    # Sheet相关信息
+    sheet_names = Column(JSON, nullable=True)  # 要处理的Sheet名称列表
+    sheet_progress = Column(JSON, nullable=True)  # 每个Sheet的进度
+    current_sheet = Column(String(100), nullable=True)  # 当前处理的Sheet
+    total_sheets = Column(Integer, default=1)  # 总Sheet数量
+    completed_sheets = Column(Integer, default=0)  # 已完成Sheet数量
+
     # 统计信息
     total_api_calls = Column(Integer, default=0)
     total_tokens_used = Column(Integer, default=0)
