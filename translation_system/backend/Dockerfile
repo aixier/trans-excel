@@ -1,57 +1,80 @@
 # ================================
-# 简单版本 - 直接Docker构建和运行
+# 生产版本 - 使用Jupyter科学计算栈镜像
 # ================================
 
-# 使用Python官方镜像
-FROM python:3.10-slim
+# 使用Jupyter科学计算镜像（预装pandas、numpy、scipy、matplotlib等所有数据科学包）
+# 2024年最新版本，从quay.io拉取
+FROM quay.io/jupyter/scipy-notebook:python-3.11
+
+# 切换到root用户进行系统设置
+USER root
 
 # 设置Python环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    # 禁用Jupyter相关功能，只作为Python运行环境
+    JUPYTER_ENABLE_LAB=no \
+    JUPYTER_TOKEN=disabled \
+    DEBIAN_FRONTEND=noninteractive
 
-# 安装系统依赖 (一次性安装所有)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    curl \
-    default-mysql-client \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# 只需要安装curl用于健康检查（其他都已预装）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制所有requirements文件
+# 复制requirements文件
 COPY requirements*.txt ./
 
-# 安装所有Python依赖
-RUN pip install --no-cache-dir -r requirements-core.txt && \
-    pip install --no-cache-dir -r requirements-services.txt && \
-    pip install --no-cache-dir -r requirements-business.txt
+# 安装额外的Python依赖（跳过已预装的pandas、numpy、scipy等）
+# 使用mamba（Jupyter镜像中的快速包管理器）安装conda包
+RUN mamba install -y -c conda-forge \
+    openpyxl \
+    && mamba clean -afy
+
+# 安装其余Python Web框架和服务依赖
+RUN pip install --no-cache-dir \
+    fastapi==0.104.1 \
+    uvicorn[standard]==0.24.0 \
+    sqlalchemy==2.0.23 \
+    aiomysql==0.2.0 \
+    pydantic==2.5.0 \
+    pydantic-settings==2.1.0 \
+    redis==5.0.1 \
+    aioredis==2.0.1 \
+    oss2==2.18.4 \
+    dashscope==1.14.1 \
+    httpx==0.25.2 \
+    openai==1.3.7 \
+    python-dotenv==1.0.0 \
+    python-multipart==0.0.6
 
 # 设置默认端口
 ENV SERVER_PORT=8000
 
-# 复制应用代码（包括.env文件如果存在）
+# 复制应用代码
 COPY . .
 
 # 创建必要目录
 RUN mkdir -p logs temp uploads downloads data
 
-# 设置权限
+# 设置权限（Jupyter镜像已有jovyan用户，uid=1000）
 RUN chown -R 1000:1000 /app
 
-# 切换到非root用户
+# 切换到Jupyter镜像的默认用户
 USER 1000
 
-# 只暴露翻译系统端口
+# 暴露端口
 EXPOSE 8000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/api/health/status || exit 1
 
-# 启动命令
+# 覆盖Jupyter的默认启动命令，只启动我们的FastAPI应用
 ENTRYPOINT []
 CMD ["python", "start.py"]
