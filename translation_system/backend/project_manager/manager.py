@@ -247,36 +247,60 @@ class ProjectManager:
         current_sheet: str = None,
         error_message: str = None
     ):
-        """更新任务进度 - 基于Demo中的进度更新逻辑"""
-        task_query = select(TranslationTask).where(TranslationTask.id == task_id)
-        result = await db.execute(task_query)
-        task = result.scalar_one_or_none()
+        """更新任务进度 - 改进版本，增强错误处理"""
+        max_retries = 3
+        last_error = None
 
-        if not task:
-            raise ValueError("Task not found")
+        for attempt in range(max_retries):
+            try:
+                task_query = select(TranslationTask).where(TranslationTask.id == task_id)
+                result = await db.execute(task_query)
+                task = result.scalar_one_or_none()
 
-        # 更新进度信息
-        if translated_rows is not None:
-            task.translated_rows = translated_rows
-        if current_iteration is not None:
-            task.current_iteration = current_iteration
-        if api_calls is not None:
-            task.total_api_calls += api_calls
-        if tokens_used is not None:
-            task.total_tokens_used += tokens_used
-        if cost is not None:
-            task.total_cost += cost
-        if status is not None:
-            task.status = status
-            if status == 'completed':
-                task.completed_at = datetime.utcnow()
-        if current_sheet is not None:
-            task.current_sheet = current_sheet
-        if error_message is not None:
-            task.error_message = error_message
+                if not task:
+                    raise ValueError("Task not found")
 
-        task.updated_at = datetime.utcnow()
-        await db.commit()
+                # 更新进度信息
+                if translated_rows is not None:
+                    task.translated_rows = translated_rows
+                if current_iteration is not None:
+                    task.current_iteration = current_iteration
+                if api_calls is not None:
+                    task.total_api_calls += api_calls
+                if tokens_used is not None:
+                    task.total_tokens_used += tokens_used
+                if cost is not None:
+                    task.total_cost += cost
+                if status is not None:
+                    task.status = status
+                    if status == 'completed':
+                        task.completed_at = datetime.utcnow()
+                if current_sheet is not None:
+                    task.current_sheet = current_sheet
+                if error_message is not None:
+                    task.error_message = error_message
+
+                task.updated_at = datetime.utcnow()
+                await db.commit()
+                return  # 成功完成
+
+            except Exception as e:
+                last_error = e
+                error_msg = str(e).lower()
+                if any(err in error_msg for err in ['lost connection', 'command out of sync', '2013', '2014', '2006']):
+                    logger.warning(f"数据库连接问题，尝试重试 ({attempt + 1}/{max_retries}): {e}")
+                    try:
+                        await db.rollback()
+                    except:
+                        pass
+                    await asyncio.sleep(1 * (attempt + 1))
+                else:
+                    # 非连接问题，直接抛出
+                    raise
+
+        # 所有重试都失败了
+        logger.error(f"更新进度失败，已重试{max_retries}次: {last_error}")
+        raise last_error
 
     async def update_task_sheets(
         self,

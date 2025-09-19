@@ -109,8 +109,8 @@ class TranslationDetector:
                 if include_colors:
                     background_color = self._get_cell_background_color(df, idx, col.name)
 
-                # 判断任务类型
-                task_type = self._determine_task_type(target_text, background_color)
+                # 判断任务类型 - 增强版本
+                task_type = self._determine_task_type_enhanced(target_text, background_color)
 
                 if task_type in ['new', 'modify', 'shorten']:
                     task = TranslationTask(
@@ -126,6 +126,30 @@ class TranslationDetector:
                     tasks.append(task)
 
         return tasks
+
+    def _determine_task_type_enhanced(self, target_text, background_color: str) -> str:
+        """增强的任务类型判断 - 支持增量翻译"""
+        # 先检查颜色标记
+        if background_color and background_color in self.color_mapping:
+            color_type = self.color_mapping[background_color]
+            if color_type == 'completed':
+                return 'completed'  # 已完成，跳过
+            return color_type
+
+        # 检查文本内容
+        if pd.isna(target_text) or str(target_text).strip() == '':
+            return 'new'  # 空值，需要翻译
+
+        # 如果有内容，检查是否需要修改
+        text_str = str(target_text).strip()
+
+        # 简单的翻译质量检查
+        if len(text_str) < 2:
+            return 'modify'  # 内容太短，可能需要重新翻译
+        elif text_str.lower() in ['todo', 'tbd', 'pending', '待翻译', '未翻译']:
+            return 'new'  # 占位符，需要翻译
+
+        return 'completed'  # 有合理内容，跳过
 
     def _determine_task_type(self, target_text, background_color: str) -> str:
         """根据内容和颜色确定任务类型"""

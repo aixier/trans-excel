@@ -122,18 +122,14 @@ class TranslationEngine:
                 sheet_info = self.header_analyzer.analyze_sheet(df, sheet_name)
                 logger.info(f"表头分析完成，可翻译行数: {sheet_info.translatable_rows}")
 
-                # 3. 检测翻译任务
-                translation_tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
-                logger.info(f"检测到翻译任务: {len(translation_tasks)}个")
+                # 3. 初始任务检测
+                initial_tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
+                logger.info(f"初始检测到翻译任务: {len(initial_tasks)}个")
 
-                if not translation_tasks:
+                if not initial_tasks:
                     logger.info(f"Sheet '{sheet_name}' 没有需要翻译的内容")
                     all_results[sheet_name] = df
                     continue
-
-                # 4. 创建批次 (基于Demo的批处理逻辑)
-                batches = self.translation_detector.group_tasks_by_batch(translation_tasks, current_batch_size)
-                self.total_batches = len(batches)
 
                 await self.project_manager.update_task_progress(
                     db, task_id,
@@ -141,13 +137,52 @@ class TranslationEngine:
                     current_sheet=sheet_name
                 )
 
-                # 5. 迭代翻译 (基于Demo的迭代逻辑)
+                # 4. 迭代翻译 - 真正的增量处理
                 current_df = df.copy()
                 iteration = 0
+                failed_batch_count = 0
+
+                # 动态调整参数
+                dynamic_batch_size = current_batch_size
+                dynamic_timeout = 90  # 初始超时90秒
 
                 while iteration < max_iterations:
                     iteration += 1
-                    logger.info(f"Sheet '{sheet_name}' - 开始第{iteration}轮迭代翻译")
+
+                    # 每轮重新检测剩余任务 - 关键改进！
+                    remaining_tasks = self.translation_detector.detect_translation_tasks(current_df, sheet_info)
+
+                    if not remaining_tasks:
+                        logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代：所有任务已完成")
+                        break
+
+                    logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代：检测到 {len(remaining_tasks)} 个剩余任务")
+
+                    # 根据迭代次数和失败情况动态调整批次大小
+                    if iteration > 1 and failed_batch_count > 0:
+                        # 有失败，减小批次大小
+                        dynamic_batch_size = max(1, dynamic_batch_size // 2)
+                        # 增加超时时间
+                        dynamic_timeout = min(300, dynamic_timeout * 1.5)  # 增加最大超时到300秒
+                        logger.info(f"调整策略：批次大小={dynamic_batch_size}，超时={dynamic_timeout}秒")
+
+                    # 检测长文本任务，进一步调整
+                    max_text_length = max([len(task.source_text) for task in remaining_tasks] or [0])
+                    if max_text_length > 500:  # 文本超过500字符
+                        dynamic_batch_size = min(dynamic_batch_size, 2)  # 最多2个任务一批
+                        dynamic_timeout = max(dynamic_timeout, 180)  # 至少180秒超时
+                        if max_text_length > 1000:  # 超长文本
+                            dynamic_batch_size = 1  # 单个任务一批
+                            dynamic_timeout = 300  # 300秒超时
+                        logger.info(f"检测到长文本(最长{max_text_length}字符)，调整批次大小={dynamic_batch_size}，超时={dynamic_timeout}秒")
+
+                    # 创建新批次
+                    batches = self.translation_detector.group_tasks_by_batch(remaining_tasks, dynamic_batch_size)
+                    self.total_batches = len(batches)
+                    self.completed_batches = 0
+                    self.failed_batches = []
+
+                    logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代：创建 {len(batches)} 个批次")
 
                     # 更新迭代状态
                     status = 'iterating' if iteration > 1 else 'translating'
@@ -157,12 +192,17 @@ class TranslationEngine:
                         status=status
                     )
 
-                    # 并发处理批次 (基于Demo的并发逻辑)
+                    # 并发处理批次（传入动态超时参数）
                     semaphore = asyncio.Semaphore(max_concurrent)
-                    translation_results = await self._process_batches_concurrent(
+                    translation_results = await self._process_batches_concurrent_with_timeout(
                         db, task_id, batches, target_languages, semaphore,
-                        region_code, game_background, iteration
+                        region_code, game_background, iteration, dynamic_timeout
                     )
+
+                    # 记录失败批次数
+                    failed_batch_count = len(self.failed_batches)
+                    if failed_batch_count > 0:
+                        logger.warning(f"第{iteration}轮有 {failed_batch_count} 个批次失败")
 
                     # 应用翻译结果到DataFrame
                     translated_count = self._apply_translation_results(current_df, translation_results)
@@ -174,13 +214,9 @@ class TranslationEngine:
                         translated_rows=total_translated
                     )
 
-                    # 检查是否完成
-                    remaining_tasks = self._count_remaining_tasks(current_df, sheet_info)
-                    if remaining_tasks == 0:
-                        logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代完成所有翻译")
-                        break
-
-                    logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代完成，剩余任务: {remaining_tasks}")
+                    # 检查剩余任务数
+                    final_remaining = self._count_remaining_tasks(current_df, sheet_info)
+                    logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代完成，剩余任务: {final_remaining}")
 
                 # 保存当前Sheet结果
                 all_results[sheet_name] = current_df
@@ -209,16 +245,36 @@ class TranslationEngine:
         iteration: int
     ) -> Dict:
         """并发处理批次 - 基于Demo的并发逻辑"""
+        # 保留原方法用于兼容性，调用新方法with默认超时
+        return await self._process_batches_concurrent_with_timeout(
+            db, task_id, batches, target_languages, semaphore,
+            region_code, game_background, iteration, 90
+        )
+
+    async def _process_batches_concurrent_with_timeout(
+        self,
+        db: AsyncSession,
+        task_id: str,
+        batches: List[List],
+        target_languages: List[str],
+        semaphore: asyncio.Semaphore,
+        region_code: str,
+        game_background: str,
+        iteration: int,
+        timeout: int
+    ) -> Dict:
+        """并发处理批次 - 支持动态超时"""
         tasks = []
 
         for batch_id, batch in enumerate(batches, 1):
             task = self._translate_batch_with_retry(
                 db, task_id, batch, batch_id, target_languages,
-                semaphore, region_code, game_background, iteration
+                semaphore, region_code, game_background, iteration,
+                timeout=timeout
             )
             tasks.append(task)
 
-        # 并发执行所有批次 (与Demo逻辑一致)
+        # 并发执行所有批次
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 合并结果
@@ -243,12 +299,23 @@ class TranslationEngine:
         game_background: str,
         iteration: int,
         max_retry_attempts: int = 2,
-        retry_base_delay: float = 3.0
+        retry_base_delay: float = 3.0,
+        timeout: int = 90  # 支持动态超时
     ) -> Dict:
-        """批次翻译带重试机制 - 基于Demo的重试逻辑"""
+        """批次翻译带重试机制 - 支持动态超时和智能重试"""
         async with semaphore:
             start_time = time.time()
-            logger.info(f"📦 批次{batch_id}: 开始处理 {len(batch)}个任务")
+
+            # 检测批次中的最长文本
+            max_length = max([len(task.source_text) for task in batch] or [0])
+
+            # 动态调整重试参数
+            if max_length > 1000:
+                max_retry_attempts = 3  # 长文本增加重试次数
+                retry_base_delay = 5.0  # 增加基础延迟
+                logger.info(f"📦 批次{batch_id}: 处理 {len(batch)}个任务 (最长{max_length}字符, 超时: {timeout}秒, 最多重试{max_retry_attempts}次)")
+            else:
+                logger.info(f"📦 批次{batch_id}: 开始处理 {len(batch)}个任务 (超时: {timeout}秒)")
 
             # 准备输入数据 (与Demo格式一致)
             input_texts = []
@@ -258,13 +325,17 @@ class TranslationEngine:
                     "text": task.source_text
                 })
 
-            # 重试机制 (与Demo逻辑一致)
+            # 重试机制 - 增强版
             for attempt in range(max_retry_attempts + 1):
                 try:
                     if attempt > 0:
                         retry_delay = retry_base_delay * (2 ** (attempt - 1))
-                        logger.info(f"🔄 批次{batch_id}: 第{attempt + 1}次尝试，延迟{retry_delay:.1f}s")
+                        # 每次重试增加超时时间
+                        current_timeout = min(timeout * (1 + attempt * 0.5), 600)  # 最多10分钟
+                        logger.info(f"🔄 批次{batch_id}: 第{attempt + 1}次尝试，延迟{retry_delay:.1f}s，超时{current_timeout:.0f}s")
                         await asyncio.sleep(retry_delay)
+                    else:
+                        current_timeout = timeout
 
                     # 创建区域化提示词 (升级Demo的通用提示词)
                     system_prompt = self.localization_engine.create_batch_prompt(
@@ -281,14 +352,14 @@ class TranslationEngine:
                         {"role": "user", "content": f"请翻译以下中文文本：\n{json.dumps(input_texts, ensure_ascii=False, indent=2)}"}
                     ]
 
-                    # 调用LLM API (与Demo一致)
+                    # 调用LLM API - 使用当前超时
                     response = await self.client.chat.completions.create(
                         model=settings.llm_model,
                         messages=messages,
                         temperature=0.3,
                         max_tokens=4000,
                         response_format={"type": "json_object"},
-                        timeout=90
+                        timeout=current_timeout  # 使用当前超时（随重试次数增加）
                     )
 
                     # 处理响应 (与Demo格式一致)

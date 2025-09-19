@@ -60,18 +60,23 @@ def get_async_engine():
             f"@{settings.mysql_host}:{settings.mysql_port}/{settings.mysql_database}"
         )
 
-        # 创建异步引擎，使用NullPool避免连接同步问题
-        from sqlalchemy.pool import NullPool
+        # 创建异步引擎，使用优化的连接池配置
+        from sqlalchemy.pool import QueuePool
         async_engine = create_async_engine(
             database_url,
             echo=settings.debug_mode,  # 调试模式下打印SQL
             future=True,
-            # 使用NullPool避免Command Out of Sync错误
-            poolclass=NullPool,  # 每次创建新连接，避免连接复用问题
+            # 使用QueuePool with 优化配置
+            poolclass=QueuePool,
+            pool_size=3,  # 减小连接池大小
+            max_overflow=5,  # 减小溢出连接数
+            pool_pre_ping=True,  # 每次使用前测试连接
+            pool_recycle=300,  # 5分钟回收连接
+            pool_timeout=30,  # 连接池超时
             connect_args={
                 "charset": "utf8mb4",
                 "autocommit": False,
-                "connect_timeout": 30,  # 连接超时
+                "connect_timeout": 20,  # 连接超时
                 "server_public_key": None,  # 避免认证问题
             }
         )
@@ -102,27 +107,52 @@ def get_async_session_factory():
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    FastAPI依赖注入用的数据库会话生成器
+    FastAPI依赖注入用的数据库会话生成器 - 改进版本
     """
     session_factory = get_async_session_factory()
+    session = None
 
-    session = session_factory()
     try:
+        session = session_factory()
         yield session
         # 不自动提交，让调用方决定是否提交
     except Exception as e:
-        # 捕获并发问题并安全处理
-        try:
-            if session.in_transaction():
-                await session.rollback()
-        except Exception as rollback_error:
-            logger.warning(f"回滚时出现错误，忽略: {rollback_error}")
+        if session:
+            try:
+                # 检查连接状态再尝试回滚
+                if hasattr(session, '_connection') and session._connection:
+                    await session.rollback()
+            except Exception as rollback_error:
+                # 忽略回滚错误，避免掩盖原始错误
+                logger.warning(f"数据库回滚失败，忽略: {rollback_error}")
         raise
     finally:
+        if session:
+            try:
+                await session.close()
+            except Exception as close_error:
+                logger.warning(f"关闭数据库会话失败，忽略: {close_error}")
+
+
+async def get_robust_db_session() -> AsyncSession:
+    """
+    获取健壮的数据库会话 - 用于长时间运行的任务
+    """
+    session_factory = get_async_session_factory()
+    max_retries = 3
+
+    for attempt in range(max_retries):
         try:
-            await session.close()
-        except Exception as close_error:
-            logger.warning(f"关闭会话时出现错误，忽略: {close_error}")
+            session = session_factory()
+            # 测试连接
+            from sqlalchemy import text
+            await session.execute(text("SELECT 1"))
+            return session
+        except Exception as e:
+            logger.warning(f"创建数据库会话失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+            if attempt == max_retries - 1:
+                raise
+            await asyncio.sleep(1 * (attempt + 1))
 
 
 @asynccontextmanager
