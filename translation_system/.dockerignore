@@ -1,0 +1,190 @@
+# ================================
+# Docker 构建优化 - 忽略文件清单
+# ================================
+
+# 版本控制
+.git/
+.gitignore
+.github/
+
+# Python 缓存和编译文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 日志文件
+logs/
+*.log
+*.log.*
+
+# 临时文件和缓存
+temp/
+tmp/
+.tmp/
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 配置文件 (敏感信息)
+.env
+.env.local
+.env.*.local
+config.ini
+secrets.json
+
+# 上传和下载目录
+uploads/
+downloads/
+data/
+
+# 测试文件
+.tox/
+.coverage
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# 文档构建
+docs/_build/
+site/
+
+# Node.js (如果存在前端代码)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# 备份文件
+*.bak
+*.backup
+*.old
+
+# 压缩文件
+*.zip
+*.tar.gz
+*.rar
+
+# 大文件和媒体
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.mp3
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.pdf
+
+# 项目特定忽略
+# Excel 测试文件
+*.xlsx
+*.xls
+text*.xlsx
+test*.xlsx
+
+# 翻译结果文件
+*translation*.xlsx
+*translated*.xlsx
+*result*.xlsx
+
+# 开发和测试脚本
+test_*.py
+debug_*.py
+local_*.py
+
+# 部署相关
+docker-compose.yml
+docker-compose.*.yml
+kubernetes/
+k8s/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# 文档 (减少镜像大小)
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+*.md
+
+# 性能分析文件
+*.prof
+*.pstats
+
+# 其他开发工具
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ================================
+# 注意：以下文件会被包含在镜像中
+# ================================
+# backend/           - 应用源码
+# requirements.txt   - Python依赖
+# start.py          - 启动脚本
+# minimal_server.py - 最小服务器
+# simple_server.py  - 简化服务器
+# ================================
