@@ -54,14 +54,20 @@ class HeaderAnalyzer:
     def __init__(self):
         # 语言识别规则
         self.language_patterns = {
-            'ch': ['中文', 'chinese', 'cn', 'zh', 'chi'],
+            'ch': ['中文', 'chinese', 'cn', 'zh', 'chi', 'ch'],  # 添加 'ch' 识别
             'en': ['english', 'eng', 'en'],
             'pt': ['portuguese', 'pt', 'por', 'brazil', 'br'],
             'th': ['thai', 'th', 'thailand', 'tha'],
             'ind': ['indonesian', 'id', 'ind', 'indonesia'],
+            'tr': ['turkish', 'tr', 'tur', 'turkey'],  # 土耳其语
             'es': ['spanish', 'es', 'esp', 'spain'],
             'ar': ['arabic', 'ar', 'arab'],
-            'ru': ['russian', 'ru', 'rus']
+            'ru': ['russian', 'ru', 'rus'],
+            'ja': ['japanese', 'ja', 'jp', 'jpn'],  # 日语
+            'ko': ['korean', 'ko', 'kr', 'kor'],  # 韩语
+            'de': ['german', 'de', 'ger', 'deu'],  # 德语
+            'fr': ['french', 'fr', 'fra'],  # 法语
+            'it': ['italian', 'it', 'ita']  # 意大利语
         }
 
         # 列类型识别规则
@@ -106,7 +112,8 @@ class HeaderAnalyzer:
         for lang_code, patterns in self.language_patterns.items():
             if any(pattern in name_lower for pattern in patterns):
                 language = lang_code
-                column_type = ColumnType.SOURCE if lang_code == 'ch' else ColumnType.TARGET
+                # 所有语言列都先标记为TARGET，后续会根据每行内容动态判断
+                column_type = ColumnType.TARGET
                 break
 
         # 如果不是语言列，检查其他类型
@@ -119,9 +126,8 @@ class HeaderAnalyzer:
         # 获取样本数据
         sample_data = data.dropna().head(3).astype(str).tolist()
 
-        # 判断是否必需翻译 (升级Demo中的空行检测)
-        is_required = (column_type == ColumnType.TARGET and
-                      data.isna().sum() > len(data) * 0.5)  # 超过50%为空
+        # 不需要在这里判断是否必需翻译，因为需要按行判断
+        is_required = False
 
         return ColumnInfo(
             index=index,
@@ -148,53 +154,86 @@ class HeaderAnalyzer:
         return len(source_cols) == 1 and len(target_cols) >= 1 and len(columns) <= 5
 
     def _count_translatable_rows(self, df: pd.DataFrame, columns: List[ColumnInfo]) -> int:
-        """计算需要翻译的行数 - 基于Demo中的智能识别逻辑"""
-        source_cols = [col.name for col in columns if col.column_type == ColumnType.SOURCE]
-        target_cols = [col.name for col in columns if col.column_type == ColumnType.TARGET]
+        """计算需要翻译的行数 - 按行检测每个单元格"""
+        # 获取所有语言列
+        language_cols = [col.name for col in columns if col.language is not None]
 
-        if not source_cols or not target_cols:
+        if not language_cols:
             return 0
 
-        # 有源文本且目标列为空的行 (与Demo逻辑一致)
-        source_col = source_cols[0]
-        has_source = df[source_col].notna() & (df[source_col].astype(str).str.strip() != '')
-
         translatable_count = 0
-        for target_col in target_cols:
-            needs_translation = has_source & (df[target_col].isna() | (df[target_col].astype(str).str.strip() == ''))
-            translatable_count += needs_translation.sum()
+
+        # 逐行检查
+        for idx, row in df.iterrows():
+            # 找出该行中有内容的语言列
+            has_content = {}
+            for col in language_cols:
+                value = row[col]
+                has_content[col] = pd.notna(value) and str(value).strip() != ''
+
+            # 如果至少有一个语言列有内容
+            if any(has_content.values()):
+                # 计算空的语言列数量（需要翻译的）
+                empty_cols = [col for col, has_val in has_content.items() if not has_val]
+                translatable_count += len(empty_cols)
 
         return translatable_count
 
     def get_translation_batches(self, df: pd.DataFrame, sheet_info: SheetInfo, batch_size: int = 3) -> List[List[tuple]]:
-        """获取翻译批次 - 升级Demo中的批次创建逻辑"""
-        source_cols = [col for col in sheet_info.columns if col.column_type == ColumnType.SOURCE]
-        target_cols = [col for col in sheet_info.columns if col.column_type == ColumnType.TARGET]
+        """获取翻译批次 - 按行动态检测源语言和翻译需求"""
+        # 获取所有语言列
+        language_cols = [(col.name, col.language) for col in sheet_info.columns if col.language is not None]
 
-        if not source_cols:
+        if not language_cols:
             return []
 
-        source_col = source_cols[0].name
         batches = []
         current_batch = []
 
         for idx, row in df.iterrows():
-            source_text = row[source_col]
+            # 找出该行的源语言（优先EN，其次CH，再其他有内容的）
+            source_text = None
+            source_lang = None
 
-            # 跳过空的源文本
-            if pd.isna(source_text) or str(source_text).strip() == '':
-                continue
-
-            # 检查是否需要翻译 (任意目标列为空)
-            needs_translation = False
-            for target_col in target_cols:
-                target_text = row[target_col.name]
-                if pd.isna(target_text) or str(target_text).strip() == '':
-                    needs_translation = True
+            # 先检查EN列
+            for col_name, lang in language_cols:
+                if lang == 'en' and pd.notna(row[col_name]) and str(row[col_name]).strip():
+                    source_text = str(row[col_name]).strip()
+                    source_lang = 'en'
                     break
 
+            # 如果没有EN，检查CH列
+            if not source_text:
+                for col_name, lang in language_cols:
+                    if lang == 'ch' and pd.notna(row[col_name]) and str(row[col_name]).strip():
+                        source_text = str(row[col_name]).strip()
+                        source_lang = 'ch'
+                        break
+
+            # 如果都没有，使用任何有内容的列
+            if not source_text:
+                for col_name, lang in language_cols:
+                    if pd.notna(row[col_name]) and str(row[col_name]).strip():
+                        source_text = str(row[col_name]).strip()
+                        source_lang = lang
+                        break
+
+            # 如果没有源文本，跳过该行
+            if not source_text:
+                continue
+
+            # 检查是否有空的目标语言列（需要翻译）
+            needs_translation = False
+            target_langs = []
+            for col_name, lang in language_cols:
+                if lang != source_lang:  # 不是源语言列
+                    target_value = row[col_name]
+                    if pd.isna(target_value) or str(target_value).strip() == '':
+                        needs_translation = True
+                        target_langs.append(lang)
+
             if needs_translation:
-                current_batch.append((idx, str(source_text).strip()))
+                current_batch.append((idx, source_text, source_lang, target_langs))
 
                 if len(current_batch) >= batch_size:
                     batches.append(current_batch)

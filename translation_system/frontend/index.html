@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏本地化翻译系统 - 测试工具</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-language"></i> 游戏本地化翻译系统</h1>
+            <p>测试工具 - 上传Excel文件进行翻译</p>
+        </header>
+
+        <main class="main-content">
+            <!-- 上传区域 -->
+            <section class="upload-section">
+                <h2><i class="fas fa-upload"></i> 文件上传</h2>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-file-excel"></i>
+                    </div>
+                    <p>拖拽Excel文件到此处，或点击选择文件</p>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+                    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                        选择文件
+                    </button>
+                </div>
+
+                <!-- 翻译选项 -->
+                <div class="translation-options" id="translationOptions" style="display: none;">
+                    <h3>翻译配置</h3>
+                    <div class="options-grid">
+                        <div class="option-group">
+                            <label for="targetLanguages">目标语言:</label>
+                            <select id="targetLanguages" multiple>
+                                <option value="pt" selected>葡萄牙语</option>
+                                <option value="th" selected>泰语</option>
+                                <option value="ind" selected>印尼语</option>
+                                <option value="es">西班牙语</option>
+                                <option value="fr">法语</option>
+                                <option value="de">德语</option>
+                            </select>
+                        </div>
+                        <div class="option-group">
+                            <label for="regionCode">地区代码:</label>
+                            <select id="regionCode">
+                                <option value="na" selected>北美</option>
+                                <option value="sa">南美</option>
+                                <option value="eu">欧洲</option>
+                                <option value="me">中东</option>
+                                <option value="as">亚洲</option>
+                            </select>
+                        </div>
+                        <div class="option-group">
+                            <label for="batchSize">批次大小:</label>
+                            <input type="number" id="batchSize" value="3" min="1" max="20">
+                        </div>
+                        <div class="option-group">
+                            <label for="maxConcurrent">最大并发:</label>
+                            <input type="number" id="maxConcurrent" value="10" min="1" max="50">
+                        </div>
+                    </div>
+                    <button class="start-translation-btn" onclick="startTranslation()">
+                        <i class="fas fa-play"></i> 开始翻译
+                    </button>
+                </div>
+            </section>
+
+            <!-- 翻译进度区域 -->
+            <section class="progress-section" id="progressSection" style="display: none;">
+                <h2><i class="fas fa-tasks"></i> 翻译进度</h2>
+                <div class="progress-card">
+                    <div class="task-info">
+                        <div class="task-id">任务ID: <span id="taskId">-</span></div>
+                        <div class="task-status">状态: <span id="taskStatus">-</span></div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                        <span class="progress-text" id="progressText">0%</span>
+                    </div>
+                    <div class="progress-details">
+                        <div class="detail-item">
+                            <span>已处理行数:</span>
+                            <span id="processedRows">0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span>总行数:</span>
+                            <span id="totalRows">0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span>当前步骤:</span>
+                            <span id="currentStep">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span>耗时:</span>
+                            <span id="elapsedTime">0s</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 结果区域 -->
+            <section class="result-section" id="resultSection" style="display: none;">
+                <h2><i class="fas fa-check-circle"></i> 翻译结果</h2>
+                <div class="result-card">
+                    <div class="result-info">
+                        <div class="success-message">
+                            <i class="fas fa-check"></i>
+                            <span>翻译完成！</span>
+                        </div>
+                        <div class="result-details" id="resultDetails">
+                            <!-- 结果详情将动态填充 -->
+                        </div>
+                    </div>
+                    <div class="download-actions">
+                        <button class="download-btn" id="downloadBtn" onclick="downloadResult()">
+                            <i class="fas fa-download"></i> 下载翻译结果
+                        </button>
+                        <button class="reset-btn" onclick="resetForm()">
+                            <i class="fas fa-redo"></i> 重新开始
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API配置和状态 -->
+            <section class="api-status">
+                <h3><i class="fas fa-server"></i> API配置</h3>
+                <div class="api-config">
+                    <div class="api-input-group">
+                        <label for="apiAddress">后端地址:</label>
+                        <input type="text" id="apiAddress" value="http://localhost:8001" placeholder="例如: http://localhost:8001">
+                        <button class="connect-btn" onclick="window.tester.updateApiBase()">
+                            <i class="fas fa-plug"></i> 连接
+                        </button>
+                    </div>
+                    <div class="status-indicator" id="apiStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">未连接</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 日志区域 -->
+        <footer class="log-section">
+            <h3><i class="fas fa-list"></i> 操作日志</h3>
+            <div class="log-container" id="logContainer">
+                <!-- 日志将动态添加 -->
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

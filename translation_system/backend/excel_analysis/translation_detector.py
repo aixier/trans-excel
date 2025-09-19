@@ -39,31 +39,68 @@ class TranslationDetector:
         sheet_info: SheetInfo,
         include_colors: bool = True
     ) -> List[TranslationTask]:
-        """检测需要翻译的任务 - 基于Demo的智能识别"""
+        """检测需要翻译的任务 - 按行动态检测源语言和翻译需求"""
         tasks = []
 
-        # 获取源语言列和目标语言列
-        source_cols = [col for col in sheet_info.columns if col.column_type == ColumnType.SOURCE]
-        target_cols = [col for col in sheet_info.columns if col.column_type == ColumnType.TARGET]
+        # 获取所有语言列
+        language_cols = [col for col in sheet_info.columns if col.language is not None]
 
-        if not source_cols:
+        if not language_cols:
             return tasks
 
-        source_col = source_cols[0]
+        # 按行检测
+        for idx, row in df.iterrows():
+            # 找出该行的源语言（优先EN，其次CH，再其他有内容的）
+            source_text = None
+            source_lang = None
+            source_col_name = None
 
-        for target_col in target_cols:
-            for idx, row in df.iterrows():
-                source_text = row[source_col.name]
-                target_text = row[target_col.name]
+            # 先检查EN列
+            for col in language_cols:
+                if col.language == 'en':
+                    value = row[col.name]
+                    if pd.notna(value) and str(value).strip():
+                        source_text = str(value).strip()
+                        source_lang = 'en'
+                        source_col_name = col.name
+                        break
 
-                # 跳过空的源文本 (与Demo逻辑一致)
-                if pd.isna(source_text) or str(source_text).strip() == '':
+            # 如果没有EN，检查CH列
+            if not source_text:
+                for col in language_cols:
+                    if col.language == 'ch':
+                        value = row[col.name]
+                        if pd.notna(value) and str(value).strip():
+                            source_text = str(value).strip()
+                            source_lang = 'ch'
+                            source_col_name = col.name
+                            break
+
+            # 如果都没有，使用任何有内容的列
+            if not source_text:
+                for col in language_cols:
+                    value = row[col.name]
+                    if pd.notna(value) and str(value).strip():
+                        source_text = str(value).strip()
+                        source_lang = col.language
+                        source_col_name = col.name
+                        break
+
+            # 如果没有源文本，跳过该行
+            if not source_text:
+                continue
+
+            # 检查每个目标语言列是否需要翻译
+            for col in language_cols:
+                if col.name == source_col_name:  # 跳过源语言列
                     continue
+
+                target_text = row[col.name]
 
                 # 获取背景色 (如果支持)
                 background_color = None
                 if include_colors:
-                    background_color = self._get_cell_background_color(df, idx, target_col.name)
+                    background_color = self._get_cell_background_color(df, idx, col.name)
 
                 # 判断任务类型
                 task_type = self._determine_task_type(target_text, background_color)
@@ -72,9 +109,9 @@ class TranslationDetector:
                     task = TranslationTask(
                         sheet_name=sheet_info.name,
                         row_index=idx,
-                        source_text=str(source_text).strip(),
-                        target_column=target_col.name,
-                        target_language=target_col.language,
+                        source_text=source_text,
+                        target_column=col.name,
+                        target_language=col.language,
                         task_type=task_type,
                         background_color=background_color,
                         original_translation=str(target_text) if pd.notna(target_text) else None

@@ -30,15 +30,21 @@ def get_async_engine():
             f"@{settings.mysql_host}:{settings.mysql_port}/{settings.mysql_database}"
         )
 
-        # 创建异步引擎
+        # 创建异步引擎，使用连接池优化
         async_engine = create_async_engine(
             database_url,
-            poolclass=NullPool,  # 禁用连接池避免连接问题
+            # 使用连接池而不是NullPool
+            pool_size=5,  # 连接池大小
+            max_overflow=10,  # 最大溢出连接数
+            pool_timeout=30,  # 连接超时时间
+            pool_recycle=3600,  # 连接回收时间（1小时）
+            pool_pre_ping=True,  # 检查连接是否有效
             echo=settings.debug_mode,  # 调试模式下打印SQL
             future=True,
             connect_args={
                 "charset": "utf8mb4",
-                "autocommit": False
+                "autocommit": False,
+                "connect_timeout": 10  # 连接超时时间
             }
         )
 

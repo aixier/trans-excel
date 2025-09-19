@@ -100,3 +100,750 @@
 2025-09-18 21:54:28,472 - __main__ - INFO - 📊 测试数据库连接...
 2025-09-18 21:54:28,559 - database.connection - INFO - ✅ 异步数据库引擎初始化完成
 2025-09-18 21:54:29,882 - __main__ - INFO - 👋 系统已关闭
+2025-09-19 10:06:49,908 - __main__ - INFO - 📁 创建目录: logs
+2025-09-19 10:06:49,911 - __main__ - INFO - 📁 创建目录: temp
+2025-09-19 10:06:49,914 - __main__ - INFO - 📁 创建目录: uploads
+2025-09-19 10:06:49,917 - __main__ - INFO - 📁 创建目录: downloads
+2025-09-19 10:06:49,918 - __main__ - INFO - 🚀 翻译系统初始化开始
+2025-09-19 10:06:49,918 - __main__ - INFO - 📊 测试数据库连接...
+2025-09-19 10:06:50,025 - database.connection - INFO - ✅ 异步数据库引擎初始化完成
+2025-09-19 10:06:51,868 - database.connection - ERROR - ❌ 数据库连接测试失败: (pymysql.err.OperationalError) (2013, 'Lost connection to MySQL server during query')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-09-19 10:06:51,869 - __main__ - ERROR - ❌ 数据库连接失败，请检查配置
+2025-09-19 10:06:51,870 - __main__ - ERROR - ❌ 系统初始化失败，退出程序
+2025-09-19 10:06:51,870 - __main__ - INFO - 👋 系统已关闭
+2025-09-19 05:06:58,538 - __main__ - INFO - 📁 创建目录: logs
+2025-09-19 05:06:58,540 - __main__ - INFO - 📁 创建目录: temp
+2025-09-19 05:06:58,542 - __main__ - INFO - 📁 创建目录: uploads
+2025-09-19 05:06:58,544 - __main__ - INFO - 📁 创建目录: downloads
+2025-09-19 05:06:58,545 - __main__ - INFO - 🚀 翻译系统初始化开始
+2025-09-19 05:06:58,545 - __main__ - INFO - 📊 测试数据库连接...
+2025-09-19 05:06:58,616 - database.connection - INFO - ✅ 异步数据库引擎初始化完成
+2025-09-19 05:07:06,345 - sqlalchemy.engine.Engine - INFO - SELECT DATABASE()
+2025-09-19 05:07:06,345 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:07,266 - sqlalchemy.engine.Engine - INFO - SELECT @@sql_mode
+2025-09-19 05:07:07,267 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:07,697 - sqlalchemy.engine.Engine - INFO - SELECT @@lower_case_table_names
+2025-09-19 05:07:07,697 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:08,598 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:07:08,599 - sqlalchemy.engine.Engine - INFO - SELECT 1 as test
+2025-09-19 05:07:08,599 - sqlalchemy.engine.Engine - INFO - [generated in 0.00059s] ()
+2025-09-19 05:07:09,029 - database.connection - INFO - ✅ 数据库连接测试成功
+2025-09-19 05:07:09,030 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:07:09,889 - __main__ - INFO - 🗄️ 初始化数据库表...
+2025-09-19 05:07:12,367 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:07:12,368 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`projects`
+2025-09-19 05:07:12,369 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:12,795 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`project_versions`
+2025-09-19 05:07:12,796 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:13,225 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`project_files`
+2025-09-19 05:07:13,226 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:13,653 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`translation_tasks`
+2025-09-19 05:07:13,654 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:14,082 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`terminology`
+2025-09-19 05:07:14,083 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:14,513 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`translation_logs`
+2025-09-19 05:07:14,514 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:07:14,942 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:07:15,795 - database.connection - INFO - ✅ 数据库表初始化完成
+2025-09-19 05:07:15,796 - __main__ - INFO - ⚙️ 验证系统配置...
+2025-09-19 05:07:15,797 - __main__ - INFO - ✅ 系统初始化完成
+2025-09-19 05:07:15,797 - __main__ - INFO - ============================================================
+2025-09-19 05:07:15,797 - __main__ - INFO - 🎮 游戏本地化翻译系统
+2025-09-19 05:07:15,798 - __main__ - INFO - 📡 服务地址: http://0.0.0.0:8000
+2025-09-19 05:07:15,798 - __main__ - INFO - 📚 API文档: http://0.0.0.0:8000/docs
+2025-09-19 05:07:15,799 - __main__ - INFO - 🔧 调试模式: True
+2025-09-19 05:07:15,799 - __main__ - INFO - 🌍 支持语言: pt, th, ind
+2025-09-19 05:07:15,799 - __main__ - INFO - 🗺️ 支持地区: na, sa, eu, me, as
+2025-09-19 05:07:15,800 - __main__ - INFO - ============================================================
+2025-09-19 05:07:16,616 - numexpr.utils - INFO - Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2025-09-19 05:07:16,617 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-19 05:07:17,871 - __main__ - INFO - 🌐 启动API服务器...
+2025-09-19 05:07:18,032 - api_gateway.main - INFO - 🚀 Translation System API Gateway 启动
+2025-09-19 05:07:18,088 - api_gateway.main - INFO - ✅ 数据库连接初始化成功
+2025-09-19 05:07:19,397 - api_gateway.main - INFO - 🔄 [3c0a2196] GET /api/health/status
+2025-09-19 05:07:19,398 - database.connection - INFO - ✅ 异步会话工厂初始化完成
+2025-09-19 05:07:19,399 - api_gateway.main - INFO - ✅ [3c0a2196] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:07:49,124 - api_gateway.main - INFO - 🔄 [126dc016] GET /api/health/status
+2025-09-19 05:07:49,126 - api_gateway.main - INFO - ✅ [126dc016] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:08:00,372 - api_gateway.main - INFO - 🔄 [a05e148e] GET /api/health/status
+2025-09-19 05:08:00,374 - api_gateway.main - INFO - ✅ [a05e148e] 200 | 0.002s | 172.17.0.1
+2025-09-19 05:04:12,647 - api_gateway.main - INFO - 🔄 [2b8c17c5] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:04:12,649 - api_gateway.main - INFO - ✅ [2b8c17c5] 404 | 0.002s | 172.17.0.1
+2025-09-19 05:04:25,198 - api_gateway.main - INFO - 🔄 [a7ee6775] POST /api/translation/upload
+2025-09-19 05:08:19,302 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:08:19,319 - sqlalchemy.engine.Engine - INFO - INSERT INTO translation_tasks (id, project_id, version_id, task_name, input_file_id, output_file_id, config, status, total_rows, translated_rows, current_iteration, max_iterations, total_api_calls, total_tokens_used, total_cost, error_message, created_at, updated_at, completed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now(), %s)
+2025-09-19 05:08:19,321 - sqlalchemy.engine.Engine - INFO - [generated in 0.00282s] ('69017cb9-1ef9-47df-a16d-c646b4bf6a52', 'temp-project', 'temp-version', 'Translation: test_data.xlsx', 'temp-file', None, '{"target_languages": ["pt", "th", "ind"], "batch_size": 3, "max_concurrent": 10, "region_code": "na", "game_background": null, "file_name": "test_data.xlsx"}', 'uploading', 190, 0, 0, 5, 0, 0, 0.0, None, None)
+2025-09-19 05:08:19,825 - api_gateway.main - INFO - 🔄 [07b4932b] GET /api/health/status
+2025-09-19 05:08:19,834 - api_gateway.main - INFO - ✅ [07b4932b] 200 | 0.009s | 127.0.0.1
+2025-09-19 05:08:20,253 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:08:21,157 - api_gateway.routers.translation - INFO - 📁 文件上传成功: test_data.xlsx, 任务ID: 69017cb9-1ef9-47df-a16d-c646b4bf6a52
+2025-09-19 05:08:21,159 - api_gateway.main - INFO - ✅ [a7ee6775] 200 | 235.960s | 172.17.0.1
+2025-09-19 05:08:21,160 - api_gateway.routers.translation - INFO - 🚀 开始执行翻译任务: 69017cb9-1ef9-47df-a16d-c646b4bf6a52
+2025-09-19 05:08:21,161 - translation_core.translation_engine - INFO - 开始处理翻译任务: 69017cb9-1ef9-47df-a16d-c646b4bf6a52
+2025-09-19 05:08:27,813 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:08:27,818 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:08:27,818 - sqlalchemy.engine.Engine - INFO - [generated in 0.00113s] ('69017cb9-1ef9-47df-a16d-c646b4bf6a52',)
+2025-09-19 05:08:28,260 - sqlalchemy.engine.Engine - INFO - UPDATE translation_tasks SET status=%s, updated_at=%s WHERE translation_tasks.id = %s
+2025-09-19 05:08:28,261 - sqlalchemy.engine.Engine - INFO - [generated in 0.00087s] ('analyzing', datetime.datetime(2025, 9, 19, 5, 8, 28, 257802), '69017cb9-1ef9-47df-a16d-c646b4bf6a52')
+2025-09-19 05:08:28,694 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:08:29,763 - translation_core.translation_engine - INFO - 加载Excel文件成功，总行数: 5
+2025-09-19 05:08:29,770 - translation_core.translation_engine - INFO - 表头分析完成，可翻译行数: 0
+2025-09-19 05:08:29,772 - translation_core.translation_engine - INFO - 检测到翻译任务: 0个
+2025-09-19 05:08:29,773 - translation_core.translation_engine - INFO - 没有需要翻译的内容
+2025-09-19 05:08:32,381 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:08:32,382 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:08:32,383 - sqlalchemy.engine.Engine - INFO - [cached since 4.57s ago] ('69017cb9-1ef9-47df-a16d-c646b4bf6a52',)
+2025-09-19 05:08:32,820 - sqlalchemy.engine.Engine - INFO - UPDATE translation_tasks SET status=%s, updated_at=%s, completed_at=%s WHERE translation_tasks.id = %s
+2025-09-19 05:08:32,821 - sqlalchemy.engine.Engine - INFO - [generated in 0.00070s] ('completed', datetime.datetime(2025, 9, 19, 5, 8, 32, 819664), datetime.datetime(2025, 9, 19, 5, 8, 32, 819652), '69017cb9-1ef9-47df-a16d-c646b4bf6a52')
+2025-09-19 05:08:33,261 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:08:38,719 - api_gateway.main - INFO - 🔄 [91c606bc] GET /api/translation/tasks/69017cb9-1ef9-47df-a16d-c646b4bf6a52/status
+2025-09-19 05:08:44,096 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:08:44,097 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:08:44,098 - sqlalchemy.engine.Engine - INFO - [cached since 16.29s ago] ('69017cb9-1ef9-47df-a16d-c646b4bf6a52',)
+2025-09-19 05:08:44,537 - api_gateway.main - INFO - ✅ [91c606bc] 200 | 5.818s | 172.17.0.1
+2025-09-19 05:08:44,539 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:08:49,921 - api_gateway.main - INFO - 🔄 [a7db2969] GET /api/health/status
+2025-09-19 05:08:49,923 - api_gateway.main - INFO - ✅ [a7db2969] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:05:12,676 - api_gateway.main - INFO - 🔄 [2e07b5ec] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:05:12,677 - api_gateway.main - INFO - ✅ [2e07b5ec] 404 | 0.001s | 172.17.0.1
+2025-09-19 05:09:20,668 - api_gateway.main - INFO - 🔄 [b5324374] GET /api/health/status
+2025-09-19 05:09:20,671 - api_gateway.main - INFO - ✅ [b5324374] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:09:51,022 - api_gateway.main - INFO - 🔄 [5218da01] GET /api/health/status
+2025-09-19 05:09:51,023 - api_gateway.main - INFO - ✅ [5218da01] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:10:04,069 - api_gateway.main - INFO - 🔄 [67596cd0] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:10:04,070 - api_gateway.main - INFO - ✅ [67596cd0] 404 | 0.001s | 172.17.0.1
+2025-09-19 05:10:21,610 - api_gateway.main - INFO - 🔄 [3496b528] GET /api/health/status
+2025-09-19 05:10:21,612 - api_gateway.main - INFO - ✅ [3496b528] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:10:53,454 - api_gateway.main - INFO - 🔄 [49f0f82e] GET /api/health/status
+2025-09-19 05:10:53,455 - api_gateway.main - INFO - ✅ [49f0f82e] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:11:03,945 - api_gateway.main - INFO - 🔄 [097fe33e] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:11:03,946 - api_gateway.main - INFO - ✅ [097fe33e] 404 | 0.002s | 172.17.0.1
+2025-09-19 05:11:23,705 - api_gateway.main - INFO - 🔄 [e48d2167] GET /api/health/status
+2025-09-19 05:11:23,706 - api_gateway.main - INFO - ✅ [e48d2167] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:08:03,076 - api_gateway.main - INFO - 🔄 [a37a30b4] GET /api/health/status
+2025-09-19 05:08:03,077 - api_gateway.main - INFO - ✅ [a37a30b4] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:12:06,000 - api_gateway.main - INFO - 🔄 [ed64d0d0] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:12:06,001 - api_gateway.main - INFO - ✅ [ed64d0d0] 404 | 0.001s | 172.17.0.1
+2025-09-19 05:12:24,696 - api_gateway.main - INFO - 🔄 [2d623752] GET /api/health/status
+2025-09-19 05:12:24,697 - api_gateway.main - INFO - ✅ [2d623752] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:12:55,708 - api_gateway.main - INFO - 🔄 [382788a3] GET /api/health/status
+2025-09-19 05:12:55,709 - api_gateway.main - INFO - ✅ [382788a3] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:13:03,458 - api_gateway.main - INFO - 🔄 [1bad86b8] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:13:03,459 - api_gateway.main - INFO - ✅ [1bad86b8] 404 | 0.001s | 172.17.0.1
+2025-09-19 05:13:26,664 - api_gateway.main - INFO - 🔄 [b612d929] GET /api/health/status
+2025-09-19 05:13:26,666 - api_gateway.main - INFO - ✅ [b612d929] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:13:59,379 - api_gateway.main - INFO - 🔄 [e8092e5e] GET /api/health/status
+2025-09-19 05:13:59,380 - api_gateway.main - INFO - ✅ [e8092e5e] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:14:05,880 - api_gateway.main - INFO - 🔄 [49b9f3a9] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:14:05,881 - api_gateway.main - INFO - ✅ [49b9f3a9] 404 | 0.001s | 172.17.0.1
+2025-09-19 05:10:18,851 - api_gateway.main - INFO - 🔄 [d5d70518] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:10:18,853 - api_gateway.main - INFO - ✅ [d5d70518] 404 | 0.002s | 172.17.0.1
+2025-09-19 05:10:20,518 - api_gateway.main - INFO - 🔄 [c30650a7] GET /api/translation/status/d819caf2-0be4-46d9-b87a-3a5ecbfa03fb
+2025-09-19 05:10:20,519 - api_gateway.main - INFO - ✅ [c30650a7] 404 | 0.001s | 172.17.0.1
+2025-09-19 05:14:24,958 - api_gateway.main - INFO - 🔄 [ae5b6e90] GET /api/health/status
+2025-09-19 05:14:24,960 - api_gateway.main - INFO - ✅ [ae5b6e90] 200 | 0.002s | 172.17.0.1
+2025-09-19 05:14:29,388 - api_gateway.main - INFO - 🔄 [8f8b59c3] GET /api/health/status
+2025-09-19 05:14:29,389 - api_gateway.main - INFO - ✅ [8f8b59c3] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:10:48,213 - api_gateway.main - INFO - 🔄 [99bab197] POST /api/translation/upload
+2025-09-19 05:10:53,255 - api_gateway.routers.translation - ERROR - 文件上传失败: (pymysql.err.OperationalError) (2013, 'Lost connection to MySQL server during query')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-09-19 05:10:53,257 - api_gateway.main - INFO - ✅ [99bab197] 500 | 5.044s | 172.17.0.1
+2025-09-19 05:14:58,189 - api_gateway.main - INFO - 🔄 [62c5a159] GET /api/health/status
+2025-09-19 05:14:58,191 - api_gateway.main - INFO - ✅ [62c5a159] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:15:28,555 - api_gateway.main - INFO - 🔄 [049a3c7f] GET /api/health/status
+2025-09-19 05:15:28,557 - api_gateway.main - INFO - ✅ [049a3c7f] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:15:59,051 - api_gateway.main - INFO - 🔄 [9ee643ba] GET /api/health/status
+2025-09-19 05:15:59,052 - api_gateway.main - INFO - ✅ [9ee643ba] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:16:29,556 - api_gateway.main - INFO - 🔄 [0550a9d3] GET /api/health/status
+2025-09-19 05:16:29,558 - api_gateway.main - INFO - ✅ [0550a9d3] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:17:00,546 - api_gateway.main - INFO - 🔄 [2263dfbc] GET /api/health/status
+2025-09-19 05:17:00,548 - api_gateway.main - INFO - ✅ [2263dfbc] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:17:30,962 - api_gateway.main - INFO - 🔄 [d163c4bc] GET /api/health/status
+2025-09-19 05:17:30,965 - api_gateway.main - INFO - ✅ [d163c4bc] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:17:36,162 - api_gateway.main - INFO - 🛑 Translation System API Gateway 关闭
+2025-09-19 05:17:36,163 - __main__ - INFO - 👋 系统已关闭
+2025-09-19 05:17:38,148 - __main__ - INFO - 📁 创建目录: logs
+2025-09-19 05:17:38,149 - __main__ - INFO - 📁 创建目录: temp
+2025-09-19 05:17:38,150 - __main__ - INFO - 📁 创建目录: uploads
+2025-09-19 05:17:38,151 - __main__ - INFO - 📁 创建目录: downloads
+2025-09-19 05:17:38,152 - __main__ - INFO - 🚀 翻译系统初始化开始
+2025-09-19 05:17:38,152 - __main__ - INFO - 📊 测试数据库连接...
+2025-09-19 05:17:38,219 - database.connection - INFO - ✅ 异步数据库引擎初始化完成
+2025-09-19 05:13:49,942 - sqlalchemy.engine.Engine - INFO - SELECT DATABASE()
+2025-09-19 05:13:49,942 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:13:50,813 - sqlalchemy.engine.Engine - INFO - SELECT @@sql_mode
+2025-09-19 05:13:50,814 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:42,663 - sqlalchemy.engine.Engine - INFO - SELECT @@lower_case_table_names
+2025-09-19 05:17:42,663 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:43,535 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:17:43,537 - sqlalchemy.engine.Engine - INFO - SELECT 1 as test
+2025-09-19 05:17:43,538 - sqlalchemy.engine.Engine - INFO - [generated in 0.00083s] ()
+2025-09-19 05:17:43,971 - database.connection - INFO - ✅ 数据库连接测试成功
+2025-09-19 05:17:43,972 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:17:44,838 - __main__ - INFO - 🗄️ 初始化数据库表...
+2025-09-19 05:17:45,273 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:17:45,274 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`projects`
+2025-09-19 05:17:45,276 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:45,708 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`project_versions`
+2025-09-19 05:17:45,709 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:46,141 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`project_files`
+2025-09-19 05:17:46,142 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:46,574 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`translation_tasks`
+2025-09-19 05:17:46,575 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:47,017 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`terminology`
+2025-09-19 05:17:47,017 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:47,454 - sqlalchemy.engine.Engine - INFO - DESCRIBE `ai_terminal`.`translation_logs`
+2025-09-19 05:17:47,454 - sqlalchemy.engine.Engine - INFO - [raw sql] ()
+2025-09-19 05:17:47,896 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:17:48,780 - database.connection - INFO - ✅ 数据库表初始化完成
+2025-09-19 05:17:48,781 - __main__ - INFO - ⚙️ 验证系统配置...
+2025-09-19 05:17:48,782 - __main__ - INFO - ✅ 系统初始化完成
+2025-09-19 05:17:48,783 - __main__ - INFO - ============================================================
+2025-09-19 05:17:48,783 - __main__ - INFO - 🎮 游戏本地化翻译系统
+2025-09-19 05:17:48,784 - __main__ - INFO - 📡 服务地址: http://0.0.0.0:8000
+2025-09-19 05:17:48,784 - __main__ - INFO - 📚 API文档: http://0.0.0.0:8000/docs
+2025-09-19 05:17:48,785 - __main__ - INFO - 🔧 调试模式: True
+2025-09-19 05:17:48,786 - __main__ - INFO - 🌍 支持语言: pt, th, ind
+2025-09-19 05:17:48,787 - __main__ - INFO - 🗺️ 支持地区: na, sa, eu, me, as
+2025-09-19 05:17:48,787 - __main__ - INFO - ============================================================
+2025-09-19 05:17:50,489 - numexpr.utils - INFO - Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2025-09-19 05:17:50,490 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2025-09-19 05:17:52,093 - __main__ - INFO - 🌐 启动API服务器...
+2025-09-19 05:17:52,141 - api_gateway.main - INFO - 🚀 Translation System API Gateway 启动
+2025-09-19 05:17:52,144 - api_gateway.main - INFO - ✅ 数据库连接初始化成功
+2025-09-19 05:17:53,064 - api_gateway.main - INFO - 🔄 [a62084ff] GET /api/health/status
+2025-09-19 05:17:53,065 - database.connection - INFO - ✅ 异步会话工厂初始化完成
+2025-09-19 05:17:53,067 - api_gateway.main - INFO - ✅ [a62084ff] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:18:23,078 - api_gateway.main - INFO - 🔄 [52368abe] POST /api/translation/upload
+2025-09-19 05:18:23,587 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:18:23,683 - sqlalchemy.engine.Engine - INFO - INSERT INTO translation_tasks (id, project_id, version_id, task_name, input_file_id, output_file_id, config, status, total_rows, translated_rows, current_iteration, max_iterations, total_api_calls, total_tokens_used, total_cost, error_message, created_at, updated_at, completed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now(), %s)
+2025-09-19 05:18:23,686 - sqlalchemy.engine.Engine - INFO - [generated in 0.00515s] ('d1a3712c-0b42-4441-9818-acb8b852554b', 'temp-project', 'temp-version', 'Translation: test_data.xlsx', 'temp-file', None, '{"target_languages": ["pt", "th", "ind"], "batch_size": 3, "max_concurrent": 10, "region_code": "na", "game_background": null, "file_name": "test_data.xlsx"}', 'uploading', 190, 0, 0, 5, 0, 0, 0.0, None, None)
+2025-09-19 05:18:23,691 - api_gateway.main - INFO - 🔄 [9efe4c33] GET /api/health/status
+2025-09-19 05:18:23,696 - api_gateway.main - INFO - ✅ [9efe4c33] 200 | 0.005s | 127.0.0.1
+2025-09-19 05:18:24,133 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:18:25,030 - api_gateway.routers.translation - INFO - 📁 文件上传成功: test_data.xlsx, 任务ID: d1a3712c-0b42-4441-9818-acb8b852554b
+2025-09-19 05:18:25,032 - api_gateway.main - INFO - ✅ [52368abe] 200 | 1.954s | 172.17.0.1
+2025-09-19 05:18:25,035 - api_gateway.routers.translation - INFO - 🚀 开始执行翻译任务: d1a3712c-0b42-4441-9818-acb8b852554b
+2025-09-19 05:18:25,041 - translation_core.translation_engine - INFO - 开始处理翻译任务: d1a3712c-0b42-4441-9818-acb8b852554b
+2025-09-19 05:18:25,488 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:18:25,498 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:18:25,499 - sqlalchemy.engine.Engine - INFO - [generated in 0.00301s] ('d1a3712c-0b42-4441-9818-acb8b852554b',)
+2025-09-19 05:18:25,958 - sqlalchemy.engine.Engine - INFO - UPDATE translation_tasks SET status=%s, updated_at=%s WHERE translation_tasks.id = %s
+2025-09-19 05:18:25,961 - sqlalchemy.engine.Engine - INFO - [generated in 0.00379s] ('analyzing', datetime.datetime(2025, 9, 19, 5, 18, 25, 944532), 'd1a3712c-0b42-4441-9818-acb8b852554b')
+2025-09-19 05:18:26,412 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:18:27,516 - translation_core.translation_engine - INFO - 加载Excel文件成功，总行数: 5
+2025-09-19 05:18:27,527 - translation_core.translation_engine - INFO - 表头分析完成，可翻译行数: 0
+2025-09-19 05:18:27,530 - translation_core.translation_engine - INFO - 检测到翻译任务: 0个
+2025-09-19 05:18:27,530 - translation_core.translation_engine - INFO - 没有需要翻译的内容
+2025-09-19 05:18:27,962 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:18:27,963 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:18:27,963 - sqlalchemy.engine.Engine - INFO - [cached since 2.467s ago] ('d1a3712c-0b42-4441-9818-acb8b852554b',)
+2025-09-19 05:18:28,400 - sqlalchemy.engine.Engine - INFO - UPDATE translation_tasks SET status=%s, updated_at=%s, completed_at=%s WHERE translation_tasks.id = %s
+2025-09-19 05:18:28,400 - sqlalchemy.engine.Engine - INFO - [generated in 0.00083s] ('completed', datetime.datetime(2025, 9, 19, 5, 18, 28, 399113), datetime.datetime(2025, 9, 19, 5, 18, 28, 399100), 'd1a3712c-0b42-4441-9818-acb8b852554b')
+2025-09-19 05:18:28,832 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:18:54,807 - api_gateway.main - INFO - 🔄 [a81ed233] GET /api/health/status
+2025-09-19 05:18:54,809 - api_gateway.main - INFO - ✅ [a81ed233] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:19:06,387 - api_gateway.main - INFO - 🔄 [58b1ab4b] GET /api/translation/tasks/d1a3712c-0b42-4441-9818-acb8b852554b/status
+2025-09-19 05:19:06,791 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:19:06,792 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:19:06,792 - sqlalchemy.engine.Engine - INFO - [cached since 40.27s ago] ('d1a3712c-0b42-4441-9818-acb8b852554b',)
+2025-09-19 05:19:07,191 - api_gateway.main - INFO - ✅ [58b1ab4b] 200 | 0.805s | 172.17.0.1
+2025-09-19 05:19:07,197 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:19:26,883 - api_gateway.main - INFO - 🔄 [eada6cb7] GET /api/health/status
+2025-09-19 05:19:26,885 - api_gateway.main - INFO - ✅ [eada6cb7] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:19:56,494 - api_gateway.main - INFO - 🔄 [f0304e5f] GET /api/health/status
+2025-09-19 05:19:56,496 - api_gateway.main - INFO - ✅ [f0304e5f] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:20:27,060 - api_gateway.main - INFO - 🔄 [ab4eaa85] GET /api/health/status
+2025-09-19 05:20:27,062 - api_gateway.main - INFO - ✅ [ab4eaa85] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:20:58,189 - api_gateway.main - INFO - 🔄 [bc3152ad] GET /api/health/status
+2025-09-19 05:20:58,190 - api_gateway.main - INFO - ✅ [bc3152ad] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:21:29,190 - api_gateway.main - INFO - 🔄 [bbef966e] GET /api/health/status
+2025-09-19 05:21:29,206 - api_gateway.main - INFO - ✅ [bbef966e] 200 | 0.017s | 127.0.0.1
+2025-09-19 05:22:01,128 - api_gateway.main - INFO - 🔄 [ed426c70] GET /api/health/status
+2025-09-19 05:22:01,143 - api_gateway.main - INFO - ✅ [ed426c70] 200 | 0.015s | 127.0.0.1
+2025-09-19 05:22:31,919 - api_gateway.main - INFO - 🔄 [09136a83] GET /api/health/status
+2025-09-19 05:22:31,920 - api_gateway.main - INFO - ✅ [09136a83] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:23:01,002 - api_gateway.main - INFO - 🔄 [c86d1488] GET /api/health/status
+2025-09-19 05:23:01,013 - api_gateway.main - INFO - ✅ [c86d1488] 200 | 0.012s | 127.0.0.1
+2025-09-19 05:23:32,075 - api_gateway.main - INFO - 🔄 [01b70aa3] GET /api/health/status
+2025-09-19 05:23:32,077 - api_gateway.main - INFO - ✅ [01b70aa3] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:24:02,623 - api_gateway.main - INFO - 🔄 [0e1586b9] GET /api/health/status
+2025-09-19 05:24:02,624 - api_gateway.main - INFO - ✅ [0e1586b9] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:24:33,173 - api_gateway.main - INFO - 🔄 [afbc3def] GET /api/health/status
+2025-09-19 05:24:33,174 - api_gateway.main - INFO - ✅ [afbc3def] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:25:04,255 - api_gateway.main - INFO - 🔄 [1b1fe1ca] GET /api/health/status
+2025-09-19 05:25:04,257 - api_gateway.main - INFO - ✅ [1b1fe1ca] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:25:35,617 - api_gateway.main - INFO - 🔄 [19a233b7] GET /api/health/status
+2025-09-19 05:25:35,619 - api_gateway.main - INFO - ✅ [19a233b7] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:26:06,424 - api_gateway.main - INFO - 🔄 [7ddb3bba] GET /api/health/status
+2025-09-19 05:26:06,426 - api_gateway.main - INFO - ✅ [7ddb3bba] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:26:36,370 - api_gateway.main - INFO - 🔄 [ee066628] GET /api/health/status
+2025-09-19 05:26:36,372 - api_gateway.main - INFO - ✅ [ee066628] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:27:07,424 - api_gateway.main - INFO - 🔄 [a3e7418c] GET /api/health/status
+2025-09-19 05:27:07,426 - api_gateway.main - INFO - ✅ [a3e7418c] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:27:39,682 - api_gateway.main - INFO - 🔄 [de89123a] GET /api/health/status
+2025-09-19 05:27:39,683 - api_gateway.main - INFO - ✅ [de89123a] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:27:55,918 - api_gateway.main - INFO - 🔄 [a43df8be] GET /api/health/status
+2025-09-19 05:27:55,920 - api_gateway.main - INFO - ✅ [a43df8be] 200 | 0.002s | 172.17.0.1
+2025-09-19 05:24:08,185 - api_gateway.main - INFO - 🔄 [8aed440b] POST /api/translation/upload
+2025-09-19 05:24:13,305 - api_gateway.routers.translation - ERROR - 文件上传失败: (pymysql.err.OperationalError) (2013, 'Lost connection to MySQL server during query')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-09-19 05:24:13,308 - api_gateway.main - INFO - ✅ [8aed440b] 500 | 5.123s | 172.17.0.1
+2025-09-19 05:24:17,659 - api_gateway.main - INFO - 🔄 [2de5203d] GET /api/health/status
+2025-09-19 05:24:17,661 - api_gateway.main - INFO - ✅ [2de5203d] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:28:39,176 - api_gateway.main - INFO - 🔄 [c3634228] GET /api/health/status
+2025-09-19 05:28:39,181 - api_gateway.main - INFO - ✅ [c3634228] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:29:09,669 - api_gateway.main - INFO - 🔄 [24f07557] GET /api/health/status
+2025-09-19 05:29:09,670 - api_gateway.main - INFO - ✅ [24f07557] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:29:40,278 - api_gateway.main - INFO - 🔄 [a738ae08] GET /api/health/status
+2025-09-19 05:29:40,280 - api_gateway.main - INFO - ✅ [a738ae08] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:26:19,401 - api_gateway.main - INFO - 🔄 [216ae412] GET /api/health/status
+2025-09-19 05:26:19,403 - api_gateway.main - INFO - ✅ [216ae412] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:30:40,913 - api_gateway.main - INFO - 🔄 [a08bad1f] GET /api/health/status
+2025-09-19 05:30:40,915 - api_gateway.main - INFO - ✅ [a08bad1f] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:31:11,933 - api_gateway.main - INFO - 🔄 [9c1e9309] GET /api/health/status
+2025-09-19 05:31:11,934 - api_gateway.main - INFO - ✅ [9c1e9309] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:31:42,788 - api_gateway.main - INFO - 🔄 [3c92a3ea] GET /api/health/status
+2025-09-19 05:31:42,791 - api_gateway.main - INFO - ✅ [3c92a3ea] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:28:22,069 - api_gateway.main - INFO - 🔄 [da7b9a3f] GET /api/health/status
+2025-09-19 05:28:22,072 - api_gateway.main - INFO - ✅ [da7b9a3f] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:28:52,152 - api_gateway.main - INFO - 🔄 [0fa8ea88] GET /api/health/status
+2025-09-19 05:28:52,153 - api_gateway.main - INFO - ✅ [0fa8ea88] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:33:13,405 - api_gateway.main - INFO - 🔄 [a0b58673] GET /api/health/status
+2025-09-19 05:33:13,406 - api_gateway.main - INFO - ✅ [a0b58673] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:33:44,475 - api_gateway.main - INFO - 🔄 [3ec4735b] GET /api/health/status
+2025-09-19 05:33:44,477 - api_gateway.main - INFO - ✅ [3ec4735b] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:34:15,305 - api_gateway.main - INFO - 🔄 [8790c62a] GET /api/health/status
+2025-09-19 05:34:15,306 - api_gateway.main - INFO - ✅ [8790c62a] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:34:45,604 - api_gateway.main - INFO - 🔄 [f3cf9869] GET /api/health/status
+2025-09-19 05:34:45,605 - api_gateway.main - INFO - ✅ [f3cf9869] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:35:16,721 - api_gateway.main - INFO - 🔄 [5c57a2dd] GET /api/health/status
+2025-09-19 05:35:16,727 - api_gateway.main - INFO - ✅ [5c57a2dd] 200 | 0.005s | 127.0.0.1
+2025-09-19 05:35:47,601 - api_gateway.main - INFO - 🔄 [5054c90d] GET /api/health/status
+2025-09-19 05:35:47,604 - api_gateway.main - INFO - ✅ [5054c90d] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:36:18,232 - api_gateway.main - INFO - 🔄 [060edbae] GET /api/health/status
+2025-09-19 05:36:18,233 - api_gateway.main - INFO - ✅ [060edbae] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:32:58,004 - api_gateway.main - INFO - 🔄 [212a12ad] GET /api/health/status
+2025-09-19 05:32:58,006 - api_gateway.main - INFO - ✅ [212a12ad] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:33:28,097 - api_gateway.main - INFO - 🔄 [8343de7f] GET /api/health/status
+2025-09-19 05:33:28,098 - api_gateway.main - INFO - ✅ [8343de7f] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:37:49,593 - api_gateway.main - INFO - 🔄 [be228d38] GET /api/health/status
+2025-09-19 05:37:49,595 - api_gateway.main - INFO - ✅ [be228d38] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:38:19,683 - api_gateway.main - INFO - 🔄 [12b73f4d] GET /api/health/status
+2025-09-19 05:38:19,685 - api_gateway.main - INFO - ✅ [12b73f4d] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:38:51,175 - api_gateway.main - INFO - 🔄 [b3e6b10c] GET /api/health/status
+2025-09-19 05:38:51,177 - api_gateway.main - INFO - ✅ [b3e6b10c] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:39:22,706 - api_gateway.main - INFO - 🔄 [44673f84] GET /api/health/status
+2025-09-19 05:39:22,708 - api_gateway.main - INFO - ✅ [44673f84] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:39:53,315 - api_gateway.main - INFO - 🔄 [33f6a95f] GET /api/health/status
+2025-09-19 05:39:53,316 - api_gateway.main - INFO - ✅ [33f6a95f] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:40:23,154 - api_gateway.main - INFO - 🔄 [e2244e5c] GET /api/health/status
+2025-09-19 05:40:23,155 - api_gateway.main - INFO - ✅ [e2244e5c] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:40:54,012 - api_gateway.main - INFO - 🔄 [2e2fd6c0] GET /api/health/status
+2025-09-19 05:40:54,014 - api_gateway.main - INFO - ✅ [2e2fd6c0] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:37:32,970 - api_gateway.main - INFO - 🔄 [0a6f29bb] GET /api/health/status
+2025-09-19 05:37:32,971 - api_gateway.main - INFO - ✅ [0a6f29bb] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:41:54,233 - api_gateway.main - INFO - 🔄 [66146b86] GET /api/health/status
+2025-09-19 05:41:54,235 - api_gateway.main - INFO - ✅ [66146b86] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:42:25,200 - api_gateway.main - INFO - 🔄 [670a520a] GET /api/health/status
+2025-09-19 05:42:25,218 - api_gateway.main - INFO - ✅ [670a520a] 200 | 0.018s | 127.0.0.1
+2025-09-19 05:42:56,471 - api_gateway.main - INFO - 🔄 [530ddd2d] GET /api/health/status
+2025-09-19 05:42:56,473 - api_gateway.main - INFO - ✅ [530ddd2d] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:39:35,892 - api_gateway.main - INFO - 🔄 [097146eb] GET /api/health/status
+2025-09-19 05:39:35,896 - api_gateway.main - INFO - ✅ [097146eb] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:43:59,291 - api_gateway.main - INFO - 🔄 [c8669fe6] GET /api/health/status
+2025-09-19 05:43:59,293 - api_gateway.main - INFO - ✅ [c8669fe6] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:44:21,134 - api_gateway.main - INFO - 🔄 [1f043915] GET /api/health/status
+2025-09-19 05:44:21,137 - api_gateway.main - INFO - ✅ [1f043915] 200 | 0.003s | 172.17.0.1
+2025-09-19 05:44:27,963 - api_gateway.main - INFO - 🔄 [b5c0c351] GET /api/health/status
+2025-09-19 05:44:27,964 - api_gateway.main - INFO - ✅ [b5c0c351] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:44:32,804 - api_gateway.main - INFO - 🔄 [d686236d] POST /api/translation/upload
+2025-09-19 05:44:35,385 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:44:35,386 - sqlalchemy.engine.Engine - INFO - INSERT INTO translation_tasks (id, project_id, version_id, task_name, input_file_id, output_file_id, config, status, total_rows, translated_rows, current_iteration, max_iterations, total_api_calls, total_tokens_used, total_cost, error_message, created_at, updated_at, completed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now(), %s)
+2025-09-19 05:44:35,386 - sqlalchemy.engine.Engine - INFO - [cached since 1543s ago] ('fafbe22b-fe16-4f7e-96a5-9f04d23f9b51', 'temp-project', 'temp-version', 'Translation: sfdaf.xlsx', 'temp-file', None, '{"target_languages": ["pt", "th", "ind"], "batch_size": 3, "max_concurrent": 10, "region_code": "na", "game_background": null, "file_name": "sfdaf.xlsx"}', 'uploading', 190, 0, 0, 5, 0, 0, 0.0, None, None)
+2025-09-19 05:44:35,778 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:44:36,585 - api_gateway.routers.translation - INFO - 📁 文件上传成功: sfdaf.xlsx, 任务ID: fafbe22b-fe16-4f7e-96a5-9f04d23f9b51
+2025-09-19 05:44:36,586 - api_gateway.main - INFO - ✅ [d686236d] 200 | 3.782s | 172.17.0.1
+2025-09-19 05:44:36,587 - api_gateway.routers.translation - INFO - 🚀 开始执行翻译任务: fafbe22b-fe16-4f7e-96a5-9f04d23f9b51
+2025-09-19 05:44:36,587 - translation_core.translation_engine - INFO - 开始处理翻译任务: fafbe22b-fe16-4f7e-96a5-9f04d23f9b51
+2025-09-19 05:44:36,980 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:44:36,981 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:44:36,982 - sqlalchemy.engine.Engine - INFO - [cached since 1542s ago] ('fafbe22b-fe16-4f7e-96a5-9f04d23f9b51',)
+2025-09-19 05:44:37,375 - sqlalchemy.engine.Engine - INFO - UPDATE translation_tasks SET status=%s, updated_at=%s WHERE translation_tasks.id = %s
+2025-09-19 05:44:37,376 - sqlalchemy.engine.Engine - INFO - [cached since 1542s ago] ('analyzing', datetime.datetime(2025, 9, 19, 5, 44, 37, 375489), 'fafbe22b-fe16-4f7e-96a5-9f04d23f9b51')
+2025-09-19 05:44:37,769 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:44:38,596 - translation_core.translation_engine - INFO - 加载Excel文件成功，总行数: 98
+2025-09-19 05:44:38,599 - translation_core.translation_engine - INFO - 表头分析完成，可翻译行数: 0
+2025-09-19 05:44:38,599 - translation_core.translation_engine - INFO - 检测到翻译任务: 0个
+2025-09-19 05:44:38,600 - translation_core.translation_engine - INFO - 没有需要翻译的内容
+2025-09-19 05:44:38,992 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:44:38,993 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:44:38,993 - sqlalchemy.engine.Engine - INFO - [cached since 1544s ago] ('fafbe22b-fe16-4f7e-96a5-9f04d23f9b51',)
+2025-09-19 05:44:39,384 - sqlalchemy.engine.Engine - INFO - UPDATE translation_tasks SET status=%s, updated_at=%s, completed_at=%s WHERE translation_tasks.id = %s
+2025-09-19 05:44:39,385 - sqlalchemy.engine.Engine - INFO - [cached since 1542s ago] ('completed', datetime.datetime(2025, 9, 19, 5, 44, 39, 384538), datetime.datetime(2025, 9, 19, 5, 44, 39, 384533), 'fafbe22b-fe16-4f7e-96a5-9f04d23f9b51')
+2025-09-19 05:44:39,776 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:44:40,563 - api_gateway.main - INFO - 🔄 [175cc453] GET /api/translation/tasks/fafbe22b-fe16-4f7e-96a5-9f04d23f9b51/status
+2025-09-19 05:44:40,957 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:44:40,958 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:44:40,958 - sqlalchemy.engine.Engine - INFO - [cached since 1546s ago] ('fafbe22b-fe16-4f7e-96a5-9f04d23f9b51',)
+2025-09-19 05:40:50,975 - api_gateway.main - INFO - ✅ [175cc453] 200 | -229.588s | 172.17.0.1
+2025-09-19 05:40:50,977 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:44:43,271 - api_gateway.main - INFO - 🔄 [caa4ef28] GET /api/translation/tasks/fafbe22b-fe16-4f7e-96a5-9f04d23f9b51/status
+2025-09-19 05:44:43,701 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:44:43,702 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:44:43,702 - sqlalchemy.engine.Engine - INFO - [cached since 1548s ago] ('fafbe22b-fe16-4f7e-96a5-9f04d23f9b51',)
+2025-09-19 05:44:44,130 - api_gateway.main - INFO - ✅ [caa4ef28] 200 | 0.860s | 172.17.0.1
+2025-09-19 05:44:44,132 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:44:51,746 - api_gateway.main - INFO - 🔄 [7a98dcfa] GET /api/translation/tasks/fafbe22b-fe16-4f7e-96a5-9f04d23f9b51/download
+2025-09-19 05:44:52,177 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-09-19 05:44:52,178 - sqlalchemy.engine.Engine - INFO - SELECT translation_tasks.id, translation_tasks.project_id, translation_tasks.version_id, translation_tasks.task_name, translation_tasks.input_file_id, translation_tasks.output_file_id, translation_tasks.config, translation_tasks.status, translation_tasks.total_rows, translation_tasks.translated_rows, translation_tasks.current_iteration, translation_tasks.max_iterations, translation_tasks.total_api_calls, translation_tasks.total_tokens_used, translation_tasks.total_cost, translation_tasks.error_message, translation_tasks.created_at, translation_tasks.updated_at, translation_tasks.completed_at 
+FROM translation_tasks 
+WHERE translation_tasks.id = %s
+2025-09-19 05:44:52,178 - sqlalchemy.engine.Engine - INFO - [cached since 1556s ago] ('fafbe22b-fe16-4f7e-96a5-9f04d23f9b51',)
+2025-09-19 05:44:52,610 - api_gateway.main - INFO - ✅ [7a98dcfa] 200 | 0.864s | 172.17.0.1
+2025-09-19 05:44:52,612 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-09-19 05:44:59,099 - api_gateway.main - INFO - 🔄 [bea73fcd] GET /api/health/status
+2025-09-19 05:44:59,101 - api_gateway.main - INFO - ✅ [bea73fcd] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:41:38,609 - api_gateway.main - INFO - 🔄 [164aa1a2] GET /api/health/status
+2025-09-19 05:41:38,611 - api_gateway.main - INFO - ✅ [164aa1a2] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:46:00,200 - api_gateway.main - INFO - 🔄 [3c11320d] GET /api/health/status
+2025-09-19 05:46:00,201 - api_gateway.main - INFO - ✅ [3c11320d] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:46:30,281 - api_gateway.main - INFO - 🔄 [76d91942] GET /api/health/status
+2025-09-19 05:46:30,283 - api_gateway.main - INFO - ✅ [76d91942] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:47:01,282 - api_gateway.main - INFO - 🔄 [4775a619] GET /api/health/status
+2025-09-19 05:47:01,285 - api_gateway.main - INFO - ✅ [4775a619] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:47:32,203 - api_gateway.main - INFO - 🔄 [055bf0a1] GET /api/health/status
+2025-09-19 05:47:32,204 - api_gateway.main - INFO - ✅ [055bf0a1] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:48:03,059 - api_gateway.main - INFO - 🔄 [01f1ff03] GET /api/health/status
+2025-09-19 05:48:03,063 - api_gateway.main - INFO - ✅ [01f1ff03] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:44:42,081 - api_gateway.main - INFO - 🔄 [939564cc] GET /api/health/status
+2025-09-19 05:44:42,082 - api_gateway.main - INFO - ✅ [939564cc] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:49:03,286 - api_gateway.main - INFO - 🔄 [b822d07b] GET /api/health/status
+2025-09-19 05:49:03,287 - api_gateway.main - INFO - ✅ [b822d07b] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:49:34,512 - api_gateway.main - INFO - 🔄 [4e79fb8f] GET /api/health/status
+2025-09-19 05:49:34,515 - api_gateway.main - INFO - ✅ [4e79fb8f] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:50:05,268 - api_gateway.main - INFO - 🔄 [cdc4c99c] GET /api/health/status
+2025-09-19 05:50:05,276 - api_gateway.main - INFO - ✅ [cdc4c99c] 200 | 0.008s | 127.0.0.1
+2025-09-19 05:50:35,830 - api_gateway.main - INFO - 🔄 [ac03f3bc] GET /api/health/status
+2025-09-19 05:50:35,832 - api_gateway.main - INFO - ✅ [ac03f3bc] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:51:06,937 - api_gateway.main - INFO - 🔄 [dd0bbbc9] GET /api/health/status
+2025-09-19 05:51:06,940 - api_gateway.main - INFO - ✅ [dd0bbbc9] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:51:37,857 - api_gateway.main - INFO - 🔄 [6d408a94] GET /api/health/status
+2025-09-19 05:51:37,861 - api_gateway.main - INFO - ✅ [6d408a94] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:52:08,625 - api_gateway.main - INFO - 🔄 [8d3af66f] GET /api/health/status
+2025-09-19 05:52:08,629 - api_gateway.main - INFO - ✅ [8d3af66f] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:48:47,724 - api_gateway.main - INFO - 🔄 [22c2f133] GET /api/health/status
+2025-09-19 05:48:47,726 - api_gateway.main - INFO - ✅ [22c2f133] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:53:09,246 - api_gateway.main - INFO - 🔄 [bd69db8d] GET /api/health/status
+2025-09-19 05:53:09,248 - api_gateway.main - INFO - ✅ [bd69db8d] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:53:40,604 - api_gateway.main - INFO - 🔄 [cd3d5e8f] GET /api/health/status
+2025-09-19 05:53:40,608 - api_gateway.main - INFO - ✅ [cd3d5e8f] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:54:10,134 - api_gateway.main - INFO - 🔄 [2f1ace05] GET /api/health/status
+2025-09-19 05:54:10,138 - api_gateway.main - INFO - ✅ [2f1ace05] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:54:40,697 - api_gateway.main - INFO - 🔄 [3b62943f] GET /api/health/status
+2025-09-19 05:54:40,699 - api_gateway.main - INFO - ✅ [3b62943f] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:55:12,639 - api_gateway.main - INFO - 🔄 [c987acee] GET /api/health/status
+2025-09-19 05:55:12,644 - api_gateway.main - INFO - ✅ [c987acee] 200 | 0.005s | 127.0.0.1
+2025-09-19 05:55:42,780 - api_gateway.main - INFO - 🔄 [33e6051b] GET /api/health/status
+2025-09-19 05:55:42,782 - api_gateway.main - INFO - ✅ [33e6051b] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:56:13,506 - api_gateway.main - INFO - 🔄 [35e5a2cd] GET /api/health/status
+2025-09-19 05:56:13,519 - api_gateway.main - INFO - ✅ [35e5a2cd] 200 | 0.013s | 127.0.0.1
+2025-09-19 05:56:44,081 - api_gateway.main - INFO - 🔄 [903a495c] GET /api/health/status
+2025-09-19 05:56:44,085 - api_gateway.main - INFO - ✅ [903a495c] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:57:15,127 - api_gateway.main - INFO - 🔄 [7f2aac48] GET /api/health/status
+2025-09-19 05:57:15,129 - api_gateway.main - INFO - ✅ [7f2aac48] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:57:47,266 - api_gateway.main - INFO - 🔄 [6f3bc572] GET /api/health/status
+2025-09-19 05:57:47,269 - api_gateway.main - INFO - ✅ [6f3bc572] 200 | 0.003s | 127.0.0.1
+2025-09-19 05:58:16,714 - api_gateway.main - INFO - 🔄 [c1df1f3d] GET /api/health/status
+2025-09-19 05:58:16,720 - api_gateway.main - INFO - ✅ [c1df1f3d] 200 | 0.007s | 127.0.0.1
+2025-09-19 05:58:49,776 - api_gateway.main - INFO - 🔄 [65ec304e] GET /api/health/status
+2025-09-19 05:58:49,778 - api_gateway.main - INFO - ✅ [65ec304e] 200 | 0.002s | 127.0.0.1
+2025-09-19 05:59:18,251 - api_gateway.main - INFO - 🔄 [bac30644] GET /api/health/status
+2025-09-19 05:59:18,252 - api_gateway.main - INFO - ✅ [bac30644] 200 | 0.001s | 127.0.0.1
+2025-09-19 05:59:49,096 - api_gateway.main - INFO - 🔄 [1dacc651] GET /api/health/status
+2025-09-19 05:59:49,098 - api_gateway.main - INFO - ✅ [1dacc651] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:00:19,740 - api_gateway.main - INFO - 🔄 [4ce7e669] GET /api/health/status
+2025-09-19 06:00:19,741 - api_gateway.main - INFO - ✅ [4ce7e669] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:00:52,381 - api_gateway.main - INFO - 🔄 [fff0db6e] GET /api/health/status
+2025-09-19 06:00:52,385 - api_gateway.main - INFO - ✅ [fff0db6e] 200 | 0.004s | 127.0.0.1
+2025-09-19 05:57:29,851 - api_gateway.main - INFO - 🔄 [e2199fab] GET /api/health/status
+2025-09-19 05:57:29,853 - api_gateway.main - INFO - ✅ [e2199fab] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:01:51,307 - api_gateway.main - INFO - 🔄 [baafa185] GET /api/health/status
+2025-09-19 06:01:51,309 - api_gateway.main - INFO - ✅ [baafa185] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:02:20,509 - api_gateway.main - INFO - 🔄 [3ae9a5f8] GET /openapi.json
+2025-09-19 06:02:20,535 - api_gateway.main - INFO - ✅ [3ae9a5f8] 200 | 0.026s | 172.17.0.1
+2025-09-19 06:02:21,428 - api_gateway.main - INFO - 🔄 [0a95d6d7] GET /api/health/status
+2025-09-19 06:02:21,429 - api_gateway.main - INFO - ✅ [0a95d6d7] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:02:52,596 - api_gateway.main - INFO - 🔄 [406422e7] GET /api/health/status
+2025-09-19 06:02:52,597 - api_gateway.main - INFO - ✅ [406422e7] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:03:23,696 - api_gateway.main - INFO - 🔄 [f326e783] GET /api/health/status
+2025-09-19 06:03:23,699 - api_gateway.main - INFO - ✅ [f326e783] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:03:55,624 - api_gateway.main - INFO - 🔄 [368ec0be] GET /api/health/status
+2025-09-19 06:03:55,628 - api_gateway.main - INFO - ✅ [368ec0be] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:04:25,026 - api_gateway.main - INFO - 🔄 [2e327fbc] GET /api/health/status
+2025-09-19 06:04:25,027 - api_gateway.main - INFO - ✅ [2e327fbc] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:04:57,315 - api_gateway.main - INFO - 🔄 [d961dfb2] GET /api/health/status
+2025-09-19 06:04:57,318 - api_gateway.main - INFO - ✅ [d961dfb2] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:01:35,757 - api_gateway.main - INFO - 🔄 [059128c1] GET /api/health/status
+2025-09-19 06:01:35,759 - api_gateway.main - INFO - ✅ [059128c1] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:02:05,808 - api_gateway.main - INFO - 🔄 [c7c7c4b2] GET /api/health/status
+2025-09-19 06:02:05,809 - api_gateway.main - INFO - ✅ [c7c7c4b2] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:06:29,094 - api_gateway.main - INFO - 🔄 [ba13b573] GET /api/health/status
+2025-09-19 06:06:29,095 - api_gateway.main - INFO - ✅ [ba13b573] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:06:59,282 - api_gateway.main - INFO - 🔄 [07d0cbb6] GET /api/health/status
+2025-09-19 06:06:59,283 - api_gateway.main - INFO - ✅ [07d0cbb6] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:07:29,703 - api_gateway.main - INFO - 🔄 [c8319546] GET /api/health/status
+2025-09-19 06:07:29,704 - api_gateway.main - INFO - ✅ [c8319546] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:07:58,417 - api_gateway.main - INFO - 🔄 [f58e6c21] GET /api/health/status
+2025-09-19 06:07:58,419 - api_gateway.main - INFO - ✅ [f58e6c21] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:08:29,225 - api_gateway.main - INFO - 🔄 [86f8aae5] GET /api/health/status
+2025-09-19 06:08:29,241 - api_gateway.main - INFO - ✅ [86f8aae5] 200 | 0.016s | 127.0.0.1
+2025-09-19 06:09:02,749 - api_gateway.main - INFO - 🔄 [90e7b201] GET /api/health/status
+2025-09-19 06:09:02,752 - api_gateway.main - INFO - ✅ [90e7b201] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:09:30,839 - api_gateway.main - INFO - 🔄 [9d6e7d4f] GET /api/health/status
+2025-09-19 06:09:30,842 - api_gateway.main - INFO - ✅ [9d6e7d4f] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:06:10,225 - api_gateway.main - INFO - 🔄 [17d30926] GET /api/health/status
+2025-09-19 06:06:10,228 - api_gateway.main - INFO - ✅ [17d30926] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:10:31,751 - api_gateway.main - INFO - 🔄 [4fa0f90f] GET /api/health/status
+2025-09-19 06:10:31,752 - api_gateway.main - INFO - ✅ [4fa0f90f] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:11:01,816 - api_gateway.main - INFO - 🔄 [dc5a1add] GET /api/health/status
+2025-09-19 06:11:01,817 - api_gateway.main - INFO - ✅ [dc5a1add] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:11:33,088 - api_gateway.main - INFO - 🔄 [7886c9a5] GET /api/health/status
+2025-09-19 06:11:33,089 - api_gateway.main - INFO - ✅ [7886c9a5] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:12:03,487 - api_gateway.main - INFO - 🔄 [52e044c3] GET /api/health/status
+2025-09-19 06:12:03,489 - api_gateway.main - INFO - ✅ [52e044c3] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:12:34,039 - api_gateway.main - INFO - 🔄 [6215774b] GET /api/health/status
+2025-09-19 06:12:34,040 - api_gateway.main - INFO - ✅ [6215774b] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:13:05,256 - api_gateway.main - INFO - 🔄 [373134cf] GET /api/health/status
+2025-09-19 06:13:05,257 - api_gateway.main - INFO - ✅ [373134cf] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:13:38,059 - api_gateway.main - INFO - 🔄 [8d4e7da4] GET /api/health/status
+2025-09-19 06:13:38,060 - api_gateway.main - INFO - ✅ [8d4e7da4] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:10:15,340 - api_gateway.main - INFO - 🔄 [ac1470aa] GET /api/health/status
+2025-09-19 06:10:15,342 - api_gateway.main - INFO - ✅ [ac1470aa] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:10:45,412 - api_gateway.main - INFO - 🔄 [417cfce6] GET /api/health/status
+2025-09-19 06:10:45,413 - api_gateway.main - INFO - ✅ [417cfce6] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:15:06,643 - api_gateway.main - INFO - 🔄 [15019841] GET /api/health/status
+2025-09-19 06:15:06,644 - api_gateway.main - INFO - ✅ [15019841] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:15:37,790 - api_gateway.main - INFO - 🔄 [be16a728] GET /api/health/status
+2025-09-19 06:15:37,792 - api_gateway.main - INFO - ✅ [be16a728] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:16:10,710 - api_gateway.main - INFO - 🔄 [cfb9dd99] GET /api/health/status
+2025-09-19 06:16:10,711 - api_gateway.main - INFO - ✅ [cfb9dd99] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:16:39,046 - api_gateway.main - INFO - 🔄 [6588c6bf] GET /api/health/status
+2025-09-19 06:16:39,047 - api_gateway.main - INFO - ✅ [6588c6bf] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:17:10,221 - api_gateway.main - INFO - 🔄 [831640fb] GET /api/health/status
+2025-09-19 06:17:10,222 - api_gateway.main - INFO - ✅ [831640fb] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:17:43,095 - api_gateway.main - INFO - 🔄 [dd408dd6] GET /api/health/status
+2025-09-19 06:17:43,096 - api_gateway.main - INFO - ✅ [dd408dd6] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:18:11,808 - api_gateway.main - INFO - 🔄 [8358c54d] GET /api/health/status
+2025-09-19 06:18:11,809 - api_gateway.main - INFO - ✅ [8358c54d] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:18:41,917 - api_gateway.main - INFO - 🔄 [dce33713] GET /api/health/status
+2025-09-19 06:18:41,918 - api_gateway.main - INFO - ✅ [dce33713] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:19:12,035 - api_gateway.main - INFO - 🔄 [9d68cef2] GET /api/health/status
+2025-09-19 06:19:12,037 - api_gateway.main - INFO - ✅ [9d68cef2] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:19:42,378 - api_gateway.main - INFO - 🔄 [3cd4f775] GET /api/health/status
+2025-09-19 06:19:42,379 - api_gateway.main - INFO - ✅ [3cd4f775] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:20:13,052 - api_gateway.main - INFO - 🔄 [1568e9e5] GET /api/health/status
+2025-09-19 06:20:13,054 - api_gateway.main - INFO - ✅ [1568e9e5] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:20:44,077 - api_gateway.main - INFO - 🔄 [86fbda09] GET /api/health/status
+2025-09-19 06:20:44,078 - api_gateway.main - INFO - ✅ [86fbda09] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:21:14,593 - api_gateway.main - INFO - 🔄 [461f0200] GET /api/health/status
+2025-09-19 06:21:14,594 - api_gateway.main - INFO - ✅ [461f0200] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:21:44,897 - api_gateway.main - INFO - 🔄 [3b801df8] GET /api/health/status
+2025-09-19 06:21:44,898 - api_gateway.main - INFO - ✅ [3b801df8] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:22:15,342 - api_gateway.main - INFO - 🔄 [b7f5ed4e] GET /api/health/status
+2025-09-19 06:22:15,343 - api_gateway.main - INFO - ✅ [b7f5ed4e] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:18:54,422 - api_gateway.main - INFO - 🔄 [65d0bc40] GET /api/health/status
+2025-09-19 06:18:54,423 - api_gateway.main - INFO - ✅ [65d0bc40] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:19:24,470 - api_gateway.main - INFO - 🔄 [366fa3c5] GET /api/health/status
+2025-09-19 06:19:24,471 - api_gateway.main - INFO - ✅ [366fa3c5] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:23:47,993 - api_gateway.main - INFO - 🔄 [f7d2b67e] GET /api/health/status
+2025-09-19 06:23:47,995 - api_gateway.main - INFO - ✅ [f7d2b67e] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:24:16,184 - api_gateway.main - INFO - 🔄 [5eb8ed4e] GET /api/health/status
+2025-09-19 06:24:16,186 - api_gateway.main - INFO - ✅ [5eb8ed4e] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:24:46,631 - api_gateway.main - INFO - 🔄 [bb99281b] GET /api/health/status
+2025-09-19 06:24:46,632 - api_gateway.main - INFO - ✅ [bb99281b] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:25:17,571 - api_gateway.main - INFO - 🔄 [5e54740d] GET /api/health/status
+2025-09-19 06:25:17,574 - api_gateway.main - INFO - ✅ [5e54740d] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:25:48,442 - api_gateway.main - INFO - 🔄 [db8d0a05] GET /api/health/status
+2025-09-19 06:25:48,443 - api_gateway.main - INFO - ✅ [db8d0a05] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:26:19,126 - api_gateway.main - INFO - 🔄 [fdea0d63] GET /api/health/status
+2025-09-19 06:26:19,128 - api_gateway.main - INFO - ✅ [fdea0d63] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:26:49,626 - api_gateway.main - INFO - 🔄 [e07f12fa] GET /api/health/status
+2025-09-19 06:26:49,627 - api_gateway.main - INFO - ✅ [e07f12fa] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:23:29,239 - api_gateway.main - INFO - 🔄 [75f70e27] GET /api/health/status
+2025-09-19 06:23:29,240 - api_gateway.main - INFO - ✅ [75f70e27] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:27:50,448 - api_gateway.main - INFO - 🔄 [66cb4ca4] GET /api/health/status
+2025-09-19 06:27:50,450 - api_gateway.main - INFO - ✅ [66cb4ca4] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:28:22,259 - api_gateway.main - INFO - 🔄 [7ae6e2f9] GET /api/health/status
+2025-09-19 06:28:22,260 - api_gateway.main - INFO - ✅ [7ae6e2f9] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:28:51,824 - api_gateway.main - INFO - 🔄 [4a5bd7a5] GET /api/health/status
+2025-09-19 06:28:51,825 - api_gateway.main - INFO - ✅ [4a5bd7a5] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:29:23,778 - api_gateway.main - INFO - 🔄 [9fa9bba7] GET /api/health/status
+2025-09-19 06:29:23,779 - api_gateway.main - INFO - ✅ [9fa9bba7] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:29:55,822 - api_gateway.main - INFO - 🔄 [b85c5a47] GET /api/health/status
+2025-09-19 06:29:55,823 - api_gateway.main - INFO - ✅ [b85c5a47] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:30:24,273 - api_gateway.main - INFO - 🔄 [5dbc02af] GET /api/health/status
+2025-09-19 06:30:24,274 - api_gateway.main - INFO - ✅ [5dbc02af] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:30:55,453 - api_gateway.main - INFO - 🔄 [76b3b2a3] GET /api/health/status
+2025-09-19 06:30:55,454 - api_gateway.main - INFO - ✅ [76b3b2a3] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:27:35,026 - api_gateway.main - INFO - 🔄 [6c1537c7] GET /api/health/status
+2025-09-19 06:27:35,027 - api_gateway.main - INFO - ✅ [6c1537c7] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:31:56,821 - api_gateway.main - INFO - 🔄 [3771eaa4] GET /api/health/status
+2025-09-19 06:31:56,822 - api_gateway.main - INFO - ✅ [3771eaa4] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:32:26,784 - api_gateway.main - INFO - 🔄 [56dfaa60] GET /api/health/status
+2025-09-19 06:32:26,785 - api_gateway.main - INFO - ✅ [56dfaa60] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:32:57,030 - api_gateway.main - INFO - 🔄 [dccd2a17] GET /api/health/status
+2025-09-19 06:32:57,031 - api_gateway.main - INFO - ✅ [dccd2a17] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:33:28,044 - api_gateway.main - INFO - 🔄 [69a047dd] GET /api/health/status
+2025-09-19 06:33:28,047 - api_gateway.main - INFO - ✅ [69a047dd] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:33:58,851 - api_gateway.main - INFO - 🔄 [2d49cebb] GET /api/health/status
+2025-09-19 06:33:58,853 - api_gateway.main - INFO - ✅ [2d49cebb] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:34:29,478 - api_gateway.main - INFO - 🔄 [af0ad71f] GET /api/health/status
+2025-09-19 06:34:29,480 - api_gateway.main - INFO - ✅ [af0ad71f] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:35:00,627 - api_gateway.main - INFO - 🔄 [39e90f64] GET /api/health/status
+2025-09-19 06:35:00,628 - api_gateway.main - INFO - ✅ [39e90f64] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:31:40,201 - api_gateway.main - INFO - 🔄 [cf3822e0] GET /api/health/status
+2025-09-19 06:31:40,205 - api_gateway.main - INFO - ✅ [cf3822e0] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:32:10,301 - api_gateway.main - INFO - 🔄 [db2a920f] GET /api/health/status
+2025-09-19 06:32:10,302 - api_gateway.main - INFO - ✅ [db2a920f] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:36:31,925 - api_gateway.main - INFO - 🔄 [285fd579] GET /api/health/status
+2025-09-19 06:36:31,937 - api_gateway.main - INFO - ✅ [285fd579] 200 | 0.012s | 127.0.0.1
+2025-09-19 06:37:05,062 - api_gateway.main - INFO - 🔄 [85f38bc7] GET /api/health/status
+2025-09-19 06:37:05,067 - api_gateway.main - INFO - ✅ [85f38bc7] 200 | 0.005s | 127.0.0.1
+2025-09-19 06:37:33,503 - api_gateway.main - INFO - 🔄 [68945655] GET /api/health/status
+2025-09-19 06:37:33,504 - api_gateway.main - INFO - ✅ [68945655] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:38:04,139 - api_gateway.main - INFO - 🔄 [33a9a2e4] GET /api/health/status
+2025-09-19 06:38:04,141 - api_gateway.main - INFO - ✅ [33a9a2e4] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:38:34,718 - api_gateway.main - INFO - 🔄 [3f6fcee3] GET /api/health/status
+2025-09-19 06:38:34,719 - api_gateway.main - INFO - ✅ [3f6fcee3] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:39:07,144 - api_gateway.main - INFO - 🔄 [19675d23] GET /api/health/status
+2025-09-19 06:39:07,145 - api_gateway.main - INFO - ✅ [19675d23] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:39:36,900 - api_gateway.main - INFO - 🔄 [e5be5934] GET /api/health/status
+2025-09-19 06:39:36,901 - api_gateway.main - INFO - ✅ [e5be5934] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:36:16,102 - api_gateway.main - INFO - 🔄 [1bacd116] GET /api/health/status
+2025-09-19 06:36:16,104 - api_gateway.main - INFO - ✅ [1bacd116] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:40:37,316 - api_gateway.main - INFO - 🔄 [6daac035] GET /api/health/status
+2025-09-19 06:40:37,320 - api_gateway.main - INFO - ✅ [6daac035] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:41:08,700 - api_gateway.main - INFO - 🔄 [3b740683] GET /api/health/status
+2025-09-19 06:41:08,701 - api_gateway.main - INFO - ✅ [3b740683] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:41:39,684 - api_gateway.main - INFO - 🔄 [996dcdab] GET /api/health/status
+2025-09-19 06:41:39,691 - api_gateway.main - INFO - ✅ [996dcdab] 200 | 0.007s | 127.0.0.1
+2025-09-19 06:42:10,622 - api_gateway.main - INFO - 🔄 [ed08e490] GET /api/health/status
+2025-09-19 06:42:10,633 - api_gateway.main - INFO - ✅ [ed08e490] 200 | 0.009s | 127.0.0.1
+2025-09-19 06:42:41,274 - api_gateway.main - INFO - 🔄 [76340157] GET /api/health/status
+2025-09-19 06:42:41,287 - api_gateway.main - INFO - ✅ [76340157] 200 | 0.014s | 127.0.0.1
+2025-09-19 06:43:13,265 - api_gateway.main - INFO - 🔄 [809db836] GET /api/health/status
+2025-09-19 06:43:13,267 - api_gateway.main - INFO - ✅ [809db836] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:43:43,375 - api_gateway.main - INFO - 🔄 [18dd2e2b] GET /api/health/status
+2025-09-19 06:43:43,383 - api_gateway.main - INFO - ✅ [18dd2e2b] 200 | 0.008s | 127.0.0.1
+2025-09-19 06:44:14,322 - api_gateway.main - INFO - 🔄 [7e17f15a] GET /api/health/status
+2025-09-19 06:44:14,324 - api_gateway.main - INFO - ✅ [7e17f15a] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:44:44,440 - api_gateway.main - INFO - 🔄 [6662ae85] GET /api/health/status
+2025-09-19 06:44:44,442 - api_gateway.main - INFO - ✅ [6662ae85] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:45:14,761 - api_gateway.main - INFO - 🔄 [8b8c6acf] GET /api/health/status
+2025-09-19 06:45:14,765 - api_gateway.main - INFO - ✅ [8b8c6acf] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:45:45,731 - api_gateway.main - INFO - 🔄 [026faebd] GET /api/health/status
+2025-09-19 06:45:45,734 - api_gateway.main - INFO - ✅ [026faebd] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:46:16,474 - api_gateway.main - INFO - 🔄 [97753772] GET /api/health/status
+2025-09-19 06:46:16,477 - api_gateway.main - INFO - ✅ [97753772] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:46:47,041 - api_gateway.main - INFO - 🔄 [7a7dea7a] GET /api/health/status
+2025-09-19 06:46:47,043 - api_gateway.main - INFO - ✅ [7a7dea7a] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:47:18,085 - api_gateway.main - INFO - 🔄 [2a9e41a6] GET /api/health/status
+2025-09-19 06:47:18,086 - api_gateway.main - INFO - ✅ [2a9e41a6] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:47:48,954 - api_gateway.main - INFO - 🔄 [bef3c8de] GET /api/health/status
+2025-09-19 06:47:48,955 - api_gateway.main - INFO - ✅ [bef3c8de] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:48:19,652 - api_gateway.main - INFO - 🔄 [6cef53a9] GET /api/health/status
+2025-09-19 06:48:19,654 - api_gateway.main - INFO - ✅ [6cef53a9] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:48:50,121 - api_gateway.main - INFO - 🔄 [62c9b6ac] GET /api/health/status
+2025-09-19 06:48:50,122 - api_gateway.main - INFO - ✅ [62c9b6ac] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:49:21,165 - api_gateway.main - INFO - 🔄 [81e489e5] GET /api/health/status
+2025-09-19 06:49:21,166 - api_gateway.main - INFO - ✅ [81e489e5] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:49:52,167 - api_gateway.main - INFO - 🔄 [8c87fed7] GET /api/health/status
+2025-09-19 06:49:52,174 - api_gateway.main - INFO - ✅ [8c87fed7] 200 | 0.007s | 127.0.0.1
+2025-09-19 06:50:24,903 - api_gateway.main - INFO - 🔄 [0f7048e5] GET /api/health/status
+2025-09-19 06:50:24,908 - api_gateway.main - INFO - ✅ [0f7048e5] 200 | 0.005s | 127.0.0.1
+2025-09-19 06:50:53,442 - api_gateway.main - INFO - 🔄 [0116ab81] GET /api/health/status
+2025-09-19 06:50:53,447 - api_gateway.main - INFO - ✅ [0116ab81] 200 | 0.005s | 127.0.0.1
+2025-09-19 06:51:24,622 - api_gateway.main - INFO - 🔄 [a6d4bc75] GET /api/health/status
+2025-09-19 06:51:24,625 - api_gateway.main - INFO - ✅ [a6d4bc75] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:51:55,619 - api_gateway.main - INFO - 🔄 [735b186a] GET /api/health/status
+2025-09-19 06:51:55,622 - api_gateway.main - INFO - ✅ [735b186a] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:52:26,089 - api_gateway.main - INFO - 🔄 [dd3f5a1e] GET /api/health/status
+2025-09-19 06:52:26,091 - api_gateway.main - INFO - ✅ [dd3f5a1e] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:52:56,681 - api_gateway.main - INFO - 🔄 [458d348b] GET /api/health/status
+2025-09-19 06:52:56,682 - api_gateway.main - INFO - ✅ [458d348b] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:53:27,665 - api_gateway.main - INFO - 🔄 [4f71b5fb] GET /api/health/status
+2025-09-19 06:53:27,668 - api_gateway.main - INFO - ✅ [4f71b5fb] 200 | 0.003s | 127.0.0.1
+2025-09-19 06:53:58,637 - api_gateway.main - INFO - 🔄 [765ef289] GET /api/health/status
+2025-09-19 06:53:58,641 - api_gateway.main - INFO - ✅ [765ef289] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:54:30,202 - api_gateway.main - INFO - 🔄 [56922aad] GET /api/health/status
+2025-09-19 06:54:30,206 - api_gateway.main - INFO - ✅ [56922aad] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:54:59,295 - api_gateway.main - INFO - 🔄 [7f8cd34b] GET /api/health/status
+2025-09-19 06:54:59,299 - api_gateway.main - INFO - ✅ [7f8cd34b] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:55:30,812 - api_gateway.main - INFO - 🔄 [e9090a01] GET /api/health/status
+2025-09-19 06:55:30,813 - api_gateway.main - INFO - ✅ [e9090a01] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:56:01,811 - api_gateway.main - INFO - 🔄 [5bbab92d] GET /api/health/status
+2025-09-19 06:56:01,812 - api_gateway.main - INFO - ✅ [5bbab92d] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:52:40,341 - api_gateway.main - INFO - 🔄 [d76d8735] GET /api/health/status
+2025-09-19 06:52:40,343 - api_gateway.main - INFO - ✅ [d76d8735] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:57:01,583 - api_gateway.main - INFO - 🔄 [15692215] GET /api/health/status
+2025-09-19 06:57:01,587 - api_gateway.main - INFO - ✅ [15692215] 200 | 0.004s | 127.0.0.1
+2025-09-19 06:57:33,048 - api_gateway.main - INFO - 🔄 [2c178725] GET /api/health/status
+2025-09-19 06:57:33,049 - api_gateway.main - INFO - ✅ [2c178725] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:58:05,139 - api_gateway.main - INFO - 🔄 [bdc68114] GET /api/health/status
+2025-09-19 06:58:05,141 - api_gateway.main - INFO - ✅ [bdc68114] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:58:34,249 - api_gateway.main - INFO - 🔄 [7316c657] GET /api/health/status
+2025-09-19 06:58:34,251 - api_gateway.main - INFO - ✅ [7316c657] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:55:14,889 - api_gateway.main - INFO - 🔄 [07674bc6] GET /api/health/status
+2025-09-19 06:55:14,891 - api_gateway.main - INFO - ✅ [07674bc6] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:55:45,674 - api_gateway.main - INFO - 🔄 [40055da0] GET /api/health/status
+2025-09-19 06:55:45,675 - api_gateway.main - INFO - ✅ [40055da0] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:56:16,286 - api_gateway.main - INFO - 🔄 [e6f24309] GET /api/health/status
+2025-09-19 06:56:16,287 - api_gateway.main - INFO - ✅ [e6f24309] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:56:47,427 - api_gateway.main - INFO - 🔄 [4ab6a142] GET /api/health/status
+2025-09-19 06:56:47,429 - api_gateway.main - INFO - ✅ [4ab6a142] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:57:17,512 - api_gateway.main - INFO - 🔄 [a6f589af] GET /api/health/status
+2025-09-19 06:57:17,513 - api_gateway.main - INFO - ✅ [a6f589af] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:57:47,575 - api_gateway.main - INFO - 🔄 [2138b2a0] GET /api/health/status
+2025-09-19 06:57:47,577 - api_gateway.main - INFO - ✅ [2138b2a0] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:58:17,644 - api_gateway.main - INFO - 🔄 [4f733497] GET /api/health/status
+2025-09-19 06:58:17,645 - api_gateway.main - INFO - ✅ [4f733497] 200 | 0.001s | 127.0.0.1
+2025-09-19 06:58:48,791 - api_gateway.main - INFO - 🔄 [a2961af5] GET /api/health/status
+2025-09-19 06:58:48,793 - api_gateway.main - INFO - ✅ [a2961af5] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:59:19,762 - api_gateway.main - INFO - 🔄 [2b2cccf1] GET /api/health/status
+2025-09-19 06:59:19,763 - api_gateway.main - INFO - ✅ [2b2cccf1] 200 | 0.002s | 127.0.0.1
+2025-09-19 06:59:50,547 - api_gateway.main - INFO - 🔄 [c941cedd] GET /api/health/status
+2025-09-19 06:59:50,549 - api_gateway.main - INFO - ✅ [c941cedd] 200 | 0.001s | 127.0.0.1
+2025-09-19 07:00:21,138 - api_gateway.main - INFO - 🔄 [26c74963] GET /api/health/status
+2025-09-19 07:00:21,139 - api_gateway.main - INFO - ✅ [26c74963] 200 | 0.001s | 127.0.0.1
+2025-09-19 07:00:52,292 - api_gateway.main - INFO - 🔄 [e8e1737b] GET /api/health/status
+2025-09-19 07:00:52,294 - api_gateway.main - INFO - ✅ [e8e1737b] 200 | 0.002s | 127.0.0.1
+2025-09-19 07:01:22,408 - api_gateway.main - INFO - 🔄 [7d8b6bc9] GET /api/health/status
+2025-09-19 07:01:22,410 - api_gateway.main - INFO - ✅ [7d8b6bc9] 200 | 0.002s | 127.0.0.1
+2025-09-19 07:01:52,500 - api_gateway.main - INFO - 🔄 [8fc8d093] GET /api/health/status
+2025-09-19 07:01:52,502 - api_gateway.main - INFO - ✅ [8fc8d093] 200 | 0.002s | 127.0.0.1
+2025-09-19 07:06:14,538 - api_gateway.main - INFO - 🔄 [999fdd36] GET /api/health/status
+2025-09-19 07:06:14,545 - api_gateway.main - INFO - ✅ [999fdd36] 200 | 0.007s | 127.0.0.1
+2025-09-19 07:06:45,715 - api_gateway.main - INFO - 🔄 [ac19d3a1] GET /api/health/status
+2025-09-19 07:06:45,717 - api_gateway.main - INFO - ✅ [ac19d3a1] 200 | 0.002s | 127.0.0.1

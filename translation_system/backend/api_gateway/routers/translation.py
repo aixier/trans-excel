@@ -65,16 +65,26 @@ async def upload_translation_file(
 
         # 创建翻译任务记录
         task_id = str(uuid.uuid4())
+
+        # 准备配置信息
+        task_config = {
+            'target_languages': target_languages_list,
+            'batch_size': batch_size,
+            'max_concurrent': max_concurrent,
+            'region_code': region_code,
+            'game_background': game_background,
+            'file_name': file.filename  # 在config中保存文件名
+        }
+
         translation_task = TranslationTask(
             id=task_id,
-            file_name=file.filename,
-            target_languages=target_languages_list,
+            project_id='temp-project',  # 临时项目ID
+            version_id='temp-version',  # 临时版本ID
+            task_name=f"Translation: {file.filename}",
+            input_file_id='temp-file',  # 临时文件ID
+            config=task_config,
             total_rows=total_rows,
-            batch_size=batch_size,
-            max_concurrent=max_concurrent,
             max_iterations=5,  # 固定为5轮迭代
-            region_code=region_code,
-            game_background=game_background,
             status='uploading'
         )
 
