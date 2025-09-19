@@ -20,7 +20,7 @@ temp/
 *.sqlite
 
 # 配置文件
-.env
+# .env 文件需要被包含在镜像中
 .env.local
 
 # 上传和下载目录
