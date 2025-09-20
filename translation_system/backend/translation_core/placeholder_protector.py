@@ -10,24 +10,35 @@ class PlaceholderProtector:
     """占位符保护器 - 扩展Demo中的JSON格式保护"""
 
     def __init__(self):
-        # 占位符规则配置
+        # 占位符规则配置 - 扩展支持更多格式
         self.placeholder_patterns = [
             # C风格占位符
             (r'%[sdioxX%]', 'C_STYLE'),
-            (r'%\d*\.?\d*[sdioxX]', 'C_STYLE_NUM'),
+            (r'%\d*\.?\d*[sdioxXf]', 'C_STYLE_NUM'),
 
-            # 花括号占位符
+            # 花括号占位符 - 扩展支持
             (r'\{[^}]*\}', 'BRACE_STYLE'),
             (r'\{\d+\}', 'BRACE_NUM'),
+            (r'\{num\}', 'BRACE_NUM_WORD'),
+            (r'\{[a-zA-Z_][a-zA-Z0-9_]*\}', 'BRACE_VAR'),
 
-            # HTML标签
+            # HTML标签 - 完整支持
             (r'<[^>]+>', 'HTML_TAG'),
             (r'<\/[^>]+>', 'HTML_CLOSE_TAG'),
+            (r'<image>[^<]*</image>', 'IMAGE_TAG'),
+            (r'<style[^>]*>[^<]*</style>', 'STYLE_TAG'),
+            (r'<font[^>]*>[^<]*</font>', 'FONT_TAG'),
 
-            # 特殊字符
+            # 特殊字符 - 扩展支持
             (r'\\n', 'NEWLINE'),
             (r'\\t', 'TAB'),
             (r'\\r', 'RETURN'),
+            (r'\n', 'REAL_NEWLINE'),
+            (r'\t', 'REAL_TAB'),
+
+            # 数字和颜色代码
+            (r'#[0-9a-fA-F]{6}', 'COLOR_HEX'),
+            (r'color:[^;>]*', 'COLOR_STYLE'),
 
             # Unity富文本标签
             (r'<color=[^>]*>', 'UNITY_COLOR_OPEN'),

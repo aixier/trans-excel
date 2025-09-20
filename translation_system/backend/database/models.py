@@ -46,8 +46,8 @@ class ProjectFile(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id = Column(String(36), nullable=False, index=True)
     version_id = Column(String(36), nullable=False, index=True)
-    file_name = Column(String(255), nullable=False)
-    file_path = Column(String(500), nullable=False)
+    file_name = Column(Text, nullable=False)  # 支持长文件名
+    file_path = Column(Text, nullable=False)  # 支持长路径
     file_type = Column(String(20), nullable=False, index=True)  # source, terminology, completed, template
     file_size = Column(Integer, default=0)
     upload_time = Column(DateTime, default=func.now())
@@ -60,7 +60,7 @@ class TranslationTask(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id = Column(String(36), nullable=False, index=True)
     version_id = Column(String(36), nullable=False, index=True)
-    task_name = Column(String(255), nullable=False)
+    task_name = Column(Text, nullable=False)  # 支持超长任务名
     input_file_id = Column(String(36), nullable=False)
     output_file_id = Column(String(36), nullable=True)
     config = Column(JSON, nullable=False)  # 翻译配置
@@ -75,7 +75,7 @@ class TranslationTask(Base):
     # Sheet相关信息
     sheet_names = Column(JSON, nullable=True)  # 要处理的Sheet名称列表
     sheet_progress = Column(JSON, nullable=True)  # 每个Sheet的进度
-    current_sheet = Column(String(100), nullable=True)  # 当前处理的Sheet
+    current_sheet = Column(Text, nullable=True)  # 当前处理的Sheet，支持长名称
     total_sheets = Column(Integer, default=1)  # 总Sheet数量
     completed_sheets = Column(Integer, default=0)  # 已完成Sheet数量
 
@@ -96,7 +96,7 @@ class Terminology(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     project_id = Column(String(36), nullable=False, index=True)
-    source = Column(String(500), nullable=False)
+    source = Column(Text, nullable=False)  # 支持超长源文本
     target_translations = Column(JSON, nullable=False)  # {'en': 'Health', 'pt': 'Saúde'}
     category = Column(String(100), index=True)
     priority = Column(Integer, default=1, index=True)

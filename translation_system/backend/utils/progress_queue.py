@@ -38,10 +38,10 @@ class ProgressQueueManager:
             self.progress_cache = {}  # 缓存最新进度
             self.running = False
             self.worker_thread = None
-            self.flush_interval = 2  # 每2秒批量更新
-            self.batch_size = 50  # 批量更新大小
+            self.flush_interval = 5  # 减少更新频率，降低数据库压力
+            self.batch_size = 20  # 减少批量大小，提高稳定性
 
-            # 同步数据库连接
+            # 同步数据库连接 - 增强超时配置
             self.db_config = {
                 'host': settings.mysql_host,
                 'port': settings.mysql_port,
@@ -50,7 +50,8 @@ class ProgressQueueManager:
                 'database': settings.mysql_database,
                 'charset': 'utf8mb4',
                 'autocommit': True,
-                'cursorclass': pymysql.cursors.DictCursor
+                'cursorclass': pymysql.cursors.DictCursor,
+                'connect_timeout': 60   # 连接超时60秒
             }
 
     def start(self):

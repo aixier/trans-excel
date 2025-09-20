@@ -185,12 +185,15 @@ class TranslationEngine:
 
                     # 检测长文本任务，进一步调整
                     max_text_length = max([len(task.source_text) for task in remaining_tasks] or [0])
-                    if max_text_length > 500:  # 文本超过500字符
-                        dynamic_batch_size = min(dynamic_batch_size, 2)  # 最多2个任务一批
+                    if max_text_length > 300:  # 降低阈值，更早优化
+                        dynamic_batch_size = min(dynamic_batch_size, 3)  # 最多3个任务一批
                         dynamic_timeout = max(dynamic_timeout, 180)  # 至少180秒超时
-                        if max_text_length > 1000:  # 超长文本
+                        if max_text_length > 500:  # 长文本
+                            dynamic_batch_size = min(dynamic_batch_size, 2)  # 最多2个任务一批
+                            dynamic_timeout = max(dynamic_timeout, 240)  # 4分钟超时
+                        if max_text_length > 800:  # 超长文本（如909字符）
                             dynamic_batch_size = 1  # 单个任务一批
-                            dynamic_timeout = 300  # 300秒超时
+                            dynamic_timeout = 360  # 6分钟超时
                         logger.info(f"检测到长文本(最长{max_text_length}字符)，调整批次大小={dynamic_batch_size}，超时={dynamic_timeout}秒")
 
                     # 创建新批次
@@ -339,12 +342,18 @@ class TranslationEngine:
             else:
                 logger.info(f"📦 批次{batch_id}: 开始处理 {len(batch)}个任务 (超时: {timeout}秒)")
 
-            # 准备输入数据 (与Demo格式一致)
+            # 准备输入数据 - 添加占位符保护
             input_texts = []
+            protected_texts = {}  # 保存占位符映射
+
             for i, task in enumerate(batch):
+                # 保护占位符
+                protected_text, placeholders = self.placeholder_protector.protect_placeholders(task.source_text)
+                protected_texts[f"batch_{batch_id}_text_{i}"] = placeholders
+
                 input_texts.append({
                     "id": f"batch_{batch_id}_text_{i}",
-                    "text": task.source_text
+                    "text": protected_text
                 })
 
             # 重试机制 - 增强版
@@ -387,9 +396,20 @@ class TranslationEngine:
                         timeout=current_timeout  # 使用当前超时（随重试次数增加）
                     )
 
-                    # 处理响应 (与Demo格式一致)
+                    # 处理响应 - 添加占位符还原
                     result = json.loads(response.choices[0].message.content)
                     translations = result.get("translations", [])
+
+                    # 还原占位符
+                    for translation_item in translations:
+                        if "id" in translation_item and translation_item["id"] in protected_texts:
+                            placeholders = protected_texts[translation_item["id"]]
+                            # 还原所有语言的翻译结果
+                            for lang_key in translation_item:
+                                if lang_key != "id" and translation_item[lang_key]:
+                                    translation_item[lang_key] = self.placeholder_protector.restore_placeholders(
+                                        translation_item[lang_key], placeholders
+                                    )
 
                     # 记录API统计
                     api_calls = 1
