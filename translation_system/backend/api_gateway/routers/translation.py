@@ -3,12 +3,14 @@
 基于架构文档的HTTP接口实现，支持文件上传和进度轮询
 """
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse
 from datetime import datetime
 from typing import List, Optional
 import uuid
 import logging
 import pandas as pd
 import os
+import glob
 
 from database.connection import get_db, AsyncSession
 from database.models import TranslationTask
@@ -41,7 +43,7 @@ def get_project_manager():
 async def upload_translation_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    target_languages: str = Form(..., description="目标语言列表，逗号分隔，如：pt,th,ind,vn"),
+    target_languages: str = Form(None, description="目标语言列表，逗号分隔，如：pt,th,ind,vn。不传则自动检测所有需要的语言"),
     sheet_names: Optional[str] = Form(None, description="要处理的Sheet名称，逗号分隔，不填则处理所有"),
     batch_size: int = Form(10, description="批次大小，最大30行"),
     max_concurrent: int = Form(20, description="最大并发数，限制20"),
@@ -61,10 +63,10 @@ async def upload_translation_file(
         if not file.filename.endswith(('.xlsx', '.xls')):
             raise HTTPException(status_code=400, detail="Only Excel files are supported")
 
-        # 解析目标语言
-        target_languages_list = [lang.strip() for lang in target_languages.split(',')]
-        if not target_languages_list:
-            raise HTTPException(status_code=400, detail="Target languages cannot be empty")
+        # 解析目标语言（可选）
+        target_languages_list = None
+        if target_languages:
+            target_languages_list = [lang.strip() for lang in target_languages.split(',')]
 
         # 解析sheet名称
         sheets_to_process = None
@@ -82,14 +84,47 @@ async def upload_translation_file(
         with open(file_path, "wb") as f:
             f.write(file_content)
 
-        # 自动计算总行数（如果有多个sheet）
+        # 计算总翻译任务数（分析Excel文件实际结构）
         xl_file = pd.ExcelFile(file_path)
-        if sheets_to_process:
-            total_rows = sum(len(pd.read_excel(file_path, sheet_name=s))
-                           for s in sheets_to_process if s in xl_file.sheet_names)
-        else:
-            total_rows = sum(len(pd.read_excel(file_path, sheet_name=s))
-                           for s in xl_file.sheet_names)
+        total_translation_tasks = 0
+
+        # 导入分析工具
+        from excel_analysis.header_analyzer import HeaderAnalyzer
+        header_analyzer = HeaderAnalyzer()
+
+        sheets_to_analyze = sheets_to_process if sheets_to_process else xl_file.sheet_names
+
+        for sheet_name in sheets_to_analyze:
+            if sheet_name in xl_file.sheet_names:
+                # 读取Sheet数据
+                df = pd.read_excel(file_path, sheet_name=sheet_name)
+                sheet_rows = len(df)
+
+                # 分析Sheet结构获取目标语言列数
+                try:
+                    sheet_info = header_analyzer.analyze_sheet(df, sheet_name)
+                    if sheet_info and sheet_info.columns:
+                        # 计算目标语言列数（TYPE=TARGET的列）
+                        target_columns = [col for col in sheet_info.columns if col.column_type.value == 'target']
+                        lang_count = len(target_columns)
+
+                        if lang_count == 0:
+                            # 如果没有检测到目标列，使用指定的语言数
+                            lang_count = len(target_languages_list) if target_languages_list else 0
+                    else:
+                        # 分析失败时使用指定语言数
+                        lang_count = len(target_languages_list) if target_languages_list else 0
+                except Exception as e:
+                    logger.warning(f"Sheet '{sheet_name}' 分析失败: {e}")
+                    lang_count = len(target_languages_list) if target_languages_list else 0
+
+                sheet_translation_count = sheet_rows * lang_count
+                total_translation_tasks += sheet_translation_count
+
+                logger.info(f"Sheet '{sheet_name}': {sheet_rows}行 × {lang_count}语言列 = {sheet_translation_count}个翻译任务")
+
+        total_rows = total_translation_tasks
+        logger.info(f"文件总翻译任务数: {total_rows}")
 
         # 准备配置信息
         task_config = {
@@ -122,10 +157,10 @@ async def upload_translation_file(
 
         logger.info(f"📁 文件上传成功: {file.filename}, 任务ID: {task_id}")
 
-        # 后台启动翻译任务
+        # 后台启动翻译任务（不传递db会话）
         background_tasks.add_task(
             start_translation_task,
-            db, task_id, file_path, target_languages_list,
+            task_id, file_path, target_languages_list,
             batch_size, max_concurrent, region_code, game_background,
             translation_engine, sheets_to_process, auto_detect
         )
@@ -145,7 +180,6 @@ async def upload_translation_file(
 
 
 async def start_translation_task(
-    db: AsyncSession,
     task_id: str,
     file_path: str,
     target_languages: List[str],
@@ -158,31 +192,38 @@ async def start_translation_task(
     auto_detect: bool = True
 ):
     """后台翻译任务执行函数"""
+    # 创建新的数据库会话
+    from database.connection import get_async_session
+
     try:
         logger.info(f"🚀 开始执行翻译任务: {task_id}")
 
-        # 调用翻译引擎处理
-        await translation_engine.process_translation_task(
-            db=db,
-            task_id=task_id,
-            file_path=file_path,
-            target_languages=target_languages,
-            batch_size=batch_size,
-            max_concurrent=max_concurrent,
-            region_code=region_code,
-            game_background=game_background,
-            sheet_names=sheet_names,
-            auto_detect=auto_detect
-        )
+        # 使用独立的数据库会话
+        async with get_async_session() as db:
+            # 调用翻译引擎处理
+            await translation_engine.process_translation_task(
+                db=db,
+                task_id=task_id,
+                file_path=file_path,
+                target_languages=target_languages,
+                batch_size=batch_size,
+                max_concurrent=max_concurrent,
+                region_code=region_code,
+                game_background=game_background,
+                sheet_names=sheet_names,
+                auto_detect=auto_detect
+            )
 
     except Exception as e:
         logger.error(f"翻译任务执行失败: {task_id}, 错误: {e}")
         # 更新任务状态为失败
-        task_query = await db.execute(
-            "UPDATE translation_tasks SET status = 'failed', error_message = %s WHERE id = %s",
-            (str(e), task_id)
-        )
-        await db.commit()
+        async with get_async_session() as db:
+            from sqlalchemy import text
+            await db.execute(
+                text("UPDATE translation_tasks SET status = 'failed', error_message = :error WHERE id = :task_id"),
+                {"error": str(e), "task_id": task_id}
+            )
+            await db.commit()
 
 
 @router.get("/tasks/{task_id}/status", response_model=TaskStatusResponse)
@@ -415,7 +456,7 @@ async def download_translation_result(
     project_manager: ProjectManager = Depends(get_project_manager)
 ):
     """
-    下载翻译结果
+    下载翻译结果 - 直接返回文件
     """
     try:
         # 检查任务状态
@@ -427,14 +468,50 @@ async def download_translation_result(
                 detail="Task is not completed yet"
             )
 
-        # 生成下载链接 (这里应该实际生成OSS临时链接)
-        download_url = f"/download/{task_id}"  # 临时处理
+        # 查找翻译结果文件
+        # 文件保存格式: temp/{task_id}_{original_filename}_translated_{timestamp}.xlsx
+        result_files = glob.glob(f"temp/{task_id}_*_translated_*.xlsx")
 
-        return {
-            "download_url": download_url,
-            "task_id": task_id,
-            "expires_in": 3600  # 1小时过期
-        }
+        if not result_files:
+            # 如果没有找到带时间戳的文件，尝试查找其他格式
+            result_files = glob.glob(f"temp/{task_id}_*.xlsx")
+            # 过滤掉原始文件（不含translated的）
+            result_files = [f for f in result_files if 'translated' in f]
+
+        if not result_files:
+            logger.error(f"翻译结果文件未找到: task_id={task_id}")
+            raise HTTPException(
+                status_code=404,
+                detail="Translation result file not found"
+            )
+
+        # 使用最新的文件（如果有多个）
+        result_file = sorted(result_files)[-1]
+
+        # 获取原始文件名用于下载
+        original_filename = "translated.xlsx"
+        try:
+            # 从任务配置中获取原始文件名
+            from sqlalchemy import select
+            task_query = select(TranslationTask).where(TranslationTask.id == task_id)
+            result = await db.execute(task_query)
+            task = result.scalar_one_or_none()
+            if task and task.config:
+                original_filename = task.config.get('file_name', 'translated.xlsx')
+                # 移除扩展名并添加_translated后缀
+                base_name = original_filename.rsplit('.', 1)[0]
+                original_filename = f"{base_name}_translated.xlsx"
+        except:
+            pass
+
+        logger.info(f"发送翻译结果文件: {result_file} as {original_filename}")
+
+        # 直接返回文件
+        return FileResponse(
+            path=result_file,
+            filename=original_filename,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

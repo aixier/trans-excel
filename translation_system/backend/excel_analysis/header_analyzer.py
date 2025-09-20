@@ -52,29 +52,29 @@ class HeaderAnalyzer:
     """表头分析器 - 基于Demo的智能扩展"""
 
     def __init__(self):
-        # 语言识别规则
+        # 语言识别规则（支持所有变体，包括带冒号的格式）
         self.language_patterns = {
-            'ch': ['中文', 'chinese', 'cn', 'zh', 'chi', 'ch'],  # 简体中文
-            'tw': ['繁体中文', 'traditional', 'tw', 'cht', 'tc', 'hk'],  # 繁体中文
-            'en': ['english', 'eng', 'en'],
-            'pt': ['portuguese', 'pt', 'por', 'brazil', 'br'],
-            'th': ['thai', 'th', 'thailand', 'tha'],
-            'ind': ['indonesian', 'id', 'ind', 'indonesia'],
-            'tr': ['turkish', 'tr', 'tur', 'turkey'],  # 土耳其语
-            'es': ['spanish', 'es', 'esp', 'spain'],
-            'ar': ['arabic', 'ar', 'arab'],
-            'ru': ['russian', 'ru', 'rus'],
-            'ja': ['japanese', 'ja', 'jp', 'jpn'],  # 日语
-            'ko': ['korean', 'ko', 'kr', 'kor'],  # 韩语
-            'vn': ['vietnamese', 'vn', 'vi', 'vie', 'vietnam'],  # 越南语
-            'de': ['german', 'de', 'ger', 'deu'],  # 德语
-            'fr': ['french', 'fr', 'fra'],  # 法语
-            'it': ['italian', 'it', 'ita']  # 意大利语
+            'ch': ['中文', 'chinese', 'cn', 'zh', 'chi', 'ch', ':ch:'],  # 简体中文
+            'tw': ['繁体中文', 'traditional', 'tw', 'cht', 'tc', 'hk', ':tw:'],  # 繁体中文
+            'en': ['english', 'eng', 'en', ':en:'],
+            'pt': ['portuguese', 'pt', 'por', 'brazil', 'br', ':pt:'],
+            'th': ['thai', 'th', 'thailand', 'tha', ':th:'],
+            'ind': ['indonesian', 'id', 'ind', 'indonesia', ':ind:'],
+            'tr': ['turkish', 'tr', 'tur', 'turkey', ':tr:'],  # 土耳其语
+            'es': ['spanish', 'es', 'esp', 'spain', ':es:'],  # 西班牙语
+            'ar': ['arabic', 'ar', 'arab', ':ar:'],
+            'ru': ['russian', 'ru', 'rus', ':ru:'],
+            'ja': ['japanese', 'ja', 'jp', 'jpn', ':ja:'],  # 日语
+            'ko': ['korean', 'ko', 'kr', 'kor', ':ko:'],  # 韩语
+            'vn': ['vietnamese', 'vn', 'vi', 'vie', 'vietnam', ':vn:'],  # 越南语
+            'de': ['german', 'de', 'ger', 'deu', ':de:'],  # 德语
+            'fr': ['french', 'fr', 'fra', ':fr:'],  # 法语
+            'it': ['italian', 'it', 'ita', ':it:']  # 意大利语
         }
 
-        # 列类型识别规则
+        # 列类型识别规则（支持冒号格式）
         self.column_patterns = {
-            ColumnType.KEY: ['id', 'key', 'index', '序号', '编号'],
+            ColumnType.KEY: ['id', 'key', 'index', '序号', '编号', ':id:', ':key:'],
             ColumnType.CONTEXT: ['context', 'remark', 'note', '备注', '说明', '上下文'],
             ColumnType.STATUS: ['status', 'flag', 'state', '状态', '标记'],
             ColumnType.METADATA: ['category', 'type', 'group', '分类', '类型', '组别']

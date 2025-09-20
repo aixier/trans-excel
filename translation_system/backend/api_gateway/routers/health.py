@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
 import asyncio
+from sqlalchemy import text
 
 from database.connection import get_db, AsyncSession
 from config.settings import settings
@@ -35,7 +36,7 @@ async def health_status(db: AsyncSession = Depends(get_db)):
 
     # 数据库连接检查
     try:
-        await db.execute("SELECT 1")
+        await db.execute(text("SELECT 1"))
         health_status["checks"]["database"] = {
             "status": "healthy",
             "message": "Database connection successful"
@@ -93,7 +94,7 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
     """就绪探针 - 用于Kubernetes等容器编排"""
     try:
         # 检查数据库连接
-        await db.execute("SELECT 1")
+        await db.execute(text("SELECT 1"))
 
         # 检查关键配置
         if not settings.llm_api_key:

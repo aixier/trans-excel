@@ -41,13 +41,14 @@ class TranslationEngine:
         self.completed_batches = 0
         self.total_batches = 0
         self.failed_batches = []
+        self.total_translated_rows = 0  # 累计翻译的行数
 
     async def process_translation_task(
         self,
         db: AsyncSession,
         task_id: str,
         file_path: str,
-        target_languages: List[str],
+        target_languages: List[str] = None,  # None = 自动检测所有需要的语言
         batch_size: int = 3,
         max_concurrent: int = 10,
         max_iterations: int = 5,
@@ -77,9 +78,10 @@ class TranslationEngine:
                 sheets_to_process = all_sheet_names
 
             # 3. 自动检测需要翻译的sheets
+            # 注意：现在不依赖target_languages，让TranslationDetector自动检测所有需要翻译的内容
             if auto_detect:
-                sheets_to_process = await self._detect_translatable_sheets(
-                    file_path, sheets_to_process, target_languages
+                sheets_to_process = await self._detect_sheets_with_content(
+                    file_path, sheets_to_process
                 )
 
             logger.info(f"将处理 {len(sheets_to_process)}/{len(all_sheet_names)} 个Sheets: {sheets_to_process}")
@@ -94,6 +96,16 @@ class TranslationEngine:
             # 4. 存储所有Sheet的结果
             all_results = {}
             total_translated = 0
+            self.total_translated_rows = 0  # 重置累计翻译行数
+
+            # 初始化Sheet进度字典
+            sheet_progress = {}
+            for sheet in sheets_to_process:
+                sheet_progress[sheet] = {
+                    'total_rows': len(pd.read_excel(file_path, sheet_name=sheet)),
+                    'translated_rows': 0,
+                    'status': 'pending'
+                }
 
             # 5. 逐个处理每个Sheet
             for sheet_idx, sheet_name in enumerate(sheets_to_process, 1):
@@ -136,6 +148,11 @@ class TranslationEngine:
                     status='translating',
                     current_sheet=sheet_name
                 )
+
+                # 记录当前Sheet的初始行数
+                sheet_total_rows = len(df)
+                sheet_translated_rows = 0
+                sheet_progress[sheet_name]['status'] = 'translating'
 
                 # 4. 迭代翻译 - 真正的增量处理
                 current_df = df.copy()
@@ -192,11 +209,12 @@ class TranslationEngine:
                         status=status
                     )
 
-                    # 并发处理批次（传入动态超时参数）
+                    # 并发处理批次（传入动态超时参数和Sheet信息）
                     semaphore = asyncio.Semaphore(max_concurrent)
                     translation_results = await self._process_batches_concurrent_with_timeout(
                         db, task_id, batches, target_languages, semaphore,
-                        region_code, game_background, iteration, dynamic_timeout
+                        region_code, game_background, iteration, dynamic_timeout,
+                        sheet_name, sheet_progress
                     )
 
                     # 记录失败批次数
@@ -261,7 +279,9 @@ class TranslationEngine:
         region_code: str,
         game_background: str,
         iteration: int,
-        timeout: int
+        timeout: int,
+        sheet_name: str = None,
+        sheet_progress: dict = None
     ) -> Dict:
         """并发处理批次 - 支持动态超时"""
         tasks = []
@@ -270,7 +290,7 @@ class TranslationEngine:
             task = self._translate_batch_with_retry(
                 db, task_id, batch, batch_id, target_languages,
                 semaphore, region_code, game_background, iteration,
-                timeout=timeout
+                timeout=timeout, sheet_name=sheet_name, sheet_progress=sheet_progress
             )
             tasks.append(task)
 
@@ -300,7 +320,9 @@ class TranslationEngine:
         iteration: int,
         max_retry_attempts: int = 2,
         retry_base_delay: float = 3.0,
-        timeout: int = 90  # 支持动态超时
+        timeout: int = 90,  # 支持动态超时
+        sheet_name: str = None,
+        sheet_progress: dict = None
     ) -> Dict:
         """批次翻译带重试机制 - 支持动态超时和智能重试"""
         async with semaphore:
@@ -337,10 +359,13 @@ class TranslationEngine:
                     else:
                         current_timeout = timeout
 
+                    # 从批次中提取目标语言（每个任务都知道自己的目标语言）
+                    batch_target_languages = list(set([task.target_language for task in batch]))
+
                     # 创建区域化提示词 (升级Demo的通用提示词)
                     system_prompt = self.localization_engine.create_batch_prompt(
                         [task.source_text for task in batch],
-                        target_languages,
+                        batch_target_languages if batch_target_languages else ['en'],  # 默认英语
                         region_code,
                         game_background,
                         batch[0].task_type if batch else 'new'
@@ -370,30 +395,47 @@ class TranslationEngine:
                     api_calls = 1
                     tokens_used = response.usage.total_tokens if response.usage else 0
 
-                    # 减少数据库更新频率，只在特定批次更新
-                    if batch_id % 5 == 0 or batch_id == self.total_batches:
-                        try:
-                            await self.project_manager.update_task_progress(
-                                db, task_id,
-                                api_calls=api_calls,
-                                tokens_used=tokens_used
-                            )
-                        except Exception as update_error:
-                            logger.warning(f"更新进度失败: {update_error}")
+                    # 每个批次都更新进度，让用户能实时看到进度变化
+                    try:
+                        # 更新API调用统计（累加）
+                        await self.project_manager.update_task_progress(
+                            db, task_id,
+                            api_calls=api_calls,
+                            tokens_used=tokens_used
+                        )
+                    except Exception as update_error:
+                        logger.warning(f"更新进度失败: {update_error}")
 
                     # 构建返回结果
                     batch_results = {}
                     for i, translation in enumerate(translations):
                         if i < len(batch):
                             task = batch[i]
-                            # 动态构建结果，根据实际的目标语言
-                            lang_result = {}
-                            for lang in target_languages:
-                                lang_result[lang] = translation.get(lang, '')
-                            batch_results[task.row_index] = lang_result
+                            # 使用任务自己的目标语言
+                            batch_results[task.row_index] = {
+                                task.target_language: translation.get(task.target_language, translation) if isinstance(translation, dict) else translation
+                            }
 
                     elapsed = time.time() - start_time
                     self.completed_batches += 1
+
+                    # 计算批次中的唯一行数（同一行的多个任务算一行）
+                    unique_rows_in_batch = len(set(task.row_index for task in batch))
+                    self.total_translated_rows += unique_rows_in_batch
+
+                    # 如果有Sheet信息，更新Sheet级别的进度
+                    if sheet_name and sheet_progress:
+                        sheet_progress[sheet_name]['translated_rows'] += unique_rows_in_batch
+
+                    # 实时更新翻译行数进度（包括Sheet进度）
+                    try:
+                        await self.project_manager.update_task_progress(
+                            db, task_id,
+                            translated_rows=self.total_translated_rows,
+                            sheet_progress=sheet_progress if sheet_progress else None
+                        )
+                    except Exception as update_error:
+                        logger.warning(f"更新行数进度失败: {update_error}")
 
                     retry_info = f" (第{attempt + 1}次尝试)" if attempt > 0 else ""
                     logger.info(f"✅ 批次{batch_id}: 完成翻译{retry_info} {len(translations)}条 | "
@@ -434,12 +476,18 @@ class TranslationEngine:
                                 matched_col = col
                                 break
 
+                    # 如果列不存在，创建新列
+                    if not matched_col:
+                        matched_col = lang_upper
+                        if matched_col not in df.columns:
+                            df[matched_col] = ''
+                            logger.info(f"创建新语言列: {matched_col}")
+
+                    # 应用翻译
                     if matched_col:
                         df.at[row_index, matched_col] = translation
                         translated_count += 1
                         logger.debug(f"应用翻译: 行{row_index}, 列{matched_col} = {translation[:30]}...")
-                    else:
-                        logger.warning(f"找不到语言列: {lang} (可用列: {list(df.columns)})")
 
         return translated_count
 
@@ -448,38 +496,27 @@ class TranslationEngine:
         tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
         return len([task for task in tasks if task.task_type in ['new', 'modify', 'shorten']])
 
-    async def _detect_translatable_sheets(
+    async def _detect_sheets_with_content(
         self,
         file_path: str,
-        sheet_names: List[str],
-        target_languages: List[str]
+        sheet_names: List[str]
     ) -> List[str]:
-        """自动检测需要翻译的sheets"""
+        """检测哪些sheets有内容需要翻译（不依赖target_languages）"""
         translatable_sheets = []
 
         for sheet_name in sheet_names:
             try:
                 df = pd.read_excel(file_path, sheet_name=sheet_name)
-
                 # 清理列名
                 df.columns = [col.strip(':').strip() for col in df.columns]
 
-                # 检查是否有目标语言列且为空
-                has_empty_target = False
-                for lang in target_languages:
-                    lang_upper = lang.upper()
-                    if lang_upper in [col.upper() for col in df.columns]:
-                        # 找到对应列
-                        for col in df.columns:
-                            if col.upper() == lang_upper:
-                                # 检查是否有空值
-                                if df[col].isna().any() or (df[col] == '').any():
-                                    has_empty_target = True
-                                    break
+                # 使用HeaderAnalyzer和TranslationDetector检测
+                sheet_info = self.header_analyzer.analyze_sheet(df, sheet_name)
+                tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
 
-                if has_empty_target:
+                if tasks:
                     translatable_sheets.append(sheet_name)
-                    logger.info(f"✅ Sheet '{sheet_name}' 需要翻译")
+                    logger.info(f"✅ Sheet '{sheet_name}' 需要翻译 ({len(tasks)} 个任务)")
                 else:
                     logger.info(f"⏭️ Sheet '{sheet_name}' 跳过（无需翻译）")
 
@@ -487,6 +524,7 @@ class TranslationEngine:
                 logger.warning(f"检测Sheet '{sheet_name}' 失败: {e}")
 
         return translatable_sheets
+
 
     async def _save_multi_sheet_results(
         self,
