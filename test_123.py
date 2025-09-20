@@ -10,7 +10,7 @@ from datetime import datetime
 
 # 配置
 BASE_URL = "http://localhost:8101"
-TEST_FILE = "/mnt/d/work/trans_excel/teach/complete_190_translated.xlsx"
+TEST_FILE = "/mnt/d/work/trans_excel/teach/123.xlsx"
 OUTPUT_DIR = "/mnt/d/work/trans_excel"
 
 def log(message, level="INFO"):
