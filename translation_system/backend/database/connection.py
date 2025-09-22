@@ -123,7 +123,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
     except Exception as e:
-        logger.error(f"数据库会话错误: {e}")
+        # 只在真正的异常时记录错误，不记录空异常
+        if str(e).strip():
+            logger.error(f"数据库会话错误: {e}")
         if session:
             try:
                 await session.rollback()

@@ -3,7 +3,27 @@
     <!-- 头部操作栏 -->
     <div class="workspace-header">
       <div class="header-left">
-        <h2>翻译工作台</h2>
+        <div class="title-row">
+          <h2>翻译工作台</h2>
+          <!-- 紧凑的文件列表 -->
+          <div class="compact-file-list" v-if="uploadedFiles.length > 0">
+            <a-space wrap>
+              <a-tag
+                v-for="item in uploadedFiles"
+                :key="item.id"
+                color="blue"
+                closable
+                @close="removeFile(item)"
+                @click="loadFile(item)"
+                class="file-tag"
+              >
+                <template #icon><FileExcelOutlined /></template>
+                {{ item.name }}
+                <span class="file-info">{{ item.uploadTime }} | {{ item.size }}</span>
+              </a-tag>
+            </a-space>
+          </div>
+        </div>
         <a-breadcrumb>
           <a-breadcrumb-item>首页</a-breadcrumb-item>
           <a-breadcrumb-item>翻译管理</a-breadcrumb-item>
@@ -201,7 +221,8 @@ import { message } from 'ant-design-vue'
 import {
   UploadOutlined,
   SettingOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  FileExcelOutlined
 } from '@ant-design/icons-vue'
 import LuckysheetWrapper from '@/components/luckysheet/LuckysheetWrapper.vue'
 import { translationAPI } from '@/api/endpoints/translation'
@@ -216,28 +237,19 @@ const glossarySearch = ref('')
 
 // 数据
 const sheetData = ref<any[]>([])
-const translationHistory = ref<any[]>([
-  { id: 1, original: 'Attack', translation: '攻击', time: '10:30', language: 'pt' },
-  { id: 2, original: 'Defense', translation: '防御', time: '10:31', language: 'pt' },
-])
+const uploadedFiles = ref<any[]>([])  // 存储上传的文件列表
+const currentFile = ref<any>(null)    // 当前加载的文件
+const translationHistory = ref<any[]>([])
 
-const glossary = ref([
-  { source: 'HP', translations: { pt: 'PV', th: 'พลังชีวิต', ind: 'HP' } },
-  { source: 'MP', translations: { pt: 'PM', th: 'พลังเวทย์', ind: 'MP' } },
-  { source: 'Attack', translations: { pt: 'Ataque', th: 'โจมตี', ind: 'Serangan' } },
-])
+const glossary = ref([])
 
 const statistics = ref({
-  total: 1000,
-  translated: 650,
-  pending: 350
+  total: 0,
+  translated: 0,
+  pending: 0
 })
 
-const languageStats = ref([
-  { code: 'pt', name: '葡萄牙语', progress: 75 },
-  { code: 'th', name: '泰语', progress: 60 },
-  { code: 'ind', name: '印尼语', progress: 45 },
-])
+const languageStats = ref([])
 
 // 翻译设置
 const translationSettings = ref({
@@ -282,42 +294,134 @@ const filteredGlossary = computed(() => {
   )
 })
 
+// 格式化文件大小
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return bytes + ' B'
+  else if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB'
+  else return Math.round(bytes / 1048576) + ' MB'
+}
+
 // 文件上传处理
 const handleFileUpload = async (file: File) => {
   try {
     message.loading('正在解析Excel文件...', 0)
+
+    // 验证文件类型
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ]
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+      message.destroy()
+      message.error('请上传Excel文件 (.xlsx 或 .xls)')
+      return false
+    }
 
     // 使用ExcelJS读取文件
     const workbook = new ExcelJS.Workbook()
     const arrayBuffer = await file.arrayBuffer()
     await workbook.xlsx.load(arrayBuffer)
 
+    // 检查是否有工作表
+    if (workbook.worksheets.length === 0) {
+      message.destroy()
+      message.error('Excel文件中没有找到工作表')
+      return false
+    }
+
     // 转换为Luckysheet格式
     const sheets: any[] = []
     workbook.eachSheet((worksheet, sheetId) => {
+      // 计算实际的行数和列数
+      let maxRow = 0
+      let maxCol = 0
+
+      // 遍历一次获取最大行列数
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber && !isNaN(rowNumber)) {
+          maxRow = Math.max(maxRow, rowNumber)
+        }
+        row.eachCell((cell, colNumber) => {
+          if (colNumber && !isNaN(colNumber)) {
+            maxCol = Math.max(maxCol, colNumber)
+          }
+        })
+      })
+
+      // 确保至少有最小的行列数，并验证是有效的数字
+      maxRow = Math.max(maxRow || 0, 50)
+      maxCol = Math.max(maxCol || 0, 26)
+
+      // 最终验证，确保不是null或undefined
+      const finalRow = isNaN(maxRow) || !maxRow ? 50 : maxRow
+      const finalCol = isNaN(maxCol) || !maxCol ? 26 : maxCol
+
       const sheetData = {
-        name: worksheet.name,
+        name: worksheet.name || `Sheet${sheetId}`,
         index: sheetId - 1,
         status: 1,
         order: sheetId - 1,
-        celldata: [] as any[]
+        row: finalRow,
+        column: finalCol,
+        celldata: [] as any[],
+        config: {
+          merge: {},
+          rowlen: {},
+          columnlen: {},
+          rowhidden: {},
+          colhidden: {}
+        }
       }
 
       worksheet.eachRow((row, rowNumber) => {
+        // 验证行号有效性
+        if (!rowNumber || isNaN(rowNumber) || rowNumber <= 0) {
+          return
+        }
+
         row.eachCell((cell, colNumber) => {
-          sheetData.celldata.push({
-            r: rowNumber - 1,
-            c: colNumber - 1,
-            v: {
-              v: cell.value,
-              m: cell.text || cell.value
-            }
-          })
+          // 验证列号有效性
+          if (!colNumber || isNaN(colNumber) || colNumber <= 0) {
+            return
+          }
+
+          let cellText = ''
+
+          // 处理不同类型的值
+          if (cell.value !== null && cell.value !== undefined) {
+            cellText = String(cell.value)
+          }
+
+          if (cellText) {
+            sheetData.celldata.push({
+              r: rowNumber - 1,
+              c: colNumber - 1,
+              v: {
+                v: cellText,
+                m: cellText,
+                ct: { fa: 'General', t: 's' }
+              }
+            })
+          }
         })
       })
 
       sheets.push(sheetData)
     })
+
+    // 保存文件信息
+    const fileInfo = {
+      id: Date.now(),
+      name: file.name,
+      size: formatFileSize(file.size),
+      uploadTime: new Date().toLocaleString(),
+      data: sheets,
+      originalFile: file
+    }
+
+    // 添加到文件列表
+    uploadedFiles.value.push(fileInfo)
+    currentFile.value = fileInfo
 
     // 加载到Luckysheet
     sheetData.value = sheets
@@ -395,15 +499,60 @@ const handleSettingsOk = () => {
   message.success('设置已保存')
 }
 
+// 加载文件
+const loadFile = (fileInfo: any) => {
+  currentFile.value = fileInfo
+  sheetData.value = fileInfo.data
+  if (luckysheetRef.value) {
+    luckysheetRef.value.setData(fileInfo.data)
+  }
+  message.success(`已加载文件: ${fileInfo.name}`)
+}
+
+// 删除文件
+const removeFile = (fileInfo: any) => {
+  const index = uploadedFiles.value.findIndex(f => f.id === fileInfo.id)
+  if (index > -1) {
+    uploadedFiles.value.splice(index, 1)
+    if (currentFile.value?.id === fileInfo.id) {
+      currentFile.value = null
+      sheetData.value = []
+      if (luckysheetRef.value) {
+        luckysheetRef.value.setData([])
+      }
+    }
+    message.success('文件已删除')
+  }
+}
+
 // 更新统计
 const updateStatistics = () => {
-  // TODO: 根据实际数据更新统计
-  const total = 1000
-  const translated = Math.floor(Math.random() * total)
+  // 基于实际的sheet数据更新统计
+  if (!sheetData.value || sheetData.value.length === 0) {
+    statistics.value = {
+      total: 0,
+      translated: 0,
+      pending: 0
+    }
+    return
+  }
+
+  let totalCells = 0
+  let translatedCells = 0
+
+  // 计算所有sheet的单元格统计
+  sheetData.value.forEach(sheet => {
+    if (sheet.celldata) {
+      totalCells += sheet.celldata.length
+      // 这里可以添加逻辑判断哪些单元格已翻译
+      // 暂时使用0，实际应该根据翻译状态判断
+    }
+  })
+
   statistics.value = {
-    total,
-    translated,
-    pending: total - translated
+    total: totalCells,
+    translated: translatedCells,
+    pending: totalCells - translatedCells
   }
 }
 
@@ -429,10 +578,52 @@ onMounted(() => {
     align-items: center;
 
     .header-left {
-      h2 {
-        margin: 0 0 8px 0;
-        font-size: 20px;
-        font-weight: 600;
+      .title-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 8px;
+
+        h2 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 600;
+        }
+
+        .compact-file-list {
+          flex: 1;
+
+          .file-tag {
+            cursor: pointer;
+            transition: all 0.2s;
+            max-width: 200px;
+
+            &:hover {
+              background-color: #e6f7ff;
+              border-color: #91d5ff;
+            }
+
+            .file-info {
+              display: block;
+              font-size: 11px;
+              color: #666;
+              margin-top: 2px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            // 让标签内容垂直排列
+            :deep(.ant-tag) {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+              padding: 4px 8px;
+              height: auto;
+              line-height: 1.2;
+            }
+          }
+        }
       }
     }
   }

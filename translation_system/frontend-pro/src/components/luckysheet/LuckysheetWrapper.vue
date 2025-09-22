@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { message } from 'ant-design-vue'
 import { TranslationOutlined, SaveOutlined, DownloadOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import type { LuckysheetConfig, CellData } from './types'
@@ -99,12 +99,123 @@ const stats = ref({
 // Luckysheet实例
 let luckysheetInstance: any = null
 
+// 重试计数器
+let initRetryCount = 0
+const MAX_RETRY_COUNT = 10
+
 // 初始化Luckysheet
 const initLuckysheet = () => {
   // 等待Luckysheet全局对象加载
   if (typeof window.luckysheet === 'undefined') {
-    console.error('Luckysheet not loaded')
+    if (initRetryCount < MAX_RETRY_COUNT) {
+      console.error('Luckysheet not loaded, retrying...', initRetryCount)
+      initRetryCount++
+      setTimeout(() => {
+        initLuckysheet()
+      }, 1000)
+    } else {
+      console.error('Failed to load Luckysheet after maximum retries')
+    }
     return
+  }
+
+  // 重置重试计数器
+  initRetryCount = 0
+
+  // 销毁之前的实例
+  try {
+    if (window.luckysheet && window.luckysheet.destroy) {
+      window.luckysheet.destroy()
+    }
+  } catch (e) {
+    console.log('No existing Luckysheet instance to destroy')
+  }
+
+  const sheetData = props.data || getDefaultData()
+  console.log('LuckysheetWrapper: Input data:', sheetData)
+
+  // 确保 sheetData 是数组并初始化 validatedData
+  let validatedData: any[]
+
+  if (!Array.isArray(sheetData)) {
+    console.error('Sheet data is not an array:', sheetData)
+    validatedData = getDefaultData()
+    console.log('Using default data instead:', validatedData)
+  } else {
+    // 确保每个 sheet 都有必要的属性
+    validatedData = sheetData.map((sheet: any, index: number) => {
+    // 验证并确保row和column是有效的数字，处理null和undefined
+    let rowCount = 50  // 默认值
+    let colCount = 26  // 默认值
+
+    // 安全地解析row值
+    if (sheet.row !== null && sheet.row !== undefined) {
+      const parsed = parseInt(sheet.row)
+      if (!isNaN(parsed) && parsed > 0) {
+        rowCount = parsed
+      } else {
+        console.warn(`Invalid row count for sheet ${sheet.name}: ${sheet.row}, using default 50`)
+      }
+    } else {
+      console.warn(`Row count is null/undefined for sheet ${sheet.name}, using default 50`)
+    }
+
+    // 安全地解析column值
+    if (sheet.column !== null && sheet.column !== undefined) {
+      const parsed = parseInt(sheet.column)
+      if (!isNaN(parsed) && parsed > 0) {
+        colCount = parsed
+      } else {
+        console.warn(`Invalid column count for sheet ${sheet.name}: ${sheet.column}, using default 26`)
+      }
+    } else {
+      console.warn(`Column count is null/undefined for sheet ${sheet.name}, using default 26`)
+    }
+
+    return {
+      name: sheet.name || `Sheet${index + 1}`,
+      index: index,
+      order: index,
+      status: 1,
+      color: '',
+      row: Math.max(rowCount, 10),  // 至少10行
+      column: Math.max(colCount, 10),  // 至少10列
+      celldata: Array.isArray(sheet.celldata) ? sheet.celldata : [],
+      config: sheet.config || {},
+      pivotTable: null,
+      isPivotTable: false,
+      luckysheet_select_save: [],
+      luckysheet_selection_range: [],
+      zoomRatio: 1,
+      scrollLeft: 0,
+      scrollTop: 0,
+      calcChain: [],
+      filter_select: null,
+      filter: null,
+      luckysheet_conditionformat_save: [],
+      frozen: {},
+      chart: [],
+      dataVerification: {}
+    }
+  })
+  }
+
+  // 最终验证数据有效性
+  if (!validatedData || validatedData.length === 0) {
+    console.error('No valid sheet data available')
+    return
+  }
+
+  // 验证每个sheet的row和column属性
+  for (const sheet of validatedData) {
+    if (sheet.row === null || sheet.row === undefined || isNaN(sheet.row)) {
+      console.error(`Sheet ${sheet.name} has invalid row value:`, sheet.row)
+      sheet.row = 50  // 强制设置默认值
+    }
+    if (sheet.column === null || sheet.column === undefined || isNaN(sheet.column)) {
+      console.error(`Sheet ${sheet.name} has invalid column value:`, sheet.column)
+      sheet.column = 26  // 强制设置默认值
+    }
   }
 
   const defaultConfig: LuckysheetConfig = {
@@ -115,7 +226,7 @@ const initLuckysheet = () => {
     showtoolbar: true,
     showinfobar: true,
     showsheetbar: true,
-    data: props.data || getDefaultData(),
+    data: validatedData,
     // 钩子函数
     hook: {
       // 单元格编辑前
@@ -137,6 +248,15 @@ const initLuckysheet = () => {
       // 选区变化
       rangeSelect: (range: any) => {
         console.log('Range selected:', range)
+
+        // 验证 range 数据
+        if (!range || !range.row || !range.column ||
+            range.row[0] === null || range.row[0] === undefined ||
+            range.column[0] === null || range.column[0] === undefined) {
+          console.warn('Invalid range data:', range)
+          return
+        }
+
         const cell = getCellData(range.row[0], range.column[0])
         emit('cellSelected', cell)
       }
@@ -146,8 +266,30 @@ const initLuckysheet = () => {
   }
 
   // 创建Luckysheet实例
-  window.luckysheet.create(defaultConfig)
-  luckysheetInstance = window.luckysheet
+  try {
+    // 确保容器存在
+    const container = document.getElementById(containerId.value)
+    if (!container) {
+      if (initRetryCount < MAX_RETRY_COUNT) {
+        console.error('Luckysheet container not found:', containerId.value, 'retrying...')
+        initRetryCount++
+        setTimeout(() => initLuckysheet(), 500)
+      } else {
+        console.error('Container not found after maximum retries')
+      }
+      return
+    }
+
+    window.luckysheet.create(defaultConfig)
+    luckysheetInstance = window.luckysheet
+  } catch (error) {
+    console.error('Failed to create Luckysheet instance:', error)
+    if (initRetryCount < MAX_RETRY_COUNT) {
+      initRetryCount++
+      setTimeout(() => initLuckysheet(), 1000)
+    }
+    return
+  }
 
   // 更新统计
   updateStats()
@@ -164,6 +306,8 @@ const getDefaultData = () => {
     index: 0,
     status: 1,
     order: 0,
+    row: 50,
+    column: 26,
     celldata: [],
     config: {
       merge: {},
@@ -177,12 +321,43 @@ const getDefaultData = () => {
 
 // 获取单元格数据
 const getCellData = (r: number, c: number) => {
-  const data = window.luckysheet.getCellValue(r, c)
-  return {
-    row: r,
-    col: c,
-    value: data?.v || '',
-    display: data?.m || data?.v || ''
+  // 验证输入参数
+  if (r === null || r === undefined || c === null || c === undefined) {
+    console.error('getCellData: row or column cannot be null or undefined', { r, c })
+    return {
+      row: 0,
+      col: 0,
+      value: '',
+      display: ''
+    }
+  }
+
+  if (!window.luckysheet) {
+    console.error('Luckysheet not initialized')
+    return {
+      row: r,
+      col: c,
+      value: '',
+      display: ''
+    }
+  }
+
+  try {
+    const data = window.luckysheet.getCellValue(r, c)
+    return {
+      row: r,
+      col: c,
+      value: data?.v || '',
+      display: data?.m || data?.v || ''
+    }
+  } catch (error) {
+    console.error('Error getting cell data:', error, { r, c })
+    return {
+      row: r,
+      col: c,
+      value: '',
+      display: ''
+    }
   }
 }
 
@@ -200,9 +375,13 @@ const updateStats = () => {
       sheet.celldata.forEach((cell: any) => {
         total++
         // 根据单元格样式或标记判断翻译状态
-        if (cell.v && cell.v.includes('[已翻译]')) {
+        // 确保 cell.v 是字符串类型，或者获取显示值
+        const cellValue = cell.v?.v || cell.v?.m || cell.v || ''
+        const cellText = String(cellValue)
+
+        if (cellText.includes('[已翻译]')) {
           translated++
-        } else if (cell.v && cell.v.includes('[待翻译]')) {
+        } else if (cellText.includes('[待翻译]')) {
           pending++
         }
       })
@@ -406,9 +585,12 @@ const getConfidenceColor = (confidence: number) => {
 
 // 生命周期
 onMounted(() => {
-  // 加载Luckysheet CSS和JS
-  loadLuckysheetResources().then(() => {
-    initLuckysheet()
+  // 确保DOM已经渲染
+  nextTick(() => {
+    // 加载Luckysheet CSS和JS
+    loadLuckysheetResources().then(() => {
+      initLuckysheet()
+    })
   })
 })
 
@@ -464,9 +646,11 @@ defineExpose({
     return null
   },
   setData: (data: any) => {
-    if (window.luckysheet) {
-      window.luckysheet.loadData(data)
-    }
+    // 重新初始化 Luckysheet 以加载新数据
+    props.data = data
+    nextTick(() => {
+      initLuckysheet()
+    })
   }
 })
 </script>

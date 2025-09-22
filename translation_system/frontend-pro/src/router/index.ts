@@ -35,7 +35,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'terminology',
         name: 'terminology',
-        component: () => import('@/pages/TerminologyManager.vue'),
+        component: () => import('@/pages/Terminology.vue'),
         meta: { title: '术语管理', icon: 'BookOutlined' }
       },
       {

@@ -13,7 +13,7 @@ import uuid
 
 from config.settings import settings
 from database.connection import get_async_engine, AsyncSession
-from .routers import translation, project, health
+from .routers import translation, project, health, terminology
 from .models.task import ErrorResponse, ValidationErrorResponse
 
 
@@ -152,6 +152,12 @@ app.include_router(
     project.router,
     prefix="/api/project",
     tags=["项目管理"]
+)
+
+app.include_router(
+    terminology.router,
+    prefix="/api/terminology",
+    tags=["术语管理"]
 )
 
 
