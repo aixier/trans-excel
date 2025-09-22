@@ -394,9 +394,18 @@ const startTranslation = async () => {
 
   uploading.value = true
   try {
+    // 获取实际的File对象
+    // Ant Design Vue的Upload组件可能会包装File对象
+    const fileObj = fileList.value[0].originFileObj || fileList.value[0]
+
+    // 确保是File对象
+    if (!(fileObj instanceof File)) {
+      throw new Error('Invalid file object')
+    }
+
     // 调用真实API
     const response = await translationAPI.uploadFile({
-      file: fileList.value[0],
+      file: fileObj,
       config: {
         ...translationConfig.value,
         regionCode: translationConfig.value.region,
@@ -404,13 +413,13 @@ const startTranslation = async () => {
       }
     })
 
-    // 创建任务
+    // 创建任务 - 适配后端返回的数据结构
     currentTask.value = {
-      id: response.id,
-      fileName: fileList.value[0].name,
-      status: response.status,
+      id: response.task_id || response.id,
+      fileName: fileObj.name,
+      status: response.status || 'uploading',
       progress: 0,
-      total: response.totalRows || 0,
+      total: response.totalRows || 100, // 如果没有totalRows，默认100
       translated: 0,
       paused: false,
       iterations: []
@@ -420,8 +429,10 @@ const startTranslation = async () => {
     startPolling()
 
     // 添加日志
-    addLog('info', `任务创建成功，任务ID: ${response.id}`)
-    addLog('info', `检测到 ${response.totalRows || 0} 条需要翻译的文本`)
+    addLog('info', `任务创建成功，任务ID: ${response.task_id || response.id}`)
+    addLog('info', response.message || '翻译任务已启动')
+    addLog('info', `文件: ${fileObj.name}`)
+    addLog('info', `目标语言: ${translationConfig.value.targetLanguages.join(', ')}`)
   } catch (error) {
     message.error('上传失败，请重试')
     console.error(error)
@@ -434,49 +445,67 @@ const startTranslation = async () => {
 const startPolling = () => {
   pollTimer = setInterval(async () => {
     try {
-      const progress = await translationAPI.getTaskProgress(currentTask.value.id)
+      const response = await translationAPI.getTaskProgress(currentTask.value.id)
 
-      // 更新任务状态
-      currentTask.value.progress = progress.percentage || 0
-      currentTask.value.translated = progress.completedRows || 0
-      currentTask.value.status = progress.status
-      currentTask.value.iterations = progress.iterations || []
+      // 更新任务状态 - 适配后端返回的数据结构
+      if (response.progress) {
+        currentTask.value.progress = Math.round((response.progress.translated_rows / response.progress.total_rows) * 100) || 0
+        currentTask.value.translated = response.progress.translated_rows || 0
+        currentTask.value.total = response.progress.total_rows || currentTask.value.total
 
-      // 添加日志
-      if (progress.currentMessage) {
-        addLog('info', progress.currentMessage)
-      }
-
-      // 处理迭代信息
-      if (progress.iterations) {
-        progress.iterations.forEach((iter: any, index: number) => {
-          if (!currentTask.value.iterations[index]) {
-            currentTask.value.iterations[index] = {
-              round: iter.iteration,
-              status: iter.completed ? 'completed' : 'processing',
-              found: iter.newTasksFound || 0,
-              translated: iter.translatedCount || 0,
-              progress: iter.progress || 0
+        // 更新迭代信息
+        if (response.progress.current_iteration) {
+          const iterIndex = response.progress.current_iteration - 1
+          if (!currentTask.value.iterations[iterIndex]) {
+            currentTask.value.iterations[iterIndex] = {
+              round: response.progress.current_iteration,
+              status: 'processing',
+              found: 0,
+              translated: 0,
+              progress: 0
             }
           }
-        })
+          currentTask.value.iterations[iterIndex].translated = response.progress.translated_rows
+          currentTask.value.iterations[iterIndex].progress = currentTask.value.progress
+        }
+      }
+
+      currentTask.value.status = response.status
+
+      // 添加日志
+      if (response.progress && response.progress.translated_rows > 0) {
+        const percentage = currentTask.value.progress
+        // 每10%或每翻译10条记录一次
+        if (percentage > 0 && (percentage % 10 === 0 || response.progress.translated_rows % 10 === 0)) {
+          addLog('info', `翻译进度: ${percentage}% (${response.progress.translated_rows}/${response.progress.total_rows})，当前迭代: ${response.progress.current_iteration}/${response.progress.max_iterations}`)
+        }
       }
 
       // 检查是否完成
-      if (progress.status === 'completed' || progress.status === 'failed') {
+      if (response.status === 'completed' || response.status === 'failed') {
         stopPolling()
-        if (progress.status === 'completed') {
+        if (response.status === 'completed') {
           message.success('翻译完成！')
           addLog('success', '所有翻译任务已完成')
         } else {
           message.error('翻译失败')
-          addLog('error', progress.errorMessage || '翻译任务失败')
+          addLog('error', response.errorMessage || '翻译任务失败')
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('轮询失败', error)
+      // 如果是超时或网络错误，继续轮询
+      if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
+        // 网络超时，继续轮询
+        return
+      }
+      // 其他错误停止轮询
+      if (error.response?.status === 404) {
+        addLog('warning', '任务不存在或已完成')
+        stopPolling()
+      }
     }
-  }, 2000) // 每2秒轮询一次
+  }, 5000) // 每5秒轮询一次，避免过于频繁
 }
 
 // 停止轮询

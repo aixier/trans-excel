@@ -52,8 +52,22 @@ async def init_system():
 
         # 4. 验证必要配置
         logger.info("⚙️ 验证系统配置...")
-        if not settings.llm_api_key:
-            logger.warning("⚠️ LLM API密钥未配置")
+
+        # 验证LLM配置
+        from pathlib import Path
+        import json
+        llm_config_path = Path(__file__).parent / "config" / "llm_configs.json"
+        if llm_config_path.exists():
+            with open(llm_config_path, 'r', encoding='utf-8') as f:
+                llm_config = json.load(f)
+                active_profile = llm_config.get('active_profile')
+                if active_profile and active_profile in llm_config.get('profiles', {}):
+                    profile = llm_config['profiles'][active_profile]
+                    logger.info(f"✅ LLM配置已加载: {active_profile} ({profile.get('provider')}/{profile.get('model')})")
+                else:
+                    logger.warning("⚠️ LLM配置文件中没有有效的active_profile")
+        else:
+            logger.warning("⚠️ LLM配置文件不存在: config/llm_configs.json")
 
         if not all([settings.oss_access_key_id, settings.oss_access_key_secret]):
             logger.warning("⚠️ OSS存储配置未完整")

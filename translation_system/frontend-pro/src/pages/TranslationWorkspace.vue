@@ -271,14 +271,6 @@ const luckysheetConfig = {
   showsheetbar: true,
   enableAddRow: true,
   enableAddCol: true,
-  // 自定义工具栏
-  functionButton: `
-    <div class="luckysheet-toolbar-button-outer-box">
-      <div class="luckysheet-toolbar-button-inner-box">
-        批量翻译
-      </div>
-    </div>
-  `,
 }
 
 // 计算属性

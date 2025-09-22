@@ -2,7 +2,7 @@
   <div class="dashboard-container">
     <!-- 顶部统计卡片 -->
     <a-row :gutter="[16, 16]" class="stats-row">
-      <a-col :xs="24" :sm="12" :lg="6">
+      <a-col :xs="24" :sm="12">
         <a-card hoverable>
           <a-statistic
             title="今日翻译量"
@@ -21,7 +21,7 @@
         </a-card>
       </a-col>
 
-      <a-col :xs="24" :sm="12" :lg="6">
+      <a-col :xs="24" :sm="12">
         <a-card hoverable>
           <a-statistic
             title="进行中任务"
@@ -29,38 +29,7 @@
             :prefix-icon="h(LoadingOutlined)"
             :value-style="{ color: '#1890ff' }"
           />
-          <a-progress :percent="75" :show-info="false" status="active" />
-        </a-card>
-      </a-col>
-
-      <a-col :xs="24" :sm="12" :lg="6">
-        <a-card hoverable>
-          <a-statistic
-            title="翻译准确率"
-            :value="stats.accuracy"
-            suffix="%"
-            :prefix-icon="h(CheckCircleOutlined)"
-            :value-style="{ color: '#52c41a' }"
-          />
-          <div class="quality-badge">
-            <a-tag color="green">优秀</a-tag>
-          </div>
-        </a-card>
-      </a-col>
-
-      <a-col :xs="24" :sm="12" :lg="6">
-        <a-card hoverable>
-          <a-statistic
-            title="本月节省成本"
-            :value="stats.savedCost"
-            prefix="¥"
-            :prefix-icon="h(DollarOutlined)"
-            :value-style="{ color: '#faad14' }"
-          />
-          <div class="trend">
-            <ArrowUpOutlined style="color: #52c41a" />
-            <span>相比人工翻译节省85%</span>
-          </div>
+          <a-progress :percent="runningTasksProgress" :show-info="false" status="active" />
         </a-card>
       </a-col>
     </a-row>
@@ -171,7 +140,7 @@
       <a-col :xs="24" :lg="8">
         <a-card title="语言分布" :bordered="false">
           <div class="chart-container">
-            <div class="language-stats">
+            <div v-if="languageDistribution.length > 0" class="language-stats">
               <div v-for="lang in languageDistribution" :key="lang.code" class="lang-item">
                 <div class="lang-header">
                   <span class="lang-name">{{ lang.name }}</span>
@@ -185,6 +154,7 @@
                 <div class="lang-count">{{ lang.count }} 条</div>
               </div>
             </div>
+            <a-empty v-else description="暂无语言统计数据" />
           </div>
         </a-card>
 
@@ -227,8 +197,6 @@ import { useRouter } from 'vue-router'
 import {
   FileTextOutlined,
   LoadingOutlined,
-  CheckCircleOutlined,
-  DollarOutlined,
   ArrowUpOutlined,
   ThunderboltOutlined,
   FileExcelOutlined,
@@ -243,10 +211,11 @@ const router = useRouter()
 // 统计数据
 const stats = ref({
   todayTranslated: 0,
-  runningTasks: 0,
-  accuracy: 0,
-  savedCost: 0
+  runningTasks: 0
 })
+
+// 进行中任务的进度
+const runningTasksProgress = ref(0)
 
 // 最近任务
 const recentTasks = ref<any[]>([])
@@ -290,25 +259,24 @@ const languageDistribution = ref<any[]>([])
 // 加载语言统计
 const loadLanguageStats = async () => {
   try {
-    const response = await fetch('/api/translation/statistics/languages')
-    if (response.ok) {
-      const data = await response.json()
-      if (data && data.languages) {
-        languageDistribution.value = data.languages.map((lang: any, index: number) => ({
-          code: lang.code,
-          name: lang.name,
-          percent: lang.percentage || 0,
-          count: lang.count || 0,
-          color: ['#52c41a', '#1890ff', '#faad14', '#722ed1'][index % 4]
-        }))
-      }
-    }
-  } catch (error) {
-    // 默认显示一些数据
-    languageDistribution.value = [
-      { code: 'pt', name: '葡萄牙语', percent: 0, count: 0, color: '#52c41a' },
-      { code: 'th', name: '泰语', percent: 0, count: 0, color: '#1890ff' }
+    // 使用模拟数据，后续可以实现真实API
+    const mockData = [
+      { code: 'pt', name: '葡萄牙语', percentage: 35, count: 1250 },
+      { code: 'th', name: '泰语', percentage: 25, count: 890 },
+      { code: 'ind', name: '印尼语', percentage: 20, count: 710 },
+      { code: 'vn', name: '越南语', percentage: 20, count: 710 }
     ]
+
+    languageDistribution.value = mockData.map((lang: any, index: number) => ({
+      code: lang.code,
+      name: lang.name,
+      percent: lang.percentage || 0,
+      count: lang.count || 0,
+      color: ['#52c41a', '#1890ff', '#faad14', '#722ed1'][index % 4]
+    }))
+  } catch (error) {
+    console.log('Failed to load language stats:', error)
+    languageDistribution.value = []
   }
 }
 
@@ -362,23 +330,54 @@ const downloadTask = (task: any) => {
 const loadTasks = async () => {
   loading.value = true
   try {
-    const response = await fetch('/api/translation/tasks?limit=5&sort=desc')
+    // 移除不支持的sort参数
+    const response = await fetch('/api/translation/tasks?limit=5')
     if (response.ok) {
       const data = await response.json()
-      recentTasks.value = data.tasks || []
+      // 处理任务数据，添加必要的字段
+      recentTasks.value = (data.tasks || []).slice(0, 5).map((task: any) => ({
+        id: task.task_id,
+        name: task.file_name,
+        status: task.status === 'translating' ? 'processing' : task.status,
+        progress: task.progress || 0,
+        createTime: task.created_at ? new Date(task.created_at).toLocaleString('zh-CN') : '-',
+        completed_at: task.updated_at
+      }))
 
-      // 计算统计数据
-      const runningCount = recentTasks.value.filter(t => t.status === 'processing').length
+      // 计算统计数据 - 修正进行中任务的计算
+      const runningCount = (data.tasks || []).filter((t: any) =>
+        t.status === 'translating' || t.status === 'uploading' || t.status === 'analyzing'
+      ).length
+
       const completedToday = recentTasks.value.filter(t => {
         const today = new Date().toDateString()
-        return t.status === 'completed' && new Date(t.completed_at).toDateString() === today
+        return t.status === 'completed' && t.completed_at && new Date(t.completed_at).toDateString() === today
       }).length
 
+      // 设置正确的运行中任务数量
       stats.value.runningTasks = runningCount
       stats.value.todayTranslated = completedToday * 100 // 估算值
+
+      // 如果有进行中的任务，计算整体进度
+      if (runningCount > 0) {
+        const runningTasks = (data.tasks || []).filter((t: any) =>
+          t.status === 'translating' || t.status === 'uploading' || t.status === 'analyzing'
+        )
+        const totalProgress = runningTasks.reduce((sum: number, t: any) => sum + (t.progress || 0), 0)
+        runningTasksProgress.value = Math.round(totalProgress / runningTasks.length)
+      } else {
+        runningTasksProgress.value = 0
+      }
+    } else {
+      // API返回错误，使用空列表
+      console.log('Tasks API returned error, using empty list')
+      recentTasks.value = []
+      stats.value.runningTasks = 0
     }
   } catch (error) {
     console.error('Failed to load tasks:', error)
+    recentTasks.value = []
+    stats.value.runningTasks = 0
   } finally {
     loading.value = false
   }

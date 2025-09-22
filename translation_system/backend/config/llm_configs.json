@@ -1,0 +1,101 @@
+{
+  "profiles": {
+    "qwen-plus": {
+      "provider": "qwen",
+      "model": "qwen-plus",
+      "api_key": "在这里填入你的通义千问API密钥",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "temperature": 0.3,
+      "max_tokens": 4000,
+      "description": "阿里云通义千问Plus - 平衡性能和成本"
+    },
+    "qwen-max": {
+      "provider": "qwen",
+      "model": "qwen-max",
+      "api_key": "在这里填入你的通义千问API密钥",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "temperature": 0.3,
+      "max_tokens": 8000,
+      "description": "阿里云通义千问Max - 最强性能"
+    },
+    "qwen-turbo": {
+      "provider": "qwen",
+      "model": "qwen-turbo",
+      "api_key": "在这里填入你的通义千问API密钥",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "temperature": 0.5,
+      "max_tokens": 4000,
+      "description": "阿里云通义千问Turbo - 快速响应"
+    },
+    "openai-gpt35": {
+      "provider": "openai",
+      "model": "gpt-3.5-turbo",
+      "api_key": "在这里填入你的OpenAI API密钥",
+      "base_url": "https://api.openai.com/v1",
+      "temperature": 0.3,
+      "max_tokens": 4000,
+      "description": "OpenAI GPT-3.5 Turbo - 成本效益高"
+    },
+    "openai-gpt4": {
+      "provider": "openai",
+      "model": "gpt-4",
+      "api_key": "在这里填入你的OpenAI API密钥",
+      "base_url": "https://api.openai.com/v1",
+      "temperature": 0.3,
+      "max_tokens": 4000,
+      "description": "OpenAI GPT-4 - 最强推理能力"
+    },
+    "openai-gpt4o": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "api_key": "在这里填入你的OpenAI API密钥",
+      "base_url": "https://api.openai.com/v1",
+      "temperature": 0.3,
+      "max_tokens": 4000,
+      "description": "OpenAI GPT-4o - 优化版GPT-4"
+    },
+    "openai-gpt-5-nano": {
+      "provider": "openai-gpt5",
+      "model": "gpt-5-nano",
+      "api_key": "在这里填入你的OpenAI API密钥",
+      "base_url": "https://api.openai.com",
+      "temperature": 0.3,
+      "max_tokens": 128000,
+      "description": "OpenAI GPT-5 Nano - 使用新的responses API"
+    },
+    "gemini-pro": {
+      "provider": "gemini",
+      "model": "gemini-pro",
+      "api_key": "在这里填入你的Gemini API密钥",
+      "temperature": 0.3,
+      "max_tokens": 4000,
+      "description": "Google Gemini Pro - 多模态能力"
+    },
+    "gemini-1.5-pro": {
+      "provider": "gemini",
+      "model": "gemini-1.5-pro",
+      "api_key": "在这里填入你的Gemini API密钥",
+      "temperature": 0.3,
+      "max_tokens": 8000,
+      "description": "Google Gemini 1.5 Pro - 百万级上下文"
+    },
+    "gemini-1.5-flash": {
+      "provider": "gemini",
+      "model": "gemini-1.5-flash",
+      "api_key": "在这里填入你的Gemini API密钥",
+      "temperature": 0.3,
+      "max_tokens": 8000,
+      "description": "Google Gemini 1.5 Flash - 快速响应"
+    },
+    "qwen-auto": {
+      "provider": "qwen",
+      "api_key": "在这里填入你的通义千问API密钥",
+      "model": "qwen-plus",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "temperature": 0.3,
+      "max_tokens": 4000,
+      "description": "自动创建的兼容配置"
+    }
+  },
+  "active_profile": "qwen-auto"
+}

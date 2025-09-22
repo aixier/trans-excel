@@ -124,13 +124,25 @@ class FileAnalysisResponse(BaseModel):
     sheets: List[SheetInfo] = Field(..., description="Sheet列表信息")
 
 
+class TaskListItem(BaseModel):
+    """任务列表项"""
+    task_id: str = Field(..., description="任务ID")
+    file_name: str = Field(..., description="文件名")
+    status: str = Field(..., description="任务状态")
+    progress: int = Field(..., description="进度百分比")
+    total_rows: int = Field(..., description="总行数")
+    translated_rows: int = Field(..., description="已翻译行数")
+    languages: List[str] = Field(..., description="目标语言")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
+
+
 class TaskListResponse(BaseModel):
     """任务列表响应"""
-    tasks: List[TaskStatusResponse] = Field(..., description="任务列表")
+    tasks: List[TaskListItem] = Field(..., description="任务列表")
     total: int = Field(..., description="总数")
-    page: int = Field(..., description="页码")
-    limit: int = Field(..., description="每页数量")
-    pages: int = Field(..., description="总页数")
+    skip: int = Field(0, description="跳过数")
+    limit: int = Field(100, description="限制数")
 
 
 class ProjectResponse(BaseModel):

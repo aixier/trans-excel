@@ -9,8 +9,8 @@ import os
 from datetime import datetime
 
 # 配置
-BASE_URL = "http://localhost:8101"
-TEST_FILE = "/mnt/d/work/trans_excel/teach/123.xlsx"
+BASE_URL = "http://127.0.0.1:8101"
+TEST_FILE = "/mnt/d/work/trans_excel/test_text_targ3_5tab_normall_有注释.xlsx"
 OUTPUT_DIR = "/mnt/d/work/trans_excel"
 
 def log(message, level="INFO"):
@@ -84,15 +84,10 @@ def test_123_file():
 
     start_time = time.time()
     last_progress = -1
-    max_wait_time = 6000 # 10分钟超时
     final_status = None  # 记录最终状态
 
     while True:
         elapsed = time.time() - start_time
-
-        if elapsed > max_wait_time:
-            log(f"⏰ 超时！已等待 {elapsed:.1f} 秒", "WARNING")
-            break
 
         try:
             response = requests.get(
@@ -179,7 +174,7 @@ def test_123_file():
                 # 保存文件
                 output_file = os.path.join(
                     OUTPUT_DIR,
-                    f"123_translated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    f"456_translated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
                 )
 
                 with open(output_file, 'wb') as f:

@@ -68,12 +68,12 @@ export class TranslationAPI {
       params.file,
       {
         target_languages: params.config.targetLanguages.join(','),
-        batch_size: params.config.batchSize,
-        max_concurrent: params.config.maxConcurrent,
-        region_code: params.config.regionCode,
-        game_background: params.config.gameBackground,
-        auto_detect: params.config.autoDetect,
-        project_id: params.projectId
+        batch_size: params.config.batchSize || 10,
+        max_concurrent: params.config.maxConcurrent || 20,
+        region_code: params.config.regionCode || 'cn-hangzhou',
+        game_background: params.config.gameBackground || '',
+        auto_detect: params.config.autoDetect !== false ? 'true' : 'false',
+        project_id: params.projectId || ''
       }
     )
   }
@@ -128,6 +128,13 @@ export class TranslationAPI {
   }
 
   /**
+   * 永久删除翻译任务
+   */
+  async deleteTask(taskId: string): Promise<void> {
+    return apiClient.delete(`/api/translation/tasks/${taskId}/permanent`)
+  }
+
+  /**
    * 下载翻译结果
    */
   async downloadResult(taskId: string): Promise<void> {
@@ -179,6 +186,30 @@ export class TranslationAPI {
     return apiClient.post<QualityScore[]>('/api/translation/evaluate', {
       translations
     })
+  }
+
+  /**
+   * 批量取消任务
+   */
+  async batchCancelTasks(taskIds: string[]): Promise<{
+    success_count: number
+    failed_count: number
+    failed_tasks: Array<{ task_id: string; reason: string }>
+    message: string
+  }> {
+    return apiClient.post('/api/translation/tasks/batch/cancel', { task_ids: taskIds })
+  }
+
+  /**
+   * 批量删除任务
+   */
+  async batchDeleteTasks(taskIds: string[]): Promise<{
+    success_count: number
+    failed_count: number
+    failed_tasks: Array<{ task_id: string; reason: string }>
+    message: string
+  }> {
+    return apiClient.post('/api/translation/tasks/batch-delete', { task_ids: taskIds })
   }
 
   /**

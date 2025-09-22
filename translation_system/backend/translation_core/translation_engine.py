@@ -1,15 +1,14 @@
 """
 翻译引擎核心类
 基于test_concurrent_batch.py的完整架构化实现
+支持多LLM提供商切换
 """
 import asyncio
 import json
 import pandas as pd
 import time
 from datetime import datetime
-from typing import List, Dict, Optional
-from openai import AsyncOpenAI
-from config.settings import settings
+from typing import List, Dict, Optional, Any
 from database.connection import AsyncSession
 from project_manager.manager import ProjectManager
 from .placeholder_protector import PlaceholderProtector
@@ -17,6 +16,19 @@ from .localization_engine import LocalizationEngine
 from .terminology_manager import TerminologyManager
 from excel_analysis.header_analyzer import HeaderAnalyzer
 from excel_analysis.translation_detector import TranslationDetector
+from excel_analysis.enhanced_excel_reader import EnhancedExcelReader
+from excel_analysis.color_task_detector import ColorTaskDetector, TaskType
+from .phase_translation_manager import PhaseTranslationManager
+
+# 使用LLM配置管理器作为唯一数据源
+from llm_providers import (
+    LLMConfigManager,
+    LLMMessage,
+    ResponseFormat,
+    BaseLLM
+)
+from config.settings import settings
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,23 +37,92 @@ logger = logging.getLogger(__name__)
 class TranslationEngine:
     """翻译引擎 - 基于Demo的架构化实现"""
 
-    def __init__(self):
-        self.client = AsyncOpenAI(
-            api_key=settings.llm_api_key,
-            base_url=settings.llm_base_url
-        )
+    def __init__(self, llm_profile: Optional[str] = None):
+        """
+        初始化翻译引擎
+
+        Args:
+            llm_profile: LLM配置文件名，如果为None则使用active_profile
+        """
+        self.llm_profile = llm_profile
+        self.llm_instance: Optional['BaseLLM'] = None
+        self.llm_manager = LLMConfigManager()
+        self.client = None  # 不再使用旧的OpenAI客户端
+
+        # 其他组件
         self.project_manager = ProjectManager(None)  # OSS storage will be injected
         self.placeholder_protector = PlaceholderProtector()
         self.localization_engine = LocalizationEngine()
         self.terminology_manager = TerminologyManager()
         self.header_analyzer = HeaderAnalyzer()
         self.translation_detector = TranslationDetector()
+        self.enhanced_reader = EnhancedExcelReader()  # 增强的Excel读取器
+        self.excel_metadata = {}  # 存储Excel元数据
+        self.color_detector = ColorTaskDetector()  # 颜色任务检测器
+        self.phase_manager = PhaseTranslationManager(self)  # 三阶段管理器
+
+        # 术语管理相关
+        self.current_project_id = None  # 当前项目ID
+        self.terminology_loaded = False  # 术语是否已加载
 
         # 统计信息 (基于Demo)
         self.completed_batches = 0
         self.total_batches = 0
         self.failed_batches = []
         self.total_translated_rows = 0  # 累计翻译的行数
+
+    async def initialize_llm(self):
+        """初始化LLM实例"""
+        if not self.llm_instance:
+            if not self.llm_profile:
+                # 使用配置文件中的active_profile
+                active_profile = self.llm_manager.get_active_profile()
+                if active_profile and active_profile in self.llm_manager.list_profiles():
+                    self.llm_profile = active_profile
+                    logger.info(f"使用配置文件中的活动配置: {active_profile}")
+                else:
+                    raise ValueError("没有配置活动的LLM profile，请在llm_configs.json中设置active_profile")
+
+            # 获取LLM实例
+            try:
+                self.llm_instance = await self.llm_manager.get_llm(self.llm_profile)
+                logger.info(f"成功初始化LLM: {self.llm_instance.get_provider_name()} - {self.llm_profile}")
+            except Exception as e:
+                logger.error(f"初始化LLM失败 ({self.llm_profile}): {e}")
+                # 如果失败，尝试使用备用配置
+                if self.llm_profile != "qwen-plus" and "qwen-plus" in self.llm_manager.list_profiles():
+                    logger.info("尝试使用备用配置: qwen-plus")
+                    self.llm_profile = "qwen-plus"
+                    self.llm_instance = await self.llm_manager.get_llm(self.llm_profile)
+                    logger.info(f"使用备用配置成功: {self.llm_instance.get_provider_name()}")
+                else:
+                    raise
+
+    async def switch_llm(self, profile_name: str):
+        """
+        切换LLM配置
+
+        Args:
+            profile_name: 新的配置文件名
+        """
+        if profile_name not in self.llm_manager.list_profiles():
+            raise ValueError(f"Profile {profile_name} not found")
+
+        self.llm_profile = profile_name
+        self.llm_instance = await self.llm_manager.get_llm(profile_name)
+        logger.info(f"Switched to LLM: {self.llm_instance.get_provider_name()} - {profile_name}")
+
+    def get_available_profiles(self) -> List[str]:
+        """获取可用的LLM配置文件列表"""
+        if self.llm_manager:
+            return self.llm_manager.list_profiles()
+        return []
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """获取当前模型信息"""
+        if self.llm_instance:
+            return self.llm_instance.get_model_info()
+        return {}
 
     async def process_translation_task(
         self,
@@ -55,11 +136,37 @@ class TranslationEngine:
         region_code: str = 'na',
         game_background: str = None,
         sheet_names: List[str] = None,  # None = 处理所有sheets
-        auto_detect: bool = True  # 自动检测需要翻译的sheets
+        auto_detect: bool = True,  # 自动检测需要翻译的sheets
+        project_id: Optional[str] = None  # 项目ID，用于术语管理
     ):
         """处理翻译任务 - 支持多Sheet处理"""
         try:
-            logger.info(f"开始处理翻译任务: {task_id}")
+            # 初始化LLM
+            await self.initialize_llm()
+
+            # 打印模型信息
+            if self.llm_instance:
+                model_info = self.llm_instance.get_model_info()
+                logger.info(f"🚀 开始执行翻译任务: {task_id}")
+                logger.info(f"🤖 当前使用模型: {model_info.get('provider', 'Unknown')} - {model_info.get('model', 'Unknown')}")
+                logger.info(f"📝 模型详情: {model_info.get('model_name', 'Unknown')}")
+                logger.info(f"⚡ 配置文件: {self.llm_profile or 'active_profile'}")
+            else:
+                logger.error(f"❌ 无法初始化LLM，请检查配置")
+                raise RuntimeError("LLM initialization failed")
+
+            # 预加载术语表（如果启用且提供了project_id）
+            if settings.terminology_enabled and project_id:
+                self.current_project_id = project_id
+                try:
+                    await self.terminology_manager.preload_all_terminology(db, project_id)
+                    self.terminology_loaded = True
+                    logger.info(f"✅ 术语表预加载成功: {project_id}")
+                except Exception as e:
+                    logger.warning(f"⚠️ 术语表预加载失败: {e}，继续翻译但不使用术语")
+                    self.terminology_loaded = False
+            elif not settings.terminology_enabled:
+                logger.info("术语系统已禁用（通过配置）")
 
             # 更新任务状态
             await self.project_manager.update_task_progress(
@@ -113,9 +220,34 @@ class TranslationEngine:
                 logger.info(f"处理Sheet {sheet_idx}/{len(sheets_to_process)}: {sheet_name}")
                 logger.info(f"{'='*50}")
 
-                # 加载当前Sheet
-                df = pd.read_excel(file_path, sheet_name=sheet_name)
-                logger.info(f"Sheet '{sheet_name}' 加载成功，总行数: {len(df)}")
+                # 使用增强读取器加载当前Sheet（包含元数据）
+                try:
+                    df, sheet_metadata = self.enhanced_reader.read_excel_with_metadata(file_path, sheet_name)
+
+                    # 存储元数据供后续使用
+                    if sheet_metadata:
+                        self.excel_metadata[sheet_name] = sheet_metadata.get(sheet_name, {})
+
+                        # 提取批注作为翻译上下文
+                        comments = self.enhanced_reader.extract_comments_as_context(
+                            self.excel_metadata[sheet_name]
+                        )
+                        if comments:
+                            logger.info(f"发现 {len(comments)} 个批注，将作为翻译参考")
+
+                        # 提取带颜色的单元格
+                        colored_cells = self.enhanced_reader.get_colored_cells(
+                            self.excel_metadata[sheet_name]
+                        )
+                        if colored_cells:
+                            logger.info(f"发现 {len(colored_cells)} 个带颜色的单元格")
+
+                    logger.info(f"Sheet '{sheet_name}' 加载成功（含元数据），总行数: {len(df)}")
+
+                except Exception as e:
+                    logger.warning(f"增强读取失败，降级到普通读取: {e}")
+                    df = pd.read_excel(file_path, sheet_name=sheet_name)
+                    logger.info(f"Sheet '{sheet_name}' 加载成功（普通模式），总行数: {len(df)}")
 
                 # 清理列名（去除特殊字符如冒号）
                 df.columns = [col.strip(':').strip() for col in df.columns]
@@ -371,34 +503,115 @@ class TranslationEngine:
                     # 从批次中提取目标语言（每个任务都知道自己的目标语言）
                     batch_target_languages = list(set([task.target_language for task in batch]))
 
-                    # 创建区域化提示词 (升级Demo的通用提示词)
+                    # 如果区域代码是'auto'，根据语言自动选择
+                    actual_region_code = region_code
+                    if region_code == 'auto' and batch_target_languages:
+                        # 使用第一个目标语言来确定区域
+                        actual_region_code = self.localization_engine.get_region_for_language(batch_target_languages[0])
+                        logger.debug(f"自动选择区域: {batch_target_languages[0]} -> {actual_region_code}")
+
+                    # 提取批次的批注信息
+                    batch_comments = {}
+                    for idx, task in enumerate(batch):
+                        # 获取源单元格地址
+                        source_cell_addr = self._get_cell_address_from_task(task)
+                        # 查找批注
+                        if source_cell_addr and sheet_name in self.excel_metadata:
+                            sheet_metadata = self.excel_metadata[sheet_name]
+                            if source_cell_addr in sheet_metadata:
+                                cell_meta = sheet_metadata[source_cell_addr]
+                                if cell_meta.comment:
+                                    batch_comments[f"text_{idx}"] = cell_meta.comment
+
+                    # 术语匹配（如果启用且已加载术语）
+                    matched_terms = {}
+                    terminology_text = ""
+                    if settings.terminology_enabled and self.terminology_loaded and self.current_project_id:
+                        batch_texts = [task.source_text for task in batch]
+                        matched_terms = self.terminology_manager.match_terminology_for_batch(
+                            batch_texts,
+                            self.current_project_id,
+                            batch_target_languages if batch_target_languages else ['en']
+                        )
+
+                        # 格式化术语用于prompt
+                        if matched_terms:
+                            terminology_text = self.terminology_manager.format_terminology_for_prompt(
+                                matched_terms,
+                                batch_target_languages if batch_target_languages else ['en']
+                            )
+                            logger.debug(f"批次{batch_id}: 匹配到{len(matched_terms)}个术语")
+
+                            # 检查是否可以使用直接替换策略（如果配置允许）
+                            if settings.terminology_direct_replace_enabled:
+                                can_direct_replace = self._check_direct_replace_strategy(batch_texts, matched_terms)
+                            else:
+                                can_direct_replace = False
+
+                            # 如果可以直接替换，跳过LLM调用
+                            if can_direct_replace:
+                                batch_results = self._apply_direct_replacement(
+                                    batch,
+                                    matched_terms,
+                                    batch_target_languages if batch_target_languages else ['en']
+                                )
+
+                                # 记录统计信息
+                                self.completed_batches += 1
+                                self.total_translated_rows += len(batch)
+
+                                end_time = time.time()
+                                logger.info(f"✅ 批次{batch_id}: 直接替换完成，耗时 {end_time - start_time:.1f}秒")
+
+                                return batch_results
+
+                    # 创建区域化提示词 (升级Demo的通用提示词，带批注和术语)
                     system_prompt = self.localization_engine.create_batch_prompt(
                         [task.source_text for task in batch],
                         batch_target_languages if batch_target_languages else ['en'],  # 默认英语
-                        region_code,
+                        actual_region_code,
                         game_background,
-                        batch[0].task_type if batch else 'new'
+                        batch[0].task_type if batch else 'new',
+                        cell_comments=batch_comments,  # 传递批注信息
+                        terminology=matched_terms  # 传递匹配的术语
                     )
 
-                    # 构建请求消息 (与Demo格式一致)
-                    messages = [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"请翻译以下中文文本：\n{json.dumps(input_texts, ensure_ascii=False, indent=2)}"}
-                    ]
+                    # 构建请求消息
+                    user_message = f"请翻译以下中文文本：\n{json.dumps(input_texts, ensure_ascii=False, indent=2)}"
 
-                    # 调用LLM API - 使用当前超时
-                    response = await self.client.chat.completions.create(
-                        model=settings.llm_model,
-                        messages=messages,
-                        temperature=0.3,
-                        max_tokens=4000,
-                        response_format={"type": "json_object"},
-                        timeout=current_timeout  # 使用当前超时（随重试次数增加）
-                    )
+                    # 调用LLM
+                    if self.llm_instance:
+                        # 使用LLM Provider
+                        model_info = self.llm_instance.get_model_info()
+                        if batch_id == 1 and attempt == 0:  # 只在第一个批次的第一次尝试时打印
+                            logger.info(f"🤖 使用模型: {model_info.get('provider', 'Unknown')} - {model_info.get('model', 'Unknown')} ({model_info.get('model_name', 'Unknown')})")
+                            logger.info(f"🛠️  配置: 温度={0.3}, 最大tokens={4000}, 区域={actual_region_code}")
 
-                    # 处理响应 - 添加占位符还原
-                    result = json.loads(response.choices[0].message.content)
-                    translations = result.get("translations", [])
+                        llm_messages = [
+                            LLMMessage(role="system", content=system_prompt),
+                            LLMMessage(role="user", content=user_message)
+                        ]
+
+                        # 使用配置的max_tokens值，如果没有则使用默认值
+                        max_tokens = self.llm_instance.config.max_tokens if hasattr(self.llm_instance, 'config') else 8000
+
+                        response = await self.llm_instance.chat_completion(
+                            messages=llm_messages,
+                            temperature=0.3,
+                            max_tokens=max_tokens,
+                            response_format=ResponseFormat.JSON,
+                            timeout=current_timeout
+                        )
+
+                        # 处理响应
+                        result = json.loads(response.content)
+                        translations = result.get("translations", [])
+
+                        # 记录token使用
+                        tokens_used = response.usage.get("total_tokens", 0) if response.usage else 0
+                    else:
+                        # LLM未初始化
+                        raise RuntimeError("LLM instance not initialized")
 
                     # 还原占位符
                     for translation_item in translations:
@@ -413,7 +626,6 @@ class TranslationEngine:
 
                     # 记录API统计
                     api_calls = 1
-                    tokens_used = response.usage.total_tokens if response.usage else 0
 
                     # 每个批次都更新进度，让用户能实时看到进度变化
                     try:
@@ -511,6 +723,15 @@ class TranslationEngine:
 
         return translated_count
 
+    def _get_cell_address_from_task(self, task) -> Optional[str]:
+        """从任务获取单元格地址"""
+        if hasattr(task, 'row_index') and hasattr(task, 'source_column'):
+            # 简单实现：假设列索引
+            col_letter = 'B'  # 通常中文在B列
+            row_num = task.row_index + 2  # +2因为有标题行且Excel从1开始
+            return f"{col_letter}{row_num}"
+        return None
+
     def _count_remaining_tasks(self, df: pd.DataFrame, sheet_info) -> int:
         """统计剩余翻译任务数量"""
         tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
@@ -560,10 +781,56 @@ class TranslationEngine:
             base_name = original_file_path.rsplit('.', 1)[0]
             output_path = f"{base_name}_translated_{timestamp}.xlsx"
 
-            # 使用ExcelWriter保存多个sheets
-            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-                for sheet_name, df in all_results.items():
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+            # 检查是否有元数据需要保留
+            if self.excel_metadata:
+                logger.info(f"保留原始格式和批注...")
+                # 先用pandas写入基础数据
+                with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                    for sheet_name, df in all_results.items():
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                        # 如果有元数据，应用到工作表
+                        if sheet_name in self.excel_metadata:
+                            worksheet = writer.sheets[sheet_name]
+                            metadata = self.excel_metadata[sheet_name]
+
+                            # 应用批注和颜色
+                            from openpyxl.comments import Comment
+                            from openpyxl.styles import Font, PatternFill
+
+                            for cell_address, cell_metadata in metadata.items():
+                                try:
+                                    cell = worksheet[cell_address]
+
+                                    # 添加批注
+                                    if cell_metadata.comment:
+                                        comment = Comment(cell_metadata.comment, "Translation System")
+                                        cell.comment = comment
+
+                                    # 设置字体颜色
+                                    if cell_metadata.font_color:
+                                        color_hex = cell_metadata.font_color.replace('#', '')
+                                        cell.font = Font(
+                                            color=color_hex,
+                                            bold=cell_metadata.font_bold,
+                                            italic=cell_metadata.font_italic
+                                        )
+
+                                    # 设置填充色
+                                    if cell_metadata.fill_color:
+                                        color_hex = cell_metadata.fill_color.replace('#', '')
+                                        cell.fill = PatternFill(
+                                            start_color=color_hex,
+                                            end_color=color_hex,
+                                            fill_type='solid'
+                                        )
+                                except Exception as e:
+                                    logger.warning(f"应用元数据失败 {cell_address}: {e}")
+            else:
+                # 没有元数据，使用普通保存
+                with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                    for sheet_name, df in all_results.items():
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
 
             logger.info(f"✅ 多Sheet翻译结果已保存: {output_path}")
 
@@ -598,3 +865,115 @@ class TranslationEngine:
         except Exception as e:
             logger.error(f"保存翻译结果失败: {e}")
             raise
+
+    def _check_direct_replace_strategy(self, batch_texts: List[str], matched_terms: Dict) -> bool:
+        """检查是否可以使用直接替换策略（简单术语替换，不需要LLM）"""
+        if not matched_terms:
+            return False
+
+        # 检查每个文本是否只包含术语（不含其他需要翻译的内容）
+        for text in batch_texts:
+            # 移除所有术语后，如果还有中文字符，则不能直接替换
+            temp_text = text
+            for term in matched_terms.keys():
+                temp_text = temp_text.replace(term, '')
+
+            # 检查是否还有中文字符（需要LLM翻译）
+            if any('\u4e00' <= char <= '\u9fff' for char in temp_text):
+                return False
+
+        return True
+
+    def _apply_direct_replacement(
+        self,
+        batch: List,
+        matched_terms: Dict,
+        target_languages: List[str]
+    ) -> Dict:
+        """直接应用术语替换，跳过LLM调用"""
+        batch_results = {}
+
+        for task in batch:
+            translated_text = task.source_text
+            # 按优先级排序术语，优先替换长的术语
+            sorted_terms = sorted(
+                matched_terms.items(),
+                key=lambda x: (len(x[0]), x[1].priority),
+                reverse=True
+            )
+
+            # 应用术语替换
+            for source, entry in sorted_terms:
+                if task.target_language in entry.target:
+                    translated_text = translated_text.replace(
+                        source,
+                        entry.target[task.target_language]
+                    )
+
+            batch_results[task.row_index] = {
+                task.target_language: translated_text
+            }
+
+        logger.info(f"✨ 使用直接替换策略处理{len(batch)}个任务（节省API调用）")
+        return batch_results
+
+    def _verify_terminology_usage(
+        self,
+        source_text: str,
+        translated_text: str,
+        matched_terms: Dict,
+        target_language: str
+    ) -> Dict[str, Any]:
+        """验证术语是否被正确使用"""
+        verification_result = {
+            'all_terms_used': True,
+            'missing_terms': [],
+            'incorrect_terms': [],
+            'success_rate': 100.0
+        }
+
+        if not matched_terms:
+            return verification_result
+
+        total_terms = 0
+        correct_terms = 0
+
+        for source, entry in matched_terms.items():
+            if source in source_text and target_language in entry.target:
+                total_terms += 1
+                expected_translation = entry.target[target_language]
+
+                # 检查译文中是否包含期望的术语翻译
+                if expected_translation in translated_text:
+                    correct_terms += 1
+                else:
+                    verification_result['missing_terms'].append({
+                        'source': source,
+                        'expected': expected_translation,
+                        'found': False
+                    })
+
+        if total_terms > 0:
+            verification_result['success_rate'] = (correct_terms / total_terms) * 100
+            verification_result['all_terms_used'] = (correct_terms == total_terms)
+
+        if verification_result['success_rate'] < 100:
+            logger.warning(
+                f"术语使用验证: 成功率 {verification_result['success_rate']:.1f}%, "
+                f"缺失术语: {len(verification_result['missing_terms'])}"
+            )
+
+        return verification_result
+
+    async def cleanup(self):
+        """清理资源"""
+        if self.llm_instance and hasattr(self.llm_instance, 'close'):
+            await self.llm_instance.close()
+            logger.info("LLM instance closed")
+
+        # 清理管理器中的所有实例
+        if self.llm_manager and hasattr(self.llm_manager, '_llm_instances'):
+            for profile, llm in self.llm_manager._llm_instances.items():
+                if llm != self.llm_instance and hasattr(llm, 'close'):
+                    await llm.close()
+            logger.info("All LLM resources cleaned up")

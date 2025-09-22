@@ -23,11 +23,6 @@ class TranslationConfig(BaseSettings):
     oss_bucket_name: str
     oss_endpoint: str
 
-    # LLM配置
-    llm_provider: str = "dashscope"
-    llm_model: str = "qwen-plus"
-    llm_api_key: str
-    llm_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
     # 缓存配置 (可选，如未配置则使用内存缓存)
     redis_host: Optional[str] = None
@@ -56,12 +51,20 @@ class TranslationConfig(BaseSettings):
     default_max_concurrent: int = 20  # 最大并发数：20
     default_max_iterations: int = 5
     default_target_languages: List[str] = ["pt", "th", "ind", "tw"]
-    default_region_code: str = "cn-hangzhou"
+    default_region_code: str = "auto"  # 自动根据语言选择区域
 
     # 批次大小限制（用户要求）
     max_batch_size: int = 30  # 最大每次30行
     large_file_threshold: int = 5000  # 大文件阈值
     medium_file_threshold: int = 1000  # 中等文件阈值
+
+    # 术语系统配置
+    terminology_enabled: bool = True  # 是否启用术语系统
+    terminology_cache_size: int = 10000  # 最大缓存术语数
+    terminology_match_threshold: float = 0.9  # 匹配阈值
+    terminology_direct_replace_enabled: bool = True  # 启用直接替换策略
+    terminology_verification_enabled: bool = True  # 启用术语验证
+    terminology_max_prompt_terms: int = 50  # Prompt中最大术语数
 
     # 应用配置
     app_name: str = "游戏本地化智能翻译系统"

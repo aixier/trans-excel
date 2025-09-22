@@ -560,3 +560,4 @@ sudo systemctl status translation-system
 现在您可以使用这个功能完整的游戏本地化翻译系统了。
 
 
+

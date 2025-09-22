@@ -72,6 +72,12 @@ class ApiClient {
           return response
         }
 
+        // 如果直接返回数据（没有包装在code/data结构中）
+        // 后端直接返回数据的情况
+        if (response.status === 200 && !('code' in data)) {
+          return data
+        }
+
         // 统一成功响应格式
         if (data.code === 200 || data.code === 0) {
           return data.data

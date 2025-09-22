@@ -50,6 +50,7 @@ async def upload_translation_file(
     region_code: str = Form("cn-hangzhou", description="地区代码"),
     game_background: Optional[str] = Form(None, description="游戏背景"),
     auto_detect: bool = Form(True, description="自动检测需要翻译的sheets"),
+    project_id: Optional[str] = Form(None, description="项目ID，用于术语管理"),  # 新增project_id
     db: AsyncSession = Depends(get_db),
     translation_engine: TranslationEngine = Depends(get_translation_engine),
     project_manager: ProjectManager = Depends(get_project_manager)
@@ -140,7 +141,7 @@ async def upload_translation_file(
 
         translation_task = TranslationTask(
             id=task_id,
-            project_id='temp-project',
+            project_id=project_id or 'default',  # 使用传入的project_id
             version_id='temp-version',
             task_name=f"Translation: {file.filename}",
             input_file_id='temp-file',
@@ -157,12 +158,12 @@ async def upload_translation_file(
 
         logger.info(f"📁 文件上传成功: {file.filename}, 任务ID: {task_id}")
 
-        # 后台启动翻译任务（不传递db会话）
+        # 后台启动翻译任务（传递project_id）
         background_tasks.add_task(
             start_translation_task,
             task_id, file_path, target_languages_list,
             batch_size, max_concurrent, region_code, game_background,
-            translation_engine, sheets_to_process, auto_detect
+            translation_engine, sheets_to_process, auto_detect, project_id
         )
 
         return TaskResponse(
@@ -189,18 +190,19 @@ async def start_translation_task(
     game_background: str,
     translation_engine: TranslationEngine,
     sheet_names: List[str] = None,
-    auto_detect: bool = True
+    auto_detect: bool = True,
+    project_id: Optional[str] = None  # 添加project_id参数
 ):
     """后台翻译任务执行函数"""
     # 创建新的数据库会话
     from database.connection import get_async_session
 
     try:
-        logger.info(f"🚀 开始执行翻译任务: {task_id}")
+        logger.info(f"🚀 开始执行翻译任务: {task_id}, 项目: {project_id or 'default'}")
 
         # 使用独立的数据库会话
         async with get_async_session() as db:
-            # 调用翻译引擎处理
+            # 调用翻译引擎处理，传递project_id
             await translation_engine.process_translation_task(
                 db=db,
                 task_id=task_id,
@@ -211,7 +213,8 @@ async def start_translation_task(
                 region_code=region_code,
                 game_background=game_background,
                 sheet_names=sheet_names,
-                auto_detect=auto_detect
+                auto_detect=auto_detect,
+                project_id=project_id  # 传递project_id
             )
 
     except Exception as e:
