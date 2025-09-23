@@ -449,14 +449,104 @@ class PhaseTranslationManager:
         special_prompt: str,
         config: Dict
     ) -> str:
-        """单条带特殊提示的翻译（占位实现）"""
-        if self.translation_engine:
-            # 伪代码：实际调用翻译引擎
-            # return await self.translation_engine.translate_with_prompt(
-            #     text, target_language, special_prompt, config
-            # )
-            pass
-        return f"{text}_translated"
+        """单条带特殊提示的翻译（真实LLM实现）"""
+        if not self.translation_engine or not self.translation_engine.llm_instance:
+            logger.warning("翻译引擎或LLM实例未初始化，使用占位符")
+            return f"{text}_translated"
+
+        try:
+            # 导入所需模块
+            from llm_providers import LLMMessage, ResponseFormat
+            import json
+
+            # 语言映射
+            language_map = {
+                'th': '泰语',
+                'pt': '葡萄牙语',
+                'vn': '越南语',
+                'en': '英语',
+                'ja': '日语',
+                'ko': '韩语',
+                'fr': '法语',
+                'de': '德语',
+                'es': '西班牙语',
+                'it': '意大利语',
+                'ru': '俄语',
+                'ar': '阿拉伯语',
+                'tr': '土耳其语'
+            }
+
+            target_lang_name = language_map.get(target_language.lower(), target_language)
+
+            # 构建系统提示
+            system_prompt = f"""你是一个专业的游戏本地化翻译专家，专门负责游戏内容的翻译工作。
+
+任务：将提供的文本翻译成{target_lang_name}
+
+要求：
+1. 保持游戏术语的准确性和一致性
+2. 考虑目标语言的文化背景和表达习惯
+3. 保留原文的语气和风格
+4. 如果是游戏UI文本，要简洁明了
+5. 如果是游戏剧情文本，要生动自然
+6. 对于专有名词（人名、地名、道具名等），根据上下文决定是否翻译
+
+输出格式要求：
+请以JSON格式返回结果，包含以下字段：
+{{
+    "translation": "翻译结果",
+    "confidence": 0.95,
+    "reason": "翻译说明"
+}}"""
+
+            # 构建用户提示
+            user_prompt = f"""请将以下文本翻译成{target_lang_name}：
+
+原文：{text}
+
+{special_prompt}
+
+请提供高质量的翻译结果，并说明翻译原因。"""
+
+            # 构建消息
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt)
+            ]
+
+            # 调用LLM进行翻译
+            response = await self.translation_engine.llm_instance.chat_completion_with_retry(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=2000,
+                response_format=ResponseFormat.JSON
+            )
+
+            # 解析响应
+            try:
+                result = json.loads(response.content)
+                translation = result.get("translation", "").strip()
+
+                if translation:
+                    logger.debug(f"黄色单元格翻译成功: '{text}' -> '{translation}' ({target_language})")
+                    return translation
+                else:
+                    logger.warning(f"LLM返回空翻译结果，原文: {text}")
+                    return f"{text}_translated"
+
+            except json.JSONDecodeError:
+                # 如果JSON解析失败，尝试直接使用响应内容
+                content = response.content.strip()
+                if content and content != text:
+                    logger.warning(f"JSON解析失败，使用原始响应: {content}")
+                    return content
+                else:
+                    logger.warning(f"LLM响应解析失败，原文: {text}")
+                    return f"{text}_translated"
+
+        except Exception as e:
+            logger.error(f"黄色单元格翻译失败: {e}, 原文: {text}")
+            return f"{text}_translated"
 
     async def _optimize_content(
         self,
@@ -464,14 +554,109 @@ class PhaseTranslationManager:
         optimization_prompt: str,
         config: Dict
     ) -> str:
-        """优化内容（占位实现）"""
-        if self.translation_engine:
-            # 伪代码：实际调用翻译引擎
-            # return await self.translation_engine.optimize_text(
-            #     text, optimization_prompt, config
-            # )
-            pass
-        return text[:int(len(text) * 0.6)]
+        """优化内容（真实LLM实现）"""
+        if not self.translation_engine or not self.translation_engine.llm_instance:
+            logger.warning("翻译引擎或LLM实例未初始化，使用简单截断")
+            return text[:int(len(text) * 0.6)]
+
+        try:
+            # 导入所需模块
+            from llm_providers import LLMMessage, ResponseFormat
+            import json
+
+            # 获取目标缩短比例
+            shorten_ratio = config.get('shorten_ratio', 0.6)
+            target_length = int(len(text) * shorten_ratio)
+
+            # 构建系统提示
+            system_prompt = f"""你是一个专业的文本优化专家，专门负责游戏本地化内容的智能缩短工作。
+
+任务：将提供的文本进行智能优化，缩短至约{target_length}个字符（原文{len(text)}字符的{int(shorten_ratio*100)}%）
+
+优化要求：
+1. 保留核心信息和关键含义，绝对不能改变原意
+2. 去除冗余表达、修饰词和不必要的连接词
+3. 使用更简洁、直接的表达方式
+4. 保持原文的语气和专业性
+5. 确保优化后的文本语法正确、表达完整
+6. 如果是游戏术语或专有名词，必须保留
+7. 优化后长度应在{target_length-5}到{target_length+5}字符之间
+
+输出格式要求：
+请以JSON格式返回结果，包含以下字段：
+{{
+    "optimized_text": "优化后的文本",
+    "original_length": {len(text)},
+    "optimized_length": "优化后长度",
+    "compression_ratio": "实际压缩比例",
+    "optimization_notes": "优化说明"
+}}"""
+
+            # 构建用户提示
+            user_prompt = f"""请优化以下文本：
+
+原文：{text}
+
+{optimization_prompt}
+
+请严格按照要求进行智能优化，确保语义完整且长度合适。"""
+
+            # 构建消息
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt)
+            ]
+
+            # 调用LLM进行优化
+            response = await self.translation_engine.llm_instance.chat_completion_with_retry(
+                messages=messages,
+                temperature=0.2,  # 较低温度确保稳定输出
+                max_tokens=1500,
+                response_format=ResponseFormat.JSON
+            )
+
+            # 解析响应
+            try:
+                result = json.loads(response.content)
+                optimized_text = result.get("optimized_text", "").strip()
+
+                if optimized_text and optimized_text != text:
+                    # 验证优化结果
+                    if len(optimized_text) > len(text):
+                        logger.warning(f"优化后长度超过原文，使用原文: {len(optimized_text)} > {len(text)}")
+                        return text[:target_length]
+
+                    # 记录成功的优化
+                    actual_ratio = len(optimized_text) / len(text)
+                    logger.info(f"蓝色单元格优化成功: {len(text)} → {len(optimized_text)} 字符 ({actual_ratio:.1%})")
+                    logger.debug(f"优化详情: '{text}' → '{optimized_text}'")
+
+                    return optimized_text
+                else:
+                    logger.warning(f"LLM返回无效优化结果，使用截断: {optimized_text}")
+                    return text[:target_length]
+
+            except json.JSONDecodeError:
+                # JSON解析失败，尝试直接使用响应内容
+                content = response.content.strip()
+                if content and len(content) < len(text) and len(content) > target_length * 0.5:
+                    logger.warning(f"JSON解析失败，使用原始响应: {content}")
+                    return content
+                else:
+                    logger.warning(f"LLM响应解析失败，使用截断")
+                    return text[:target_length]
+
+        except Exception as e:
+            logger.error(f"蓝色单元格优化失败: {e}, 原文: {text}")
+            # 发生错误时使用智能截断（尽量在词边界截断）
+            words = text.split()
+            result = ""
+            for word in words:
+                if len(result + " " + word) <= target_length:
+                    result += (" " + word) if result else word
+                else:
+                    break
+            return result if result else text[:target_length]
 
     async def _trigger_callbacks(self, phase: TranslationPhase, data: Any):
         """触发阶段回调"""

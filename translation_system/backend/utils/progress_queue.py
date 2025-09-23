@@ -41,7 +41,7 @@ class ProgressQueueManager:
             self.flush_interval = 5  # 减少更新频率，降低数据库压力
             self.batch_size = 20  # 减少批量大小，提高稳定性
 
-            # 同步数据库连接 - 增强超时配置
+            # 同步数据库连接 - 增强超时配置，防止长任务中途断连
             self.db_config = {
                 'host': settings.mysql_host,
                 'port': settings.mysql_port,
@@ -51,7 +51,7 @@ class ProgressQueueManager:
                 'charset': 'utf8mb4',
                 'autocommit': True,
                 'cursorclass': pymysql.cursors.DictCursor,
-                'connect_timeout': 60   # 连接超时60秒
+                'connect_timeout': 120   # 连接超时2分钟
             }
 
     def start(self):

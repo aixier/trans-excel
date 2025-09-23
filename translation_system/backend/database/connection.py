@@ -54,16 +54,16 @@ class DatabaseConnectionManager:
                 future=True,
                 # 使用NullPool避免连接复用问题（生产环境可以切换到QueuePool）
                 poolclass=NullPool if settings.debug_mode else QueuePool,
-                # 连接池配置
+                # 连接池配置 - 针对长时间运行的翻译任务优化
                 pool_size=20,  # 增加连接池大小支持高并发
                 max_overflow=30,  # 增加溢出连接数
                 pool_pre_ping=True,  # 每次使用前测试连接
-                pool_recycle=300,  # 5分钟回收连接
-                pool_timeout=60,  # 增加连接池超时
+                pool_recycle=3600,  # 1小时回收连接（避免长任务中途断连）
+                pool_timeout=120,  # 增加连接池超时到2分钟
                 # aiomysql 特定配置
                 connect_args={
                     "charset": "utf8mb4",
-                    "connect_timeout": 60,  # 增加连接超时
+                    "connect_timeout": 120,  # 增加连接超时到2分钟
                     "autocommit": False,  # 明确关闭自动提交
                     "echo": False,
                     # 重要：确保正确处理结果集
