@@ -222,11 +222,20 @@ class TranslationEngine:
 
                 # 使用增强读取器加载当前Sheet（包含元数据）
                 try:
-                    df, sheet_metadata = self.enhanced_reader.read_excel_with_metadata(file_path, sheet_name)
+                    df, metadata_dict = self.enhanced_reader.read_excel_with_metadata(file_path, sheet_name)
 
                     # 存储元数据供后续使用
-                    if sheet_metadata:
-                        self.excel_metadata[sheet_name] = sheet_metadata.get(sheet_name, {})
+                    if metadata_dict:
+                        # 提取当前sheet的元数据（metadata_dict格式: {sheet_name: {cells}})
+                        if sheet_name in metadata_dict:
+                            self.excel_metadata[sheet_name] = metadata_dict[sheet_name]
+                            logger.info(f"加载元数据：{len(metadata_dict[sheet_name])}个单元格")
+                        else:
+                            # 如果没有指定sheet_name，取第一个
+                            first_sheet = list(metadata_dict.keys())[0] if metadata_dict else None
+                            if first_sheet:
+                                self.excel_metadata[sheet_name] = metadata_dict[first_sheet]
+                                logger.info(f"使用默认sheet元数据：{len(metadata_dict[first_sheet])}个单元格")
 
                         # 提取批注作为翻译上下文
                         comments = self.enhanced_reader.extract_comments_as_context(
@@ -370,6 +379,40 @@ class TranslationEngine:
                     # 检查剩余任务数
                     final_remaining = self._count_remaining_tasks(current_df, sheet_info)
                     logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代完成，剩余任务: {final_remaining}")
+
+                # 5. 三阶段颜色任务处理（如果有元数据）
+                if sheet_name in self.excel_metadata:
+                    sheet_metadata = self.excel_metadata[sheet_name]
+                    logger.info(f"Sheet '{sheet_name}' - 开始三阶段颜色任务处理，元数据包含{len(sheet_metadata)}个单元格")
+
+                    # 调试：检查是否有带颜色的单元格
+                    colored_cells = 0
+                    for addr, meta in sheet_metadata.items():
+                        if hasattr(meta, 'fill_color') and meta.fill_color:
+                            colored_cells += 1
+                    logger.info(f"Sheet '{sheet_name}' - 发现{colored_cells}个带颜色的单元格")
+
+                    # 配置三阶段处理参数
+                    phase_config = {
+                        'batch_size': dynamic_batch_size,
+                        'max_concurrent': max_concurrent,
+                        'region_code': region_code,
+                        'game_background': game_background,
+                        'iteration': iteration
+                    }
+
+                    try:
+                        # 执行三阶段处理
+                        current_df = await self.phase_manager.execute_all_phases(
+                            current_df,
+                            sheet_metadata,
+                            target_languages or settings.default_target_languages,
+                            phase_config
+                        )
+                        logger.info(f"Sheet '{sheet_name}' - 三阶段处理完成")
+                    except Exception as e:
+                        logger.warning(f"Sheet '{sheet_name}' - 三阶段处理失败: {e}")
+                        # 继续使用普通翻译结果
 
                 # 保存当前Sheet结果
                 all_results[sheet_name] = current_df
