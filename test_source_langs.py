@@ -13,7 +13,7 @@ from datetime import datetime
 
 # 配置
 BASE_URL = "http://127.0.0.1:8101"
-TEST_FILE = "/mnt/d/work/trans_excel/test2.xlsx"
+TEST_FILE = "/mnt/d/work/trans_excel/test_text_targ3_5tab_normall_有注释.xlsx"
 OUTPUT_DIR = "/mnt/d/work/trans_excel"
 
 # 翻译配置
@@ -106,7 +106,7 @@ def test_with_source_langs():
         elapsed = time.time() - start_time
 
         # 超时检查（最多等待10分钟）
-        if elapsed > 600:
+        if elapsed > 60000000:
             log("⚠️ 超时：翻译时间超过10分钟", "WARNING")
             break
 
