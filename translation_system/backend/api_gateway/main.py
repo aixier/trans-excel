@@ -48,8 +48,8 @@ app = FastAPI(
     title="Translation System API Gateway",
     description="游戏本地化翻译系统 API 网关",
     version="1.0.0",
-    docs_url="/docs" if settings.debug_mode else None,
-    redoc_url="/redoc" if settings.debug_mode else None,
+    docs_url="/docs",  # 始终启用文档
+    redoc_url="/redoc",  # 始终启用文档
     lifespan=lifespan
 )
 
@@ -175,7 +175,7 @@ async def root():
         "service": "Translation System API Gateway",
         "version": "1.0.0",
         "status": "running",
-        "docs": "/docs" if settings.debug_mode else None
+        "docs": "/docs"  # 始终显示文档地址
     }
 
 
