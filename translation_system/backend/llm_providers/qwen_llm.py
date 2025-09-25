@@ -58,9 +58,27 @@ class QwenLLM(BaseLLM):
 
     async def initialize(self):
         """异步初始化OpenAI客户端（Qwen使用OpenAI兼容接口）"""
+        import httpx
+        import sys
+
+        logger.info(f"Python encoding: {sys.getdefaultencoding()}")
+        logger.info(f"API Key length: {len(self.config.api_key) if self.config.api_key else 0}")
+        logger.info(f"Base URL: {self.config.base_url}")
+
+        # 创建自定义的httpx客户端，确保正确的编码处理
+        http_client = httpx.AsyncClient(
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+            timeout=httpx.Timeout(60.0, read=300.0),
+            headers={
+                "Accept-Charset": "utf-8",
+                "Content-Type": "application/json; charset=utf-8"
+            }
+        )
+
         self._client = AsyncOpenAI(
             api_key=self.config.api_key,
-            base_url=self.config.base_url
+            base_url=self.config.base_url,
+            http_client=http_client
         )
         logger.info(f"Initialized Qwen LLM with model: {self.config.model}")
 
@@ -125,6 +143,28 @@ class QwenLLM(BaseLLM):
             }]
 
         try:
+            # 添加调试日志
+            logger.debug(f"Request params keys: {request_params.keys()}")
+            logger.debug(f"Model: {request_params.get('model')}")
+            logger.debug(f"Temperature: {request_params.get('temperature')}")
+
+            # 检查消息内容
+            if isinstance(request_params.get("messages"), list):
+                for i, msg in enumerate(request_params["messages"]):
+                    logger.debug(f"Message {i}: role={msg.get('role')}")
+                    content = msg.get("content", "")
+                    logger.debug(f"Message {i} content type: {type(content)}")
+                    logger.debug(f"Message {i} content length: {len(content) if isinstance(content, str) else 'N/A'}")
+                    if isinstance(content, str) and len(content) > 0:
+                        # 检查是否包含中文
+                        try:
+                            content.encode('ascii')
+                            logger.debug(f"Message {i}: ASCII only")
+                        except UnicodeEncodeError as e:
+                            logger.debug(f"Message {i}: Contains non-ASCII at position {e.start}-{e.end}")
+                            logger.debug(f"Message {i} first 50 chars: {content[:50]}")
+
+            logger.debug("About to call OpenAI API...")
             response = await self._client.chat.completions.create(**request_params)
 
             # 提取响应内容
@@ -149,6 +189,12 @@ class QwenLLM(BaseLLM):
 
         except Exception as e:
             logger.error(f"Qwen API call failed: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            logger.error(f"Exception args: {e.args if hasattr(e, 'args') else 'N/A'}")
+
+            # 打印完整的堆栈跟踪
+            import traceback
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
             raise
 
     async def chat_completion_with_retry(

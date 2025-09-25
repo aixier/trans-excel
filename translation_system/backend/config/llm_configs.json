@@ -3,7 +3,7 @@
     "qwen-plus": {
       "provider": "qwen",
       "model": "qwen-plus",
-      "api_key": "在这里填入你的通义千问API密钥",
+      "api_key": "sk-4c89a24b73d24731b86bf26337398cef",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "temperature": 0.3,
       "max_tokens": 4000,
@@ -12,7 +12,7 @@
     "qwen-max": {
       "provider": "qwen",
       "model": "qwen-max",
-      "api_key": "在这里填入你的通义千问API密钥",
+      "api_key": "sk-4c89a24b73d24731b86bf26337398cef",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "temperature": 0.3,
       "max_tokens": 8000,
@@ -21,7 +21,7 @@
     "qwen-turbo": {
       "provider": "qwen",
       "model": "qwen-turbo",
-      "api_key": "在这里填入你的通义千问API密钥",
+      "api_key": "sk-4c89a24b73d24731b86bf26337398cef",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "temperature": 0.5,
       "max_tokens": 4000,
@@ -89,7 +89,7 @@
     },
     "qwen-auto": {
       "provider": "qwen",
-      "api_key": "在这里填入你的通义千问API密钥",
+      "api_key": "sk-4c89a24b73d24731b86bf26337398cef",
       "model": "qwen-plus",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "temperature": 0.3,

@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from enum import Enum
 import pandas as pd
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ColumnType(str, Enum):
@@ -80,12 +83,12 @@ class HeaderAnalyzer:
             ColumnType.METADATA: ['category', 'type', 'group', '分类', '类型', '组别']
         }
 
-    def analyze_sheet(self, df: pd.DataFrame, sheet_name: str) -> SheetInfo:
+    def analyze_sheet(self, df: pd.DataFrame, sheet_name: str, source_langs: Optional[List[str]] = None) -> SheetInfo:
         """分析单个Sheet的结构"""
         columns = []
 
         for idx, col_name in enumerate(df.columns):
-            col_info = self._analyze_column(idx, col_name, df[col_name])
+            col_info = self._analyze_column(idx, col_name, df[col_name], source_langs)
             columns.append(col_info)
 
         # 检测是否为术语表
@@ -102,7 +105,7 @@ class HeaderAnalyzer:
             translatable_rows=translatable_rows
         )
 
-    def _analyze_column(self, index: int, name: str, data: pd.Series) -> ColumnInfo:
+    def _analyze_column(self, index: int, name: str, data: pd.Series, source_langs: Optional[List[str]] = None) -> ColumnInfo:
         """分析单个列的类型和语言"""
         # 清理列名中的特殊字符（如冒号）
         clean_name = name.strip(':').strip()
@@ -116,8 +119,12 @@ class HeaderAnalyzer:
         for lang_code, patterns in self.language_patterns.items():
             if any(pattern in name_lower for pattern in patterns):
                 language = lang_code
-                # 所有语言列都先标记为TARGET，后续会根据每行内容动态判断
-                column_type = ColumnType.TARGET
+                # 如果指定了源语言，判断是SOURCE还是TARGET
+                if source_langs and lang_code.upper() in [s.upper() for s in source_langs]:
+                    column_type = ColumnType.SOURCE
+                else:
+                    # 默认标记为TARGET，后续会根据内容动态判断
+                    column_type = ColumnType.TARGET
                 break
 
         # 如果不是语言列，检查其他类型

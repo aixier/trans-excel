@@ -28,6 +28,58 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def process_language_params(
+    source_langs: Optional[str],
+    target_languages: Optional[str]
+) -> tuple[Optional[List[str]], Optional[List[str]]]:
+    """
+    处理源语言和目标语言参数，实现智能语言选择策略
+
+    Args:
+        source_langs: 源语言列表字符串，如 "CH,EN"
+        target_languages: 目标语言列表字符串，如 "PT,TH,VN"
+
+    Returns:
+        (source_list, target_list): 处理后的源语言和目标语言列表
+    """
+    # 1. 解析源语言
+    source_list = None
+    if source_langs:
+        source_list = [s.strip().upper() for s in source_langs.split(',')]
+        logger.info(f"用户指定源语言: {source_list}")
+
+    # 2. 解析目标语言
+    target_list = None
+    if target_languages:
+        target_list = [t.strip().upper() for t in target_languages.split(',')]
+
+    # 3. 智能源语言选择（当未指定时）
+    if not source_list and target_list:
+        # 定义亚洲语言集合
+        asian_langs = {'VN', 'JP', 'KR', 'TH', 'TW'}
+
+        # 检查目标语言类型
+        if any(t in asian_langs for t in target_list):
+            # 亚洲语言优先使用中文作为源语言
+            source_list = ['CH']
+            logger.info(f"目标包含亚洲语言，自动选择源语言: CH")
+        else:
+            # 其他语言优先英文，中文作为备选
+            source_list = ['EN', 'CH']
+            logger.info(f"目标为其他语言，自动选择源语言优先级: EN > CH")
+
+    # 4. 确保源语言不在目标语言中
+    if source_list and target_list:
+        original_targets = target_list.copy()
+        target_list = [t for t in target_list if t not in source_list]
+
+        excluded = set(original_targets) - set(target_list)
+        if excluded:
+            logger.info(f"从目标语言中排除源语言: {excluded}")
+
+    return source_list, target_list
+
+
 # 依赖注入
 def get_translation_engine():
     """获取翻译引擎实例"""
@@ -43,6 +95,7 @@ def get_project_manager():
 async def upload_translation_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    source_langs: Optional[str] = Form(None, description="源语言列表，逗号分隔，如：CH,EN。不传则自动检测"),
     target_languages: str = Form(None, description="目标语言列表，逗号分隔，如：pt,th,ind,vn。不传则自动检测所有需要的语言"),
     sheet_names: Optional[str] = Form(None, description="要处理的Sheet名称，逗号分隔，不填则处理所有"),
     batch_size: int = Form(10, description="批次大小，最大30行"),
@@ -64,10 +117,13 @@ async def upload_translation_file(
         if not file.filename.endswith(('.xlsx', '.xls')):
             raise HTTPException(status_code=400, detail="Only Excel files are supported")
 
-        # 解析目标语言（可选）
-        target_languages_list = None
-        if target_languages:
-            target_languages_list = [lang.strip() for lang in target_languages.split(',')]
+        # 处理源语言和目标语言
+        source_langs_list, target_languages_list = process_language_params(
+            source_langs, target_languages
+        )
+
+        logger.info(f"源语言配置: {source_langs_list}")
+        logger.info(f"目标语言配置: {target_languages_list}")
 
         # 解析sheet名称
         sheets_to_process = None
@@ -129,6 +185,7 @@ async def upload_translation_file(
 
         # 准备配置信息
         task_config = {
+            'source_langs': source_langs_list,  # 新增源语言配置
             'target_languages': target_languages_list,
             'sheet_names': sheets_to_process,  # 新增
             'batch_size': batch_size,
@@ -158,10 +215,10 @@ async def upload_translation_file(
 
         logger.info(f"📁 文件上传成功: {file.filename}, 任务ID: {task_id}")
 
-        # 后台启动翻译任务（传递project_id）
+        # 后台启动翻译任务（传递project_id和source_langs）
         background_tasks.add_task(
             start_translation_task,
-            task_id, file_path, target_languages_list,
+            task_id, file_path, source_langs_list, target_languages_list,
             batch_size, max_concurrent, region_code, game_background,
             translation_engine, sheets_to_process, auto_detect, project_id
         )
@@ -183,6 +240,7 @@ async def upload_translation_file(
 async def start_translation_task(
     task_id: str,
     file_path: str,
+    source_langs: Optional[List[str]],  # 添加源语言参数
     target_languages: List[str],
     batch_size: int,
     max_concurrent: int,
@@ -202,11 +260,12 @@ async def start_translation_task(
 
         # 使用独立的数据库会话
         async with get_async_session() as db:
-            # 调用翻译引擎处理，传递project_id
+            # 调用翻译引擎处理，传递project_id和source_langs
             await translation_engine.process_translation_task(
                 db=db,
                 task_id=task_id,
                 file_path=file_path,
+                source_langs=source_langs,  # 传递源语言配置
                 target_languages=target_languages,
                 batch_size=batch_size,
                 max_concurrent=max_concurrent,

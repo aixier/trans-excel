@@ -67,6 +67,7 @@ class PhaseTranslationManager:
         self,
         df: pd.DataFrame,
         metadata: Dict[str, Any],
+        source_langs: Optional[List[str]],  # 新增源语言参数
         target_languages: List[str],
         config: Optional[Dict] = None
     ) -> pd.DataFrame:
@@ -92,7 +93,7 @@ class PhaseTranslationManager:
             logger.info("=" * 50)
 
             result_df = await self._execute_phase_1(
-                result_df, metadata, target_languages, config
+                result_df, metadata, source_langs, target_languages, config
             )
 
         # 阶段2：黄色单元格作为源语言
@@ -102,7 +103,7 @@ class PhaseTranslationManager:
             logger.info("=" * 50)
 
             result_df = await self._execute_phase_2(
-                result_df, metadata, target_languages, config
+                result_df, metadata, source_langs, target_languages, config
             )
 
         # 阶段3：蓝色单元格优化
@@ -124,6 +125,7 @@ class PhaseTranslationManager:
         self,
         df: pd.DataFrame,
         metadata: Dict[str, Any],
+        source_langs: Optional[List[str]],
         target_languages: List[str],
         config: Dict
     ) -> pd.DataFrame:
@@ -144,7 +146,7 @@ class PhaseTranslationManager:
         try:
             # 使用颜色任务检测器
             from excel_analysis.color_task_detector import ColorTaskDetector
-            detector = ColorTaskDetector()
+            detector = ColorTaskDetector(source_langs=source_langs)
 
             # 检测阶段1的任务
             tasks = detector.detect_tasks_by_phase(df, metadata, phase=1)
@@ -213,6 +215,7 @@ class PhaseTranslationManager:
         self,
         df: pd.DataFrame,
         metadata: Dict[str, Any],
+        source_langs: Optional[List[str]],
         target_languages: List[str],
         config: Dict
     ) -> pd.DataFrame:
@@ -232,7 +235,7 @@ class PhaseTranslationManager:
 
         try:
             from excel_analysis.color_task_detector import ColorTaskDetector
-            detector = ColorTaskDetector()
+            detector = ColorTaskDetector(source_langs=source_langs)
 
             # 检测阶段2的任务
             tasks = detector.detect_tasks_by_phase(df, metadata, phase=2)
@@ -312,7 +315,7 @@ class PhaseTranslationManager:
 
         try:
             from excel_analysis.color_task_detector import ColorTaskDetector
-            detector = ColorTaskDetector()
+            detector = ColorTaskDetector(source_langs=source_langs)
 
             # 检测阶段3的任务
             tasks = detector.detect_tasks_by_phase(df, metadata, phase=3)

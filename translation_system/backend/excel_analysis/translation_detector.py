@@ -2,7 +2,7 @@
 翻译检测器
 基于test_concurrent_batch.py的翻译任务检测逻辑
 """
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 import pandas as pd
 import logging
@@ -40,7 +40,8 @@ class TranslationDetector:
         self,
         df: pd.DataFrame,
         sheet_info: SheetInfo,
-        include_colors: bool = True
+        include_colors: bool = True,
+        source_langs: Optional[List[str]] = None  # 新增源语言参数
     ) -> List[TranslationTask]:
         """检测需要翻译的任务 - 按行动态检测源语言和翻译需求"""
         tasks = []
@@ -57,41 +58,57 @@ class TranslationDetector:
 
         # 按行检测
         for idx, row in df.iterrows():
-            # 找出该行的源语言（优先EN，其次CH，再其他有内容的）
+            # 找出该行的源语言
             source_text = None
             source_lang = None
             source_col_name = None
 
-            # 先检查EN列
-            for col in language_cols:
-                if col.language == 'en':
-                    value = row[col.name]
-                    if pd.notna(value) and str(value).strip():
-                        source_text = str(value).strip()
-                        source_lang = 'en'
-                        source_col_name = col.name
+            if source_langs:
+                # 如果指定了源语言，按照指定顺序查找
+                for src_lang in source_langs:
+                    src_lang_lower = src_lang.lower()
+                    for col in language_cols:
+                        if col.language and col.language.lower() == src_lang_lower:
+                            value = row[col.name]
+                            if pd.notna(value) and str(value).strip():
+                                source_text = str(value).strip()
+                                source_lang = col.language
+                                source_col_name = col.name
+                                break
+                    if source_text:
                         break
-
-            # 如果没有EN，检查CH列
-            if not source_text:
+            else:
+                # 未指定源语言，使用默认优先级：EN > CH > 其他
+                # 先检查EN列
                 for col in language_cols:
-                    if col.language == 'ch':
+                    if col.language == 'en':
                         value = row[col.name]
                         if pd.notna(value) and str(value).strip():
                             source_text = str(value).strip()
-                            source_lang = 'ch'
+                            source_lang = 'en'
                             source_col_name = col.name
                             break
 
-            # 如果都没有，使用任何有内容的列
-            if not source_text:
-                for col in language_cols:
-                    value = row[col.name]
-                    if pd.notna(value) and str(value).strip():
-                        source_text = str(value).strip()
-                        source_lang = col.language
-                        source_col_name = col.name
-                        break
+                # 如果没有EN，检查CH列
+                if not source_text:
+                    for col in language_cols:
+                        if col.language == 'ch':
+                            value = row[col.name]
+                            if pd.notna(value) and str(value).strip():
+                                source_text = str(value).strip()
+                                source_lang = 'ch'
+                                source_col_name = col.name
+                                break
+
+                # 如果都没有，使用任何有内容的列
+                if not source_text:
+                    for col in language_cols:
+                        value = row[col.name]
+                        if pd.notna(value) and str(value).strip():
+                            source_text = str(value).strip()
+                            source_lang = col.language
+                            source_col_name = col.name
+                            break
 
             # 如果没有源文本，跳过该行
             if not source_text:

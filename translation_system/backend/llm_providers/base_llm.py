@@ -8,6 +8,9 @@ from dataclasses import dataclass
 import asyncio
 import json
 from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ResponseFormat(Enum):
@@ -128,7 +131,28 @@ class BaseLLM(ABC):
 
     def format_messages(self, messages: List[LLMMessage]) -> List[Dict[str, str]]:
         """格式化消息为标准格式"""
-        return [{"role": msg.role, "content": msg.content} for msg in messages]
+        formatted = []
+        for msg in messages:
+            # 确保内容是UTF-8字符串
+            content = msg.content
+            logger.debug(f"Formatting message: role={msg.role}, content_type={type(content)}")
+
+            if isinstance(content, bytes):
+                logger.debug(f"Converting bytes to string")
+                content = content.decode('utf-8')
+            elif not isinstance(content, str):
+                logger.debug(f"Converting {type(content)} to string")
+                content = str(content)
+
+            # 调试日志
+            if len(content) > 0:
+                logger.debug(f"Content length: {len(content)}, first 30 chars: {content[:30]}")
+
+            formatted.append({
+                "role": msg.role,
+                "content": content
+            })
+        return formatted
 
     def validate_response_format(self, response: str, format_type: ResponseFormat) -> bool:
         """验证响应格式"""

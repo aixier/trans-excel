@@ -129,6 +129,7 @@ class TranslationEngine:
         db: AsyncSession,
         task_id: str,
         file_path: str,
+        source_langs: Optional[List[str]] = None,  # 源语言列表，None = 自动检测
         target_languages: List[str] = None,  # None = 自动检测所有需要的语言
         batch_size: int = 3,
         max_concurrent: int = 10,
@@ -271,12 +272,14 @@ class TranslationEngine:
                 else:
                     current_batch_size = min(10, batch_size)  # 小文件10行
 
-                # 2. 智能分析表头结构
-                sheet_info = self.header_analyzer.analyze_sheet(df, sheet_name)
+                # 2. 智能分析表头结构（传递源语言配置）
+                sheet_info = self.header_analyzer.analyze_sheet(df, sheet_name, source_langs)
                 logger.info(f"表头分析完成，可翻译行数: {sheet_info.translatable_rows}")
 
-                # 3. 初始任务检测
-                initial_tasks = self.translation_detector.detect_translation_tasks(df, sheet_info)
+                # 3. 初始任务检测（传递源语言配置）
+                initial_tasks = self.translation_detector.detect_translation_tasks(
+                    df, sheet_info, source_langs=source_langs
+                )
                 logger.info(f"初始检测到翻译任务: {len(initial_tasks)}个")
 
                 if not initial_tasks:
@@ -307,8 +310,10 @@ class TranslationEngine:
                 while iteration < max_iterations:
                     iteration += 1
 
-                    # 每轮重新检测剩余任务 - 关键改进！
-                    remaining_tasks = self.translation_detector.detect_translation_tasks(current_df, sheet_info)
+                    # 每轮重新检测剩余任务 - 关键改进！（传递源语言配置）
+                    remaining_tasks = self.translation_detector.detect_translation_tasks(
+                        current_df, sheet_info, source_langs=source_langs
+                    )
 
                     if not remaining_tasks:
                         logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代：所有任务已完成")
@@ -402,10 +407,11 @@ class TranslationEngine:
                     }
 
                     try:
-                        # 执行三阶段处理
+                        # 执行三阶段处理（传递源语言配置）
                         current_df = await self.phase_manager.execute_all_phases(
                             current_df,
                             sheet_metadata,
+                            source_langs,  # 传递源语言配置
                             target_languages or settings.default_target_languages,
                             phase_config
                         )

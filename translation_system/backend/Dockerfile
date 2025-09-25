@@ -9,10 +9,15 @@ FROM quay.io/jupyter/scipy-notebook:python-3.11
 # 切换到root用户进行系统设置
 USER root
 
-# 设置Python环境变量
+# 设置Python环境变量和UTF-8编码
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONIOENCODING=utf-8 \
     PIP_NO_CACHE_DIR=1 \
+    # UTF-8 locale settings
+    LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    LANGUAGE=C.UTF-8 \
     # 禁用Jupyter相关功能，只作为Python运行环境
     JUPYTER_ENABLE_LAB=no \
     JUPYTER_TOKEN=disabled \
@@ -49,7 +54,7 @@ RUN pip install --no-cache-dir \
     oss2==2.18.4 \
     dashscope==1.14.1 \
     httpx==0.25.2 \
-    openai==1.3.7 \
+    openai==1.35.0 \
     python-dotenv==1.0.0 \
     python-multipart==0.0.6
 

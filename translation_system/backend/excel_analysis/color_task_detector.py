@@ -67,7 +67,7 @@ class TranslationTask:
 class ColorTaskDetector:
     """基于颜色的任务检测器"""
 
-    def __init__(self, custom_rules: Optional[List[ColorRule]] = None):
+    def __init__(self, custom_rules: Optional[List[ColorRule]] = None, source_langs: Optional[List[str]] = None):
         """
         初始化检测器
 
@@ -126,7 +126,12 @@ class ColorTaskDetector:
         self.rules = custom_rules if custom_rules else self.default_rules
         self.rules.sort(key=lambda x: x.priority)  # 按优先级排序
 
+        # 保存源语言配置
+        self.source_langs = source_langs
+
         logger.info(f"颜色任务检测器初始化完成，共{len(self.rules)}条规则")
+        if source_langs:
+            logger.info(f"指定源语言: {source_langs}")
 
     def detect_tasks_by_phase(
         self,
@@ -254,10 +259,17 @@ class ColorTaskDetector:
 
                 logger.debug(f"发现黄色单元格 {cell_addr}: {source_text}")
 
-                # 找到同行的其他列作为目标
+                # 黄色单元格优先级最高：无论目标列有无内容，都要覆盖翻译
                 for target_col in df.columns:
                     if target_col != source_col and self._is_translatable_column(target_col):
                         target_addr = self._get_cell_address(target_col, row_idx, df)
+
+                        # 检查目标单元格是否已有内容
+                        target_text = df.iloc[row_idx][target_col]
+                        has_content = pd.notna(target_text) and str(target_text).strip() != ''
+
+                        if has_content:
+                            logger.info(f"黄色单元格优先级最高：将覆盖 {target_addr} 的现有内容")
 
                         task = TranslationTask(
                             row_index=row_idx,
@@ -267,7 +279,7 @@ class ColorTaskDetector:
                             task_type=TaskType.YELLOW_SOURCE,
                             cell_address=target_addr,
                             comment=comment,
-                            metadata={'original_color': fill_color}
+                            metadata={'original_color': fill_color, 'override': True}  # 标记需要覆盖
                         )
                         tasks.append(task)
 
@@ -338,11 +350,25 @@ class ColorTaskDetector:
         return tasks
 
     def _identify_source_columns(self, df: pd.DataFrame) -> List[str]:
-        """识别源语言列（通常包含中文）"""
+        """识别源语言列"""
         source_cols = []
-        for col in df.columns:
-            if self._is_chinese_column(df[col]):
-                source_cols.append(col)
+
+        if self.source_langs:
+            # 如果指定了源语言，按照指定的语言查找列
+            for col in df.columns:
+                col_upper = str(col).upper()
+                for src_lang in self.source_langs:
+                    src_upper = src_lang.upper()
+                    # 匹配列名中的语言标识
+                    if src_upper in col_upper or (src_upper == 'CH' and self._is_chinese_column(df[col])):
+                        source_cols.append(col)
+                        break
+        else:
+            # 默认逻辑：寻找中文列
+            for col in df.columns:
+                if self._is_chinese_column(df[col]):
+                    source_cols.append(col)
+
         return source_cols
 
     def _identify_target_columns(self, df: pd.DataFrame) -> List[str]:
