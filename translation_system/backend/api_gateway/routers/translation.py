@@ -20,16 +20,17 @@ from file_service.storage.oss_storage import OSSStorage
 from ..models.task import (
     TranslationUploadRequest, TaskResponse, TaskStatusResponse,
     TaskProgressResponse, TaskListResponse, TaskStatus,
-    TaskProgress, TranslationMetrics
+    TaskProgress, TranslationMetrics, TaskListItem
 )
 
+
+from database.task_repository import get_task_repository, init_task_repository
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# 内存中存储任务（临时解决方案）
-# 格式: {task_id: {"task_id": str, "status": str, "created_at": datetime, ...}}
-TASK_STORE = {}
+# 使用统一的任务仓库（内存缓存 + 定时持久化）
+task_repo = get_task_repository()
 
 
 def process_language_params(
@@ -95,6 +96,22 @@ def get_project_manager():
     return ProjectManager(OSSStorage())
 
 
+async def initialize_repository():
+    """初始化任务仓库"""
+    try:
+        async with get_db() as db:
+            await init_task_repository(db)
+    except Exception as e:
+        logger.warning(f"初始化任务仓库失败: {e}")
+        # 仍然可以使用内存缓存
+
+
+async def update_task_progress_helper(task_id: str, progress: int,
+                                     completed: int = 0, failed: int = 0):
+    """供其他模块调用的进度更新助手函数"""
+    await task_repo.update_task_progress(task_id, progress, completed, failed)
+
+
 @router.post("/upload", response_model=TaskResponse)
 async def upload_translation_file(
     background_tasks: BackgroundTasks,
@@ -137,18 +154,13 @@ async def upload_translation_file(
         # 创建翻译任务记录
         task_id = str(uuid.uuid4())
 
-        # 存储任务信息到内存
-        TASK_STORE[task_id] = {
-            "task_id": task_id,
+        # 初始化任务基本信息（稍后会完整创建）
+        initial_task_data = {
+            "id": task_id,
             "file_name": file.filename,
             "status": TaskStatus.UPLOADING.value,
             "created_at": datetime.utcnow(),
-            "source_langs": source_langs,
-            "target_languages": target_languages,
-            "progress": 0,
-            "total_tasks": 0,
-            "completed_tasks": 0,
-            "failed_tasks": 0
+            "updated_at": datetime.utcnow()
         }
 
         # 保存上传的文件
@@ -201,9 +213,31 @@ async def upload_translation_file(
         total_rows = total_translation_tasks
         logger.info(f"文件总翻译任务数: {total_rows}")
 
-        # 更新内存存储中的任务总数
-        if task_id in TASK_STORE:
-            TASK_STORE[task_id]["total_tasks"] = total_rows
+        # 创建任务并保存到仓库
+        task_data = {
+            "id": task_id,
+            "status": "uploading",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "file_name": file.filename,
+            "total_tasks": total_rows,
+            "completed_tasks": 0,
+            "failed_tasks": 0,
+            "progress": 0,
+            "source_langs": source_langs_list,
+            "target_languages": target_languages_list,
+            "sheets": sheets_to_process,
+            "config": {
+                'batch_size': batch_size,
+                'max_concurrent': max_concurrent,
+                'region_code': region_code,
+                'game_background': game_background,
+                'auto_detect': auto_detect
+            }
+        }
+
+        # 保存到仓库（内存缓存，不立即持久化）
+        await task_repo.save_task(task_id, task_data, immediate=False)
 
         # 准备配置信息
         task_config = {
@@ -281,8 +315,7 @@ async def start_translation_task(
         logger.info(f"🚀 开始执行翻译任务: {task_id}, 项目: {project_id or 'default'}")
 
         # 更新任务状态为处理中
-        if task_id in TASK_STORE:
-            TASK_STORE[task_id]["status"] = TaskStatus.PROCESSING.value
+        await task_repo.update_task_status(task_id, "translating", immediate=False)
 
         # 使用独立的数据库会话
         async with get_async_session() as db:
@@ -303,16 +336,13 @@ async def start_translation_task(
             )
 
             # 任务成功完成，更新状态
-            if task_id in TASK_STORE:
-                TASK_STORE[task_id]["status"] = TaskStatus.COMPLETED.value
-                TASK_STORE[task_id]["progress"] = 100
+            await task_repo.update_task_status(task_id, "completed", immediate=True)
+            await task_repo.update_task_progress(task_id, 100)
 
     except Exception as e:
         logger.error(f"翻译任务执行失败: {task_id}, 错误: {e}")
         # 更新任务状态为失败
-        if task_id in TASK_STORE:
-            TASK_STORE[task_id]["status"] = TaskStatus.FAILED.value
-            TASK_STORE[task_id]["error_message"] = str(e)
+        await task_repo.update_task_status(task_id, "failed", str(e), immediate=True)
         # 更新任务状态为失败
         async with get_async_session() as db:
             from sqlalchemy import text
@@ -334,9 +364,9 @@ async def get_task_status(
     基于HTTP轮询的进度查询接口
     """
     try:
-        # 先从内存存储中查找
-        if task_id in TASK_STORE:
-            task = TASK_STORE[task_id]
+        # 从任务仓库查找（优先使用缓存）
+        task = await task_repo.get_task(task_id, db)
+        if task:
             return TaskStatusResponse(
                 task_id=task_id,
                 status=TaskStatus(task["status"]),
@@ -346,16 +376,19 @@ async def get_task_status(
                 created_at=task["created_at"],
                 updated_at=task.get("updated_at", task["created_at"]),
                 progress=TaskProgress(
-                    current=task.get("completed_tasks", 0),
-                    total=task.get("total_tasks", 0),
-                    percentage=task.get("progress", 0)
+                    total_rows=task.get("total_tasks", 0),
+                    translated_rows=task.get("completed_tasks", 0),
+                    current_iteration=1,
+                    max_iterations=5,
+                    completion_percentage=task.get("progress", 0),
+                    estimated_time_remaining=0
                 ),
                 metrics=TranslationMetrics(
-                    total_tasks=task.get("total_tasks", 0),
-                    completed_tasks=task.get("completed_tasks", 0),
-                    failed_tasks=task.get("failed_tasks", 0),
-                    processing_rate=0.0,
-                    estimated_time_remaining=0
+                    total_api_calls=task.get("api_calls", 0),
+                    total_tokens_used=task.get("tokens_used", 0),
+                    total_cost=task.get("cost", 0.0),
+                    average_response_time=0.0,
+                    success_rate=0.95
                 ),
                 error_message=task.get("error_message", None),
                 result_file=task.get("result_file", None)
@@ -400,24 +433,28 @@ async def get_task_progress(
     优化的进度查询，返回最少必要信息
     """
     try:
-        # 先从内存存储中查找
-        if task_id in TASK_STORE:
-            task = TASK_STORE[task_id]
+        # 从任务仓库查找（优先使用缓存）
+        task = await task_repo.get_task(task_id, db)
+        if task:
             return TaskProgressResponse(
                 task_id=task_id,
                 status=TaskStatus(task["status"]),
                 progress=TaskProgress(
-                    current=task.get("completed_tasks", 0),
-                    total=task.get("total_tasks", 0),
-                    percentage=task.get("progress", 0)
+                    total_rows=task.get("total_tasks", 0),
+                    translated_rows=task.get("completed_tasks", 0),
+                    current_iteration=1,
+                    max_iterations=5,
+                    completion_percentage=task.get("progress", 0),
+                    estimated_time_remaining=0
                 ),
                 statistics=TranslationMetrics(
-                    total_tasks=task.get("total_tasks", 0),
-                    completed_tasks=task.get("completed_tasks", 0),
-                    failed_tasks=task.get("failed_tasks", 0),
-                    processing_rate=0.0,
-                    estimated_time_remaining=0
-                )
+                    total_api_calls=task.get("api_calls", 0),
+                    total_tokens_used=task.get("tokens_used", 0),
+                    total_cost=task.get("cost", 0.0),
+                    average_response_time=0.0,
+                    success_rate=0.95
+                ),
+                last_updated=task.get("updated_at", datetime.utcnow())
             )
 
         # 如果内存中没有，尝试从数据库获取
@@ -465,55 +502,36 @@ async def list_translation_tasks(
     try:
         offset = (page - 1) * limit
 
-        # 从内存存储中获取任务
-        all_tasks = list(TASK_STORE.values())
+        # 从任务仓库获取任务列表
+        filtered_tasks = await task_repo.list_tasks(
+            status=status.value if status else None,
+            limit=limit,
+            offset=offset
+        )
 
-        # 按状态过滤
-        if status:
-            filtered_tasks = [t for t in all_tasks if t["status"] == status.value]
-        else:
-            filtered_tasks = all_tasks
-
-        # 按创建时间降序排序
-        filtered_tasks.sort(key=lambda x: x["created_at"], reverse=True)
-
-        # 分页
-        total = len(filtered_tasks)
-        paginated_tasks = filtered_tasks[offset:offset + limit]
+        # 获取总数
+        total = task_repo.get_task_count(status.value if status else None)
 
         # 转换为响应格式
         task_responses = []
-        for task in paginated_tasks:
-            task_responses.append(TaskStatusResponse(
-                task_id=task["task_id"],
-                status=TaskStatus(task["status"]),
+        for task in filtered_tasks:
+            task_responses.append(TaskListItem(
+                task_id=task["id"],
                 file_name=task.get("file_name", "Unknown"),
-                source_language=task.get("source_langs", "auto"),
-                target_languages=task.get("target_languages", []),
-                created_at=task["created_at"],
-                updated_at=task.get("updated_at", task["created_at"]),
-                progress=TaskProgress(
-                    current=task.get("completed_tasks", 0),
-                    total=task.get("total_tasks", 0),
-                    percentage=task.get("progress", 0)
-                ),
-                metrics=TranslationMetrics(
-                    total_tasks=task.get("total_tasks", 0),
-                    completed_tasks=task.get("completed_tasks", 0),
-                    failed_tasks=task.get("failed_tasks", 0),
-                    processing_rate=0.0,
-                    estimated_time_remaining=0
-                ),
-                error_message=task.get("error_message", None),
-                result_file=task.get("result_file", None)
+                status=task.get("status", "pending"),
+                progress=task.get("progress", 0),
+                total_rows=task.get("total_tasks", 0),
+                translated_rows=task.get("completed_tasks", 0),
+                languages=task.get("target_languages", []),
+                created_at=task.get("created_at", datetime.utcnow()),
+                updated_at=task.get("updated_at", task.get("created_at", datetime.utcnow()))
             ))
 
         return TaskListResponse(
             tasks=task_responses,
             total=total,
-            page=page,
-            limit=limit,
-            pages=(total + limit - 1) // limit if total > 0 else 0
+            skip=offset,
+            limit=limit
         )
 
     except Exception as e:

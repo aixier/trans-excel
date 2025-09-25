@@ -1,10 +1,17 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { fileURLToPath, URL } from 'node:url'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // 加载环境变量
+  const env = loadEnv(mode, process.cwd())
+
+  // 从环境变量获取API地址，默认8101
+  const apiTarget = env.VITE_API_BASE_URL || 'http://localhost:8101'
+
+  return {
   plugins: [
     vue(),
     vueJsx()
@@ -26,12 +33,12 @@ export default defineConfig({
     host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:8101',
+        target: apiTarget,
         changeOrigin: true,
         secure: false
       },
       '/sse': {
-        target: 'http://localhost:8101',
+        target: apiTarget,
         changeOrigin: true,
         secure: false
       }
@@ -73,5 +80,6 @@ export default defineConfig({
   // 定义全局变量
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
+  }
   }
 })
