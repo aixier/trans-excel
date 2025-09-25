@@ -35,7 +35,46 @@ class ColorRule:
             return False
         # 标准化颜色代码
         color = color.upper().replace('#', '').replace('0X', '')
-        return any(code.upper().replace('#', '') in color for code in self.color_codes)
+
+        # 首先检查精确匹配
+        if any(code.upper().replace('#', '') in color for code in self.color_codes):
+            return True
+
+        # 对于蓝色优化任务，使用更宽松的RGB范围匹配
+        if self.task_type == TaskType.BLUE_OPTIMIZE:
+            return self._is_blue_color(color)
+
+        return False
+
+    def _is_blue_color(self, color: str) -> bool:
+        """检查是否为蓝色系（基于RGB值范围）"""
+        try:
+            # 处理不同长度的颜色代码
+            if len(color) >= 6:
+                # 跳过可能的Alpha通道前缀
+                if len(color) == 8:
+                    color = color[2:]  # 去掉FF前缀
+
+                # 提取RGB值
+                r = int(color[0:2], 16)
+                g = int(color[2:4], 16)
+                b = int(color[4:6], 16)
+
+                # 蓝色系判断条件：
+                # 1. 蓝色分量最高
+                # 2. 蓝色分量大于150
+                # 3. 蓝色比红色和绿色都高至少50
+                if b > 150 and b > r and b > g and (b - r) > 30:
+                    return True
+
+                # 青蓝色系（Cyan-Blue）：绿色和蓝色都较高，红色较低
+                if r < 50 and g > 100 and b > 150:
+                    return True
+
+        except (ValueError, IndexError):
+            pass
+
+        return False
 
 
 @dataclass

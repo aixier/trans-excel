@@ -113,7 +113,7 @@ class PhaseTranslationManager:
             logger.info("=" * 50)
 
             result_df = await self._execute_phase_3(
-                result_df, metadata, config
+                result_df, metadata, source_langs, config
             )
 
         # 生成执行报告
@@ -297,6 +297,7 @@ class PhaseTranslationManager:
         self,
         df: pd.DataFrame,
         metadata: Dict[str, Any],
+        source_langs: Optional[List[str]],
         config: Dict
     ) -> pd.DataFrame:
         """
