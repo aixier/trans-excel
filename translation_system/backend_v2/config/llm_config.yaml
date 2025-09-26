@@ -1,0 +1,74 @@
+# LLM Configuration for Translation System Backend V2
+
+llm:
+  # Execution control parameters
+  batch_control:
+    max_chars_per_batch: 50000  # Maximum characters per batch
+    max_concurrent_workers: 10   # Maximum concurrent workers
+
+  # Default LLM provider
+  default_provider: openai
+
+  # LLM Providers configuration
+  providers:
+    openai:
+      enabled: true
+      api_key: ${OPENAI_API_KEY}  # Set via environment variable
+      base_url: "https://api.openai.com/v1"
+      model: "gpt-4-turbo-preview"
+      temperature: 0.3
+      max_tokens: 4000
+      timeout: 90
+      max_retries: 3
+      retry_delay: 3.0
+
+    qwen:
+      enabled: true
+      api_key: ${DASHSCOPE_API_KEY}  # Set via environment variable
+      base_url: "https://dashscope.aliyuncs.com/api/v1"
+      model: "qwen-max"
+      temperature: 0.3
+      max_tokens: 4000
+      timeout: 90
+      max_retries: 3
+      retry_delay: 3.0
+
+    # Additional providers can be added here
+    # gemini:
+    #   enabled: false
+    #   api_key: ${GEMINI_API_KEY}
+    #   base_url: "https://generativelanguage.googleapis.com/v1"
+    #   model: "gemini-pro"
+    #   temperature: 0.3
+    #   max_tokens: 4000
+
+  # Retry configuration
+  retry:
+    max_attempts: 3
+    delay_seconds: 5.0
+    exponential_backoff: true
+    max_delay_seconds: 60.0
+
+  # Cost tracking (per 1000 tokens)
+  cost_estimation:
+    gpt-4: 0.03
+    gpt-4-turbo: 0.01
+    gpt-4-turbo-preview: 0.01
+    gpt-3.5-turbo: 0.002
+    qwen-max: 0.008
+    qwen-plus: 0.004
+    qwen-turbo: 0.002
+
+# Logging configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/translation_system.log"
+  max_size: 10485760  # 10MB
+  backup_count: 5
+
+# Session configuration
+session:
+  timeout_hours: 1
+  cleanup_interval_minutes: 30
+  max_sessions: 100

@@ -6,6 +6,8 @@ import logging
 
 from api.analyze_api import router as analyze_router
 from api.task_api import router as task_router
+from api.execute_api import router as execute_router
+from api.monitor_api import router as monitor_router
 from utils.config_manager import config_manager
 
 
@@ -35,6 +37,8 @@ app.add_middleware(
 # Include routers
 app.include_router(analyze_router)
 app.include_router(task_router)
+app.include_router(execute_router)
+app.include_router(monitor_router)
 
 
 @app.get("/")
@@ -48,6 +52,10 @@ async def root():
             "/api/analyze/upload",
             "/api/tasks/split",
             "/api/tasks/export/{session_id}",
+            "/api/execute/start",
+            "/api/execute/stop/{session_id}",
+            "/api/monitor/status/{session_id}",
+            "/api/monitor/dataframe/{session_id}",
             "/docs"
         ]
     }

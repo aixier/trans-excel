@@ -25,14 +25,26 @@ class ConfigManager:
         """Load configuration from YAML file."""
         if config_path is None:
             base_dir = Path(__file__).parent.parent
+            # Try llm_config.yaml first, then config.yaml
+            llm_config_path = base_dir / "config" / "llm_config.yaml"
             config_path = base_dir / "config" / "config.yaml"
 
+            if llm_config_path.exists():
+                config_path = llm_config_path
+
         with open(config_path, 'r', encoding='utf-8') as f:
-            self._config = yaml.safe_load(f)
+            config_str = f.read()
+            # Replace environment variables
+            config_str = os.path.expandvars(config_str)
+            self._config = yaml.safe_load(config_str)
 
     @property
     def config(self) -> Dict[str, Any]:
         """Get configuration dictionary."""
+        return self._config
+
+    def get_config(self) -> Dict[str, Any]:
+        """Get full configuration dictionary."""
         return self._config
 
     def get(self, key: str, default: Any = None) -> Any:
