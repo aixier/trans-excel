@@ -91,7 +91,7 @@ if __name__ == "__main__":
     import uvicorn
 
     host = config_manager.get('api.host', '0.0.0.0')
-    port = config_manager.get('api.port', 8000)
+    port = config_manager.get('api.port', 8013)
 
     uvicorn.run(
         "main:app",

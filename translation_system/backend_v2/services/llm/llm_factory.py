@@ -16,7 +16,9 @@ class LLMFactory:
     # Supported providers
     PROVIDERS = {
         'openai': OpenAIProvider,
+        'gpt-5-nano': OpenAIProvider,  # GPT-5 Nano experimental model
         'qwen': QwenProvider,
+        'qwen-plus': QwenProvider,  # Qwen Plus model
         'gpt4': OpenAIProvider,  # Alias for OpenAI
         'tongyi': QwenProvider,  # Alias for Qwen
     }

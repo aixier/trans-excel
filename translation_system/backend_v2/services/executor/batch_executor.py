@@ -11,6 +11,7 @@ from services.llm.base_provider import (
     TranslationRequest,
     TranslationResponse
 )
+from services.llm.batch_translator import BatchTranslator
 from models.task_dataframe import TaskDataFrameManager, TaskStatus
 
 logger = logging.getLogger(__name__)
@@ -19,14 +20,18 @@ logger = logging.getLogger(__name__)
 class BatchExecutor:
     """Execute translation tasks in batches."""
 
-    def __init__(self, llm_provider: BaseLLMProvider):
+    def __init__(self, llm_provider: BaseLLMProvider, use_batch_optimization: bool = True):
         """
         Initialize batch executor.
 
         Args:
             llm_provider: LLM provider instance
+            use_batch_optimization: Whether to use batch translation optimization
         """
         self.llm_provider = llm_provider
+        self.use_batch_optimization = use_batch_optimization
+        if use_batch_optimization:
+            self.batch_translator = BatchTranslator(llm_provider, batch_size=5)
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     async def execute_batch(
@@ -75,12 +80,44 @@ class BatchExecutor:
         }
 
         try:
-            # Call LLM provider for batch translation
-            responses = await self.llm_provider.translate_batch(requests)
+            if self.use_batch_optimization:
+                # Use optimized batch translator
+                translated_tasks = await self.batch_translator.translate_batch_optimized(tasks)
 
-            # Process responses
-            for task, response in zip(tasks, responses):
-                await self._process_response(task, response, task_manager, results)
+                # Process translated tasks
+                for task in translated_tasks:
+                    if task.get('status') == 'completed':
+                        task_manager.update_task(
+                            task['task_id'],
+                            {
+                                'status': TaskStatus.COMPLETED,
+                                'result': task.get('result'),
+                                'confidence': task.get('confidence', 0.7),
+                                'end_time': datetime.now(),
+                                'duration_ms': task.get('duration_ms', 0),
+                                'token_count': task.get('token_count', 0),
+                                'llm_model': task.get('llm_model', '')
+                            }
+                        )
+                        results['successful'] += 1
+                        results['total_tokens'] += task.get('token_count', 0)
+                    else:
+                        task_manager.update_task(
+                            task['task_id'],
+                            {
+                                'status': TaskStatus.FAILED,
+                                'error_message': task.get('error_message', 'Translation failed'),
+                                'end_time': datetime.now()
+                            }
+                        )
+                        results['failed'] += 1
+            else:
+                # Use original method
+                responses = await self.llm_provider.translate_batch(requests)
+
+                # Process responses
+                for task, response in zip(tasks, responses):
+                    await self._process_response(task, response, task_manager, results)
 
         except Exception as e:
             self.logger.error(f"Batch {batch_id} execution failed: {str(e)}")

@@ -22,6 +22,18 @@ llm:
       max_retries: 3
       retry_delay: 3.0
 
+    gpt-5-nano:
+      enabled: true
+      api_key: ${OPENAI_GPT5_API_KEY}  # Set via environment variable
+      base_url: "https://api.openai.com/v1"
+      model: "gpt-5-nano"
+      temperature: 0.3
+      max_tokens: 4000
+      timeout: 90
+      max_retries: 3
+      retry_delay: 3.0
+      description: "OpenAI GPT-5 Nano - Experimental model"
+
     qwen:
       enabled: true
       api_key: ${DASHSCOPE_API_KEY}  # Set via environment variable
@@ -32,6 +44,18 @@ llm:
       timeout: 90
       max_retries: 3
       retry_delay: 3.0
+
+    qwen-plus:
+      enabled: true
+      api_key: ${DASHSCOPE_PLUS_API_KEY}  # Set via environment variable
+      base_url: "https://dashscope.aliyuncs.com/api/v1"
+      model: "qwen-plus"
+      temperature: 0.3
+      max_tokens: 4000
+      timeout: 90
+      max_retries: 3
+      retry_delay: 3.0
+      description: "阿里云通义千问Plus - 平衡性能和成本"
 
     # Additional providers can be added here
     # gemini:
