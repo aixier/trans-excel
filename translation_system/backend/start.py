@@ -45,12 +45,7 @@ async def init_system():
         logger.info("🗄️ 初始化数据库表...")
         await init_database()
 
-        # 3. 启动进度队列管理器
-        logger.info("🔄 启动进度队列管理器...")
-        from utils.progress_queue import start_progress_queue
-        start_progress_queue()
-
-        # 4. 验证必要配置
+        # 3. 验证必要配置
         logger.info("⚙️ 验证系统配置...")
 
         # 验证LLM配置
@@ -150,9 +145,6 @@ async def main():
         logger.error(f"❌ 系统运行错误: {e}")
         sys.exit(1)
     finally:
-        # 停止进度队列
-        from utils.progress_queue import stop_progress_queue
-        stop_progress_queue()
         logger.info("👋 系统已关闭")
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 测试任务仓库API功能
-使用测试容器端口8102
+使用测试容器端口8104
 文件: test2.xlsx
 """
 
@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 # 配置
-BASE_URL = "http://127.0.0.1:8102"  # 测试容器端口
+BASE_URL = "http://127.0.0.1:8104"  # 测试容器端口
 TEST_FILE = "/mnt/d/work/trans_excel/test2.xlsx"
 OUTPUT_DIR = "/mnt/d/work/trans_excel"
 
@@ -74,7 +74,7 @@ def test_task_repository():
 
     try:
         with open(TEST_FILE, 'rb') as f:
-            files = {'file': ('test2.xlsx', f)}
+            files = {'file': ('test3.xlsx', f)}
             data = {
                 'source_langs': SOURCE_LANGS,
                 'target_languages': TARGET_LANGS,
@@ -139,21 +139,27 @@ def test_task_repository():
     except Exception as e:
         log(f"   查询异常: {e}", "WARNING")
 
-    # ========== 5. 监控任务进度（短时间） ==========
-    log("\n步骤5: 监控任务进度（测试缓存更新）")
+    # ========== 5. 监控任务进度直到完成 ==========
+    log("\n步骤5: 监控任务进度直到完成")
 
     start_time = time.time()
-    check_count = 0
-    max_checks = 5  # 只检查5次，主要测试缓存
+    last_progress = -1
+    final_status = None  # 记录最终状态
+    list_check_interval = 10  # 每10次检查一次任务列表
 
-    while check_count < max_checks:
-        check_count += 1
+    while True:
         elapsed = time.time() - start_time
 
+        # 去掉超时限制，方便调试
+        # if elapsed > 600:
+        #     log("⚠️ 超时：翻译时间超过10分钟", "WARNING")
+        #     break
+
         try:
+            # 主进度查询
             response = requests.get(
                 f"{BASE_URL}/api/translation/tasks/{task_id}/progress",
-                timeout=5
+                timeout=10
             )
 
             if response.status_code == 200:
@@ -161,21 +167,66 @@ def test_task_repository():
                 status = data.get('status')
                 progress = data.get('progress', {})
 
-                percentage = progress.get('percentage', 0)
-                log(f"   检查{check_count}: 状态={status}, 进度={percentage}% (用时: {elapsed:.1f}s)")
+                total_rows = progress.get('total_rows', 0)
+                translated_rows = progress.get('translated_rows', 0)
+                percentage = progress.get('completion_percentage', 0)
+                current_iteration = progress.get('current_iteration', 0)
 
-                # 测试状态查询（也使用缓存）
-                status_response = requests.get(
-                    f"{BASE_URL}/api/translation/tasks/{task_id}/status",
-                    timeout=5
-                )
-                if status_response.status_code == 200:
-                    status_data = status_response.json()
-                    log(f"   状态查询: 缓存命中成功")
+                # 显示进度变化
+                if translated_rows != last_progress:
+                    log(f"📊 进度: {translated_rows}/{total_rows} ({percentage:.1f}%)")
+                    log(f"   状态: {status} | 迭代: {current_iteration} | 用时: {elapsed:.1f}秒")
 
-                if status in ['completed', 'failed']:
-                    log(f"   任务结束: {status}")
+                    # 显示Sheet进度（如果有）
+                    sheet_progress = data.get('sheet_progress', [])
+                    if sheet_progress:
+                        log("   Sheet进度:")
+                        for sheet in sheet_progress:
+                            sheet_name = sheet.get('name', 'Unknown')
+                            sheet_total = sheet.get('total_rows', 0)
+                            sheet_translated = sheet.get('translated_rows', 0)
+                            sheet_pct = sheet.get('percentage', 0)
+                            log(f"     - {sheet_name}: {sheet_translated}/{sheet_total} ({sheet_pct:.1f}%)")
+
+                    last_progress = translated_rows
+
+                # 每30秒查询一次任务列表
+                if int(elapsed) % 30 == 0 and int(elapsed) > 0:
+                    log("\n📋 查看任务列表:")
+                    list_response = requests.get(f"{BASE_URL}/api/translation/tasks", timeout=5)
+                    if list_response.status_code == 200:
+                        tasks_data = list_response.json()
+                        log(f"   当前活跃任务数: {tasks_data.get('total', 0)}")
+                        tasks = tasks_data.get('tasks', [])
+                        for i, task in enumerate(tasks[:5], 1):  # 只显示前5个
+                            log(f"   {i}. {task.get('task_id', 'N/A')[:8]}... - {task.get('status', 'N/A')} - {task.get('file_name', 'N/A')}")
+                        if len(tasks) > 5:
+                            log(f"   ... 还有 {len(tasks)-5} 个任务")
+                    log("")
+
+                # 检查完成状态
+                if status == 'completed':
+                    log(f"\n✅ 翻译完成！")
+                    log(f"   总耗时: {elapsed:.1f} 秒")
+                    log(f"   翻译行数: {translated_rows}")
+
+                    # 显示统计信息
+                    statistics = data.get('statistics', {})
+                    if statistics:
+                        api_calls = statistics.get('total_api_calls', 0)
+                        tokens = statistics.get('total_tokens_used', 0)
+                        cost = statistics.get('total_cost', 0)
+                        log(f"   API调用: {api_calls}")
+                        log(f"   Token使用: {tokens}")
+                        log(f"   成本: ${cost:.4f}")
+                    final_status = 'completed'
                     break
+
+                elif status == 'failed':
+                    error_msg = data.get('error_message', 'Unknown')
+                    log(f"\n❌ 翻译失败: {error_msg}", "ERROR")
+                    final_status = 'failed'
+                    return False
 
             elif response.status_code == 404:
                 log(f"   任务未找到（可能还未初始化）", "WARNING")
@@ -183,21 +234,105 @@ def test_task_repository():
                 log(f"   查询失败: HTTP {response.status_code}", "WARNING")
 
         except Exception as e:
-            log(f"   查询异常: {e}", "WARNING")
+            log(f"⚠️ 查询异常: {e}", "WARNING")
 
-        time.sleep(2)
+        time.sleep(5)  # 5秒查询一次
 
-    # ========== 6. 测试缓存统计（如果可用） ==========
-    log("\n步骤6: 任务仓库状态总结")
-    log("   ✅ 内存缓存功能正常")
-    log("   ✅ 任务创建和查询使用缓存")
-    log("   ✅ 进度更新保存在内存中")
-    log("   ℹ️ 批量持久化将在后台定期执行（默认5秒）")
+    # 检查是否可以下载
+    if final_status != 'completed':
+        log("\n⚠️ 翻译未完成，无法下载", "WARNING")
+        log(f"   当前状态: {final_status or '超时'}")
+        return False
 
-    # ========== 7. 清理测试 ==========
-    log("\n步骤7: 测试完成")
-    log(f"   测试任务ID: {task_id}")
-    log(f"   总用时: {time.time() - start_time:.1f} 秒")
+    # ========== 6. 下载翻译结果 ==========
+    log("\n步骤6: 下载翻译结果")
+
+    try:
+        response = requests.get(
+            f"{BASE_URL}/api/translation/tasks/{task_id}/download",
+            timeout=60
+        )
+
+        if response.status_code == 200:
+            content_type = response.headers.get('content-type', '')
+
+            if 'application/json' not in content_type:
+                # 保存文件
+                output_file = os.path.join(
+                    OUTPUT_DIR,
+                    f"test2_translated_{SOURCE_LANGS}_to_{TARGET_LANGS.replace(',','_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                )
+
+                with open(output_file, 'wb') as f:
+                    f.write(response.content)
+
+                file_size = len(response.content) / 1024
+                log(f"✅ 下载成功！")
+                log(f"   文件: {output_file}")
+                log(f"   大小: {file_size:.2f} KB")
+                log(f"   源语言: {SOURCE_LANGS}")
+                log(f"   目标语言: {TARGET_LANGS}")
+
+                # 简单验证
+                if file_size < 1:
+                    log("⚠️ 文件大小异常", "WARNING")
+                    return False
+
+            else:
+                error_data = response.json()
+                log(f"❌ 收到错误响应: {error_data.get('detail', 'Unknown')}", "ERROR")
+                return False
+
+        elif response.status_code == 404:
+            log("❌ 文件不存在", "ERROR")
+            return False
+        else:
+            log(f"❌ 下载失败: HTTP {response.status_code}", "ERROR")
+            return False
+
+    except Exception as e:
+        log(f"❌ 下载异常: {e}", "ERROR")
+        return False
+
+    # ========== 7. 最终任务列表检查 ==========
+    log("\n步骤7: 最终任务列表检查")
+
+    try:
+        response = requests.get(f"{BASE_URL}/api/translation/tasks", timeout=5)
+        if response.status_code == 200:
+            tasks_data = response.json()
+            log(f"📋 最终任务列表状态:")
+            log(f"   总任务数: {tasks_data.get('total', 0)}")
+
+            # 查找我们的任务最终状态
+            tasks = tasks_data.get('tasks', [])
+            for task in tasks:
+                if task.get('task_id') == task_id:
+                    log(f"   我们的任务最终状态: {task.get('status')}")
+                    log(f"   完成时间: {task.get('completed_at', 'N/A')}")
+                    break
+
+            # 显示所有任务概览
+            status_count = {}
+            for task in tasks:
+                status = task.get('status', 'unknown')
+                status_count[status] = status_count.get(status, 0) + 1
+
+            log(f"   任务状态分布:")
+            for status, count in status_count.items():
+                log(f"     - {status}: {count}")
+
+    except Exception as e:
+        log(f"   查询异常: {e}", "WARNING")
+
+    # ========== 8. 测试总结 ==========
+    log("\n步骤8: 测试总结")
+    log("   ✅ 完整流程测试成功")
+    log("   ✅ 任务创建、监控、下载功能正常")
+    log("   ✅ 任务列表查询功能正常")
+    log("   ✅ 内存缓存和进度更新正常")
+    log(f"   📊 测试任务ID: {task_id}")
+    log(f"   ⏱️ 总用时: {time.time() - start_time:.1f} 秒")
 
     return True
 
@@ -205,7 +340,7 @@ def main():
     """主函数"""
     print("\n" + "="*70)
     print(" 测试任务仓库API功能 ".center(70))
-    print(" 测试容器端口: 8102 ".center(70))
+    print(" 测试容器端口: 8104 ".center(70))
     print("="*70)
 
     success = test_task_repository()

@@ -276,9 +276,9 @@ class TranslationEngine:
                 sheet_info = self.header_analyzer.analyze_sheet(df, sheet_name, source_langs)
                 logger.info(f"表头分析完成，可翻译行数: {sheet_info.translatable_rows}")
 
-                # 3. 初始任务检测（传递源语言配置）
+                # 3. 初始任务检测（传递源语言和目标语言配置）
                 initial_tasks = self.translation_detector.detect_translation_tasks(
-                    df, sheet_info, source_langs=source_langs
+                    df, sheet_info, source_langs=source_langs, target_langs=target_languages
                 )
                 logger.info(f"初始检测到翻译任务: {len(initial_tasks)}个")
 
@@ -305,14 +305,14 @@ class TranslationEngine:
 
                 # 动态调整参数
                 dynamic_batch_size = current_batch_size
-                dynamic_timeout = 90  # 初始超时90秒
+                dynamic_timeout = 30  # 减少初始超时到30秒，避免长时间等待
 
                 while iteration < max_iterations:
                     iteration += 1
 
-                    # 每轮重新检测剩余任务 - 关键改进！（传递源语言配置）
+                    # 每轮重新检测剩余任务 - 关键改进！（传递源语言和目标语言配置）
                     remaining_tasks = self.translation_detector.detect_translation_tasks(
-                        current_df, sheet_info, source_langs=source_langs
+                        current_df, sheet_info, source_langs=source_langs, target_langs=target_languages
                     )
 
                     if not remaining_tasks:
@@ -325,21 +325,21 @@ class TranslationEngine:
                     if iteration > 1 and failed_batch_count > 0:
                         # 有失败，减小批次大小
                         dynamic_batch_size = max(1, dynamic_batch_size // 2)
-                        # 增加超时时间
-                        dynamic_timeout = min(300, dynamic_timeout * 1.5)  # 增加最大超时到300秒
+                        # 适度增加超时时间
+                        dynamic_timeout = min(120, dynamic_timeout * 1.2)  # 最大超时120秒
                         logger.info(f"调整策略：批次大小={dynamic_batch_size}，超时={dynamic_timeout}秒")
 
                     # 检测长文本任务，进一步调整
                     max_text_length = max([len(task.source_text) for task in remaining_tasks] or [0])
                     if max_text_length > 300:  # 降低阈值，更早优化
                         dynamic_batch_size = min(dynamic_batch_size, 3)  # 最多3个任务一批
-                        dynamic_timeout = max(dynamic_timeout, 180)  # 至少180秒超时
+                        dynamic_timeout = max(dynamic_timeout, 60)  # 至少60秒超时
                         if max_text_length > 500:  # 长文本
                             dynamic_batch_size = min(dynamic_batch_size, 2)  # 最多2个任务一批
-                            dynamic_timeout = max(dynamic_timeout, 240)  # 4分钟超时
-                        if max_text_length > 800:  # 超长文本（如909字符）
+                            dynamic_timeout = max(dynamic_timeout, 90)  # 90秒超时
+                        if max_text_length > 800:  # 超长文本
                             dynamic_batch_size = 1  # 单个任务一批
-                            dynamic_timeout = 360  # 6分钟超时
+                            dynamic_timeout = 120  # 120秒超时
                         logger.info(f"检测到长文本(最长{max_text_length}字符)，调整批次大小={dynamic_batch_size}，超时={dynamic_timeout}秒")
 
                     # 创建新批次
@@ -349,6 +349,14 @@ class TranslationEngine:
                     self.failed_batches = []
 
                     logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代：创建 {len(batches)} 个批次")
+
+                    # 调试：统计批次中的任务分布
+                    total_tasks_in_batches = sum(len(batch) for batch in batches)
+                    unique_rows = set()
+                    for batch in batches:
+                        for task in batch:
+                            unique_rows.add(task.row_index)
+                    logger.debug(f"🔍 批次统计：{len(batches)}个批次，包含{total_tasks_in_batches}个任务，覆盖{len(unique_rows)}个唯一行")
 
                     # 更新迭代状态
                     status = 'iterating' if iteration > 1 else 'translating'
@@ -372,8 +380,10 @@ class TranslationEngine:
                         logger.warning(f"第{iteration}轮有 {failed_batch_count} 个批次失败")
 
                     # 应用翻译结果到DataFrame
+                    logger.info(f"📝 准备应用 {len(translation_results)} 个翻译结果到DataFrame")
                     translated_count = self._apply_translation_results(current_df, translation_results)
                     total_translated += translated_count
+                    logger.info(f"✏️ 本轮应用了 {translated_count} 个翻译，累计 {total_translated} 个")
 
                     # 更新进度
                     await self.project_manager.update_task_progress(
@@ -384,6 +394,14 @@ class TranslationEngine:
                     # 检查剩余任务数
                     final_remaining = self._count_remaining_tasks(current_df, sheet_info)
                     logger.info(f"Sheet '{sheet_name}' - 第{iteration}轮迭代完成，剩余任务: {final_remaining}")
+
+                    # 调试：为什么还有剩余任务？
+                    if final_remaining > 0 and iteration == 1:
+                        logger.debug(f"🔍 调试：检测到 {len(remaining_tasks)} 个任务")
+                        logger.debug(f"🔍 调试：创建了 {len(batches)} 个批次")
+                        logger.debug(f"🔍 调试：返回了 {len(translation_results)} 个结果")
+                        logger.debug(f"🔍 调试：应用了 {translated_count} 个翻译")
+                        logger.debug(f"🔍 调试：仍有 {final_remaining} 个剩余")
 
                 # 5. 三阶段颜色任务处理（如果有元数据）
                 if sheet_name in self.excel_metadata:
@@ -470,6 +488,8 @@ class TranslationEngine:
         """并发处理批次 - 支持动态超时"""
         tasks = []
 
+        logger.info(f"🚀 准备并发处理 {len(batches)} 个批次，当前可用信号量: {semaphore._value}")
+
         for batch_id, batch in enumerate(batches, 1):
             task = self._translate_batch_with_retry(
                 db, task_id, batch, batch_id, target_languages,
@@ -479,15 +499,26 @@ class TranslationEngine:
             tasks.append(task)
 
         # 并发执行所有批次
+        logger.info(f"⚡ 启动asyncio.gather并发执行 {len(tasks)} 个任务")
+        gather_start = time.monotonic()
         results = await asyncio.gather(*tasks, return_exceptions=True)
+        gather_elapsed = time.monotonic() - gather_start
+        logger.info(f"✅ asyncio.gather完成，耗时 {gather_elapsed:.1f}秒")
 
         # 合并结果
         translation_results = {}
-        for result in results:
+        success_count = 0
+        fail_count = 0
+        for i, result in enumerate(results, 1):
             if isinstance(result, dict):
                 translation_results.update(result)
+                success_count += 1
+                logger.debug(f"批次{i}: 返回 {len(result)} 个结果")
             else:
-                logger.error(f"批次处理失败: {result}")
+                fail_count += 1
+                logger.error(f"批次{i}处理失败: {result}")
+
+        logger.info(f"📊 批次处理统计: 成功={success_count}, 失败={fail_count}, 总结果数={len(translation_results)}")
 
         return translation_results
 
@@ -510,7 +541,9 @@ class TranslationEngine:
     ) -> Dict:
         """批次翻译带重试机制 - 支持动态超时和智能重试"""
         async with semaphore:
-            start_time = time.time()
+            # 使用monotonic避免时间戳问题
+            start_time = time.monotonic()
+            logger.info(f"🔐 批次{batch_id}: 获取到信号量，开始实际处理")
 
             # 检测批次中的最长文本
             max_length = max([len(task.source_text) for task in batch] or [0])
@@ -541,9 +574,9 @@ class TranslationEngine:
             for attempt in range(max_retry_attempts + 1):
                 try:
                     if attempt > 0:
-                        retry_delay = retry_base_delay * (2 ** (attempt - 1))
-                        # 每次重试增加超时时间
-                        current_timeout = min(timeout * (1 + attempt * 0.5), 600)  # 最多10分钟
+                        retry_delay = retry_base_delay * (1.5 ** (attempt - 1))  # 减少延迟增长
+                        # 每次重试适度增加超时时间
+                        current_timeout = min(timeout * (1 + attempt * 0.3), 180)  # 最多3分钟
                         logger.info(f"🔄 批次{batch_id}: 第{attempt + 1}次尝试，延迟{retry_delay:.1f}s，超时{current_timeout:.0f}s")
                         await asyncio.sleep(retry_delay)
                     else:
@@ -697,7 +730,9 @@ class TranslationEngine:
                                 task.target_language: translation.get(task.target_language, translation) if isinstance(translation, dict) else translation
                             }
 
-                    elapsed = time.time() - start_time
+                    logger.debug(f"批次{batch_id}: 包含{len(batch)}个任务，返回{len(translations)}个翻译，生成{len(batch_results)}个结果")
+
+                    elapsed = time.monotonic() - start_time
                     self.completed_batches += 1
 
                     # 计算批次中的唯一行数（同一行的多个任务算一行）
@@ -726,7 +761,7 @@ class TranslationEngine:
                     return batch_results
 
                 except Exception as e:
-                    elapsed = time.time() - start_time
+                    elapsed = time.monotonic() - start_time
 
                     if attempt < max_retry_attempts:
                         logger.warning(f"⚠️ 批次{batch_id}: 第{attempt + 1}次尝试失败 | 错误: {e}")
@@ -744,16 +779,24 @@ class TranslationEngine:
             for lang, translation in translations.items():
                 if translation and translation.strip():
                     # 找到对应的语言列 - 更精确的匹配
-                    lang_upper = lang.upper()
                     matched_col = None
 
-                    # 首先尝试精确匹配
+                    # 首先尝试大写匹配（如 'PT', 'TH'）
+                    lang_upper = lang.upper()
                     if lang_upper in df.columns:
                         matched_col = lang_upper
-                    # 其次尝试小写匹配
-                    elif lang.lower() in [col.lower() for col in df.columns]:
+                    # 其次尝试不区分大小写的匹配
+                    else:
                         for col in df.columns:
-                            if col.lower() == lang.lower():
+                            if col.upper() == lang_upper:
+                                matched_col = col
+                                break
+
+                    # 如果还是找不到，尝试小写匹配
+                    if not matched_col:
+                        lang_lower = lang.lower()
+                        for col in df.columns:
+                            if col.lower() == lang_lower:
                                 matched_col = col
                                 break
 
@@ -766,10 +809,18 @@ class TranslationEngine:
 
                     # 应用翻译
                     if matched_col:
-                        df.at[row_index, matched_col] = translation
-                        translated_count += 1
-                        logger.debug(f"应用翻译: 行{row_index}, 列{matched_col} = {translation[:30]}...")
+                        # 检查当前值，确保不覆盖已有的翻译
+                        current_value = df.at[row_index, matched_col]
+                        if pd.isna(current_value) or str(current_value).strip() == '':
+                            df.at[row_index, matched_col] = translation
+                            translated_count += 1
+                            logger.debug(f"应用翻译: 行{row_index}, 列{matched_col}")
+                        else:
+                            logger.debug(f"跳过已有翻译: 行{row_index}, 列{matched_col}")
+                    else:
+                        logger.warning(f"无法找到匹配的列: {lang}")
 
+        logger.info(f"成功应用 {translated_count} 个翻译结果")
         return translated_count
 
     def _get_cell_address_from_task(self, task) -> Optional[str]:

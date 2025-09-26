@@ -1,0 +1,94 @@
+"""Main FastAPI application."""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import logging
+
+from api.analyze_api import router as analyze_router
+from api.task_api import router as task_router
+from utils.config_manager import config_manager
+
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, config_manager.log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Create FastAPI app
+app = FastAPI(
+    title="Translation System Backend V2",
+    description="Excel-based translation task management system",
+    version="2.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config_manager.get('api.cors_origins', ["*"]),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(analyze_router)
+app.include_router(task_router)
+
+
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {
+        "name": "Translation System Backend V2",
+        "version": "2.0.0",
+        "status": "running",
+        "endpoints": [
+            "/api/analyze/upload",
+            "/api/tasks/split",
+            "/api/tasks/export/{session_id}",
+            "/docs"
+        ]
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "config": {
+            "max_chars_per_batch": config_manager.max_chars_per_batch,
+            "max_concurrent_workers": config_manager.max_concurrent_workers
+        }
+    }
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Startup event handler."""
+    logger.info("Starting Translation System Backend V2")
+    logger.info(f"Max chars per batch: {config_manager.max_chars_per_batch}")
+    logger.info(f"Max concurrent workers: {config_manager.max_concurrent_workers}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown event handler."""
+    logger.info("Shutting down Translation System Backend V2")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    host = config_manager.get('api.host', '0.0.0.0')
+    port = config_manager.get('api.port', 8000)
+
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=True,
+        log_level=config_manager.log_level.lower()
+    )

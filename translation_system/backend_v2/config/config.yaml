@@ -1,0 +1,14 @@
+llm:
+  batch_control:
+    max_chars_per_batch: 50000
+    max_concurrent_workers: 10
+
+system:
+  max_memory_usage: 4096
+  log_level: INFO
+  session_timeout: 3600  # seconds
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["*"]

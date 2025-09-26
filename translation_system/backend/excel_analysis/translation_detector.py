@@ -41,7 +41,8 @@ class TranslationDetector:
         df: pd.DataFrame,
         sheet_info: SheetInfo,
         include_colors: bool = True,
-        source_langs: Optional[List[str]] = None  # 新增源语言参数
+        source_langs: Optional[List[str]] = None,  # 源语言参数
+        target_langs: Optional[List[str]] = None  # 目标语言参数
     ) -> List[TranslationTask]:
         """检测需要翻译的任务 - 按行动态检测源语言和翻译需求"""
         tasks = []
@@ -118,6 +119,13 @@ class TranslationDetector:
             for col in language_cols:
                 if col.name == source_col_name:  # 跳过源语言列
                     continue
+
+                # 如果指定了目标语言，只检测这些语言
+                if target_langs:
+                    # 将目标语言转换为小写进行比较
+                    target_langs_lower = [lang.lower() for lang in target_langs]
+                    if col.language and col.language.lower() not in target_langs_lower:
+                        continue
 
                 target_text = row[col.name]
 

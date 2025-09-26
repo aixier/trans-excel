@@ -1,0 +1,369 @@
+"""Task splitting service - core logic for task generation."""
+
+import pandas as pd
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+import uuid
+
+from models.excel_dataframe import ExcelDataFrame
+from models.task_dataframe import TaskDataFrameManager
+from models.game_info import GameInfo
+from services.context_extractor import ContextExtractor
+from services.batch_allocator import BatchAllocator
+from services.language_detector import LanguageDetector
+
+
+class TaskSplitter:
+    """Split Excel into translation tasks."""
+
+    def __init__(self, excel_df: ExcelDataFrame, game_info: GameInfo = None):
+        self.excel_df = excel_df
+        self.game_info = game_info
+        self.context_extractor = ContextExtractor(game_info)
+        self.batch_allocator = BatchAllocator()
+        self.language_detector = LanguageDetector()
+        self.task_manager = TaskDataFrameManager()
+
+    def split_tasks(
+        self,
+        source_lang: str = None,
+        target_langs: List[str] = None
+    ) -> TaskDataFrameManager:
+        """
+        Split Excel into tasks and create task DataFrame.
+
+        Args:
+            source_lang: Source language (CH/EN), None for auto-detect
+            target_langs: Target languages (PT/TH/VN), None for all available
+
+        Returns:
+            TaskDataFrameManager with all tasks
+        """
+        all_tasks = []
+        task_counter = 0
+
+        # Process each sheet
+        for sheet_name in self.excel_df.get_sheet_names():
+            sheet_tasks = self._process_sheet(
+                sheet_name,
+                source_lang,
+                target_langs,
+                task_counter
+            )
+            all_tasks.extend(sheet_tasks)
+            task_counter += len(sheet_tasks)
+
+        # Allocate batches
+        all_tasks = self.batch_allocator.optimize_batches(all_tasks)
+
+        # Create DataFrame
+        for task in all_tasks:
+            self.task_manager.add_task(task)
+
+        return self.task_manager
+
+    def _process_sheet(
+        self,
+        sheet_name: str,
+        source_lang: str,
+        target_langs: List[str],
+        start_counter: int
+    ) -> List[Dict[str, Any]]:
+        """Process a single sheet and generate tasks."""
+        df = self.excel_df.get_sheet(sheet_name)
+        if df is None:
+            return []
+
+        tasks = []
+
+        # Check for explicit language columns by name
+        column_names = [str(col).upper() for col in df.columns]
+        has_explicit_columns = False
+
+        # Map column names to indices
+        col_mapping = {}
+        for idx, col in enumerate(column_names):
+            if col in ['CH', 'CN', '中文']:
+                col_mapping['CH'] = idx
+                has_explicit_columns = True
+            elif col in ['EN', 'ENGLISH', '英文']:
+                col_mapping['EN'] = idx
+                has_explicit_columns = True
+            elif col in ['TH', 'THAI', '泰语', '泰文']:
+                col_mapping['TH'] = idx
+                has_explicit_columns = True
+            elif col in ['PT', 'PT-BR', 'PORTUGUESE', '葡萄牙语']:
+                col_mapping['PT'] = idx
+                has_explicit_columns = True
+            elif col in ['VN', 'VI', 'VIETNAMESE', '越南语']:
+                col_mapping['VN'] = idx
+                has_explicit_columns = True
+
+        # If we have explicit columns, use them directly
+        if has_explicit_columns:
+            # Determine source column based on source_lang or default to CH if exists
+            if source_lang == 'CH' and 'CH' in col_mapping:
+                source_col_idx = col_mapping['CH']
+                actual_source_lang = 'CH'
+            elif source_lang == 'EN' and 'EN' in col_mapping:
+                source_col_idx = col_mapping['EN']
+                actual_source_lang = 'EN'
+            elif 'CH' in col_mapping:  # Default to CH if available
+                source_col_idx = col_mapping['CH']
+                actual_source_lang = 'CH'
+            elif 'EN' in col_mapping:  # Otherwise try EN
+                source_col_idx = col_mapping['EN']
+                actual_source_lang = 'EN'
+            else:
+                # Fall back to language detection
+                lang_analysis = self.language_detector.analyze_sheet(df)
+                lang_columns = lang_analysis['language_columns']
+                if lang_columns['source_columns']:
+                    source_col_idx = lang_columns['source_columns'][0]
+                    actual_source_lang = source_lang or 'CH'
+                else:
+                    return []
+
+            # Process each row with explicit columns
+            for row_idx in range(len(df)):
+                # Get source text
+                source_text = df.iloc[row_idx, source_col_idx]
+                if pd.isna(source_text) or not str(source_text).strip():
+                    continue
+
+                source_text = str(source_text)
+
+                # Check each target language
+                for target_lang in target_langs:
+                    if target_lang in col_mapping:
+                        target_col = col_mapping[target_lang]
+
+                        # Check if translation is needed
+                        needs_translation = self._check_needs_translation(
+                            sheet_name, row_idx, target_col, source_text
+                        )
+
+                        if needs_translation:
+                            # Create task
+                            task = self._create_task(
+                                sheet_name,
+                                row_idx,
+                                source_col_idx,
+                                target_col,
+                                source_text,
+                                actual_source_lang,
+                                target_lang,
+                                start_counter + len(tasks)
+                            )
+                            tasks.append(task)
+
+        else:
+            # Fall back to language detection
+            lang_analysis = self.language_detector.analyze_sheet(df)
+            lang_columns = lang_analysis['language_columns']
+
+            # Use detected languages if not specified
+            if not source_lang and lang_analysis['source_languages']:
+                source_lang = lang_analysis['source_languages'][0]
+
+            if not target_langs:
+                target_langs = lang_analysis['target_languages']
+
+            # If no language info, return empty
+            if not source_lang or not target_langs:
+                return []
+
+            # Process each row
+            for row_idx in range(len(df)):
+                # Find source text
+                source_text = None
+                source_col = None
+
+                for col_idx in lang_columns['source_columns']:
+                    value = df.iloc[row_idx, col_idx]
+                    if pd.notna(value) and isinstance(value, str) and value.strip():
+                        source_text = value
+                        source_col = col_idx
+                        break
+
+                # Skip if no source text
+                if not source_text:
+                    continue
+
+            # Check each target language
+            for target_lang in target_langs:
+                # Find target column for this language
+                target_columns = lang_columns.get(f'{target_lang}_columns', [])
+
+                for target_col in target_columns:
+                    # Check if translation is needed
+                    needs_translation = self._check_needs_translation(
+                        sheet_name, row_idx, target_col, source_text
+                    )
+
+                    if needs_translation:
+                        # Create task
+                        task = self._create_task(
+                            sheet_name,
+                            row_idx,
+                            source_col,
+                            target_col,
+                            source_text,
+                            source_lang,
+                            target_lang,
+                            start_counter + len(tasks)
+                        )
+                        tasks.append(task)
+
+        return tasks
+
+    def _check_needs_translation(
+        self,
+        sheet_name: str,
+        row_idx: int,
+        col_idx: int,
+        source_text: str
+    ) -> bool:
+        """Check if a cell needs translation."""
+        df = self.excel_df.get_sheet(sheet_name)
+        if df is None:
+            return False
+
+        # Get current value
+        current_value = df.iloc[row_idx, col_idx] if col_idx < len(df.columns) else None
+
+        # Check cell color
+        color = self.excel_df.get_cell_color(sheet_name, row_idx, col_idx)
+
+        # Yellow cells always need translation
+        if color in ['#FFFF00', '#FFFFFF00']:
+            return True
+
+        # Blue cells need translation
+        if color in ['#0000FF', '#FF0000FF']:
+            return True
+
+        # Empty cells need translation if source has content
+        if pd.isna(current_value) or str(current_value).strip() == '':
+            return bool(source_text and source_text.strip())
+
+        # If already has content and no color marking, skip
+        return False
+
+    def _create_task(
+        self,
+        sheet_name: str,
+        row_idx: int,
+        source_col: int,
+        target_col: int,
+        source_text: str,
+        source_lang: str,
+        target_lang: str,
+        task_num: int
+    ) -> Dict[str, Any]:
+        """Create a single task dictionary."""
+        # Extract context
+        source_context = self.context_extractor.extract_context(
+            self.excel_df, sheet_name, row_idx, source_col
+        )
+
+        # Get game context
+        game_context = self.game_info.to_context_string() if self.game_info else ""
+
+        # Determine group_id
+        group_id = self._determine_group_id(sheet_name, source_text)
+
+        # Get cell reference
+        cell_ref = self._get_cell_reference(row_idx, target_col)
+
+        # Determine priority
+        priority = self._determine_priority(sheet_name, source_text)
+
+        return {
+            'task_id': f"TASK_{task_num:04d}",
+            'batch_id': '',  # Will be assigned by batch allocator
+            'group_id': group_id,
+            'source_lang': source_lang,
+            'source_text': source_text,
+            'source_context': source_context,
+            'game_context': game_context,
+            'target_lang': target_lang,
+            'excel_id': self.excel_df.excel_id,
+            'sheet_name': sheet_name,
+            'row_idx': row_idx,
+            'col_idx': target_col,
+            'cell_ref': cell_ref,
+            'status': 'pending',
+            'priority': priority,
+            'result': '',
+            'confidence': 0.0,
+            'char_count': len(source_text),
+            'created_at': datetime.now(),
+            'updated_at': datetime.now(),
+            'start_time': None,
+            'end_time': None,
+            'duration_ms': 0,
+            'retry_count': 0,
+            'error_message': '',
+            'llm_model': '',
+            'token_count': 0,
+            'cost': 0.0,
+            'reviewer_notes': '',
+            'is_final': False
+        }
+
+    def _determine_group_id(self, sheet_name: str, source_text: str) -> str:
+        """Determine group_id based on sheet and content."""
+        sheet_lower = sheet_name.lower()
+
+        # Sheet-based grouping
+        if 'ui' in sheet_lower:
+            return 'GROUP_UI_001'
+        elif 'dialog' in sheet_lower:
+            return 'GROUP_DIALOG_001'
+        elif 'item' in sheet_lower:
+            return 'GROUP_ITEM_001'
+        elif 'skill' in sheet_lower:
+            return 'GROUP_SKILL_001'
+        elif 'quest' in sheet_lower:
+            return 'GROUP_QUEST_001'
+
+        # Content-based grouping
+        if len(source_text) <= 20:
+            return 'GROUP_SHORT_001'
+        elif len(source_text) <= 100:
+            return 'GROUP_MEDIUM_001'
+        else:
+            return 'GROUP_LONG_001'
+
+    def _get_cell_reference(self, row_idx: int, col_idx: int) -> str:
+        """Convert row/col indices to Excel cell reference (e.g., A1)."""
+        # Convert column index to letter(s)
+        col_letter = ''
+        col_num = col_idx + 1
+        while col_num > 0:
+            col_num -= 1
+            col_letter = chr(col_num % 26 + ord('A')) + col_letter
+            col_num //= 26
+
+        # Row is 1-indexed
+        return f"{col_letter}{row_idx + 2}"  # +2 because row 0 is header, Excel is 1-indexed
+
+    def _determine_priority(self, sheet_name: str, source_text: str) -> int:
+        """Determine task priority (1-10, higher is more important)."""
+        sheet_lower = sheet_name.lower()
+
+        # UI text is high priority
+        if 'ui' in sheet_lower:
+            return 8
+
+        # Short text is usually important
+        if len(source_text) <= 20:
+            return 7
+
+        # Dialog is medium priority
+        if 'dialog' in sheet_lower:
+            return 5
+
+        # Default priority
+        return 5

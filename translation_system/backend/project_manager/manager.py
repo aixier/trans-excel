@@ -252,36 +252,50 @@ class ProjectManager:
         error_message: str = None,
         sheet_progress: dict = None
     ):
-        """更新任务进度 - 使用队列管理器，避免频繁数据库操作"""
-        from utils.progress_queue import update_task_progress as queue_update
+        """更新任务进度 - 直接使用task_repo统一管理缓存"""
+        from database.task_repository import get_task_repository
+        from datetime import datetime
 
-        # 构建进度数据
-        progress_data = {}
+        task_repo = get_task_repository()
+
+        # 获取任务（从缓存）
+        task_data = task_repo._cache.get(task_id)
+        if not task_data:
+            logger.warning(f"任务 {task_id} 未在缓存中找到")
+            return
+
+        # 更新进度数据
         if translated_rows is not None:
-            progress_data['translated_rows'] = translated_rows
+            task_data['translated_rows'] = translated_rows
         if current_iteration is not None:
-            progress_data['current_iteration'] = current_iteration
+            task_data['current_iteration'] = current_iteration
         if api_calls is not None:
-            progress_data['api_calls'] = api_calls
+            task_data['total_api_calls'] = task_data.get('total_api_calls', 0) + api_calls
         if tokens_used is not None:
-            progress_data['tokens_used'] = tokens_used
+            task_data['total_tokens_used'] = task_data.get('total_tokens_used', 0) + tokens_used
         if cost is not None:
-            progress_data['cost'] = cost
+            task_data['total_cost'] = task_data.get('total_cost', 0.0) + cost
         if status is not None:
-            progress_data['status'] = status
+            task_data['status'] = status
         if current_sheet is not None:
-            progress_data['current_sheet'] = current_sheet
+            task_data['current_sheet'] = current_sheet
         if error_message is not None:
-            progress_data['error_message'] = error_message
+            task_data['error_message'] = error_message
         if sheet_progress is not None:
-            progress_data['sheet_progress'] = sheet_progress
+            task_data['sheet_progress'] = sheet_progress
 
-        # 添加到队列（非阻塞）
-        try:
-            queue_update(task_id, **progress_data)
-        except Exception as e:
-            # 队列更新失败不影响主流程
-            logger.warning(f"进度队列更新失败（不影响主流程）: {e}")
+        # 更新时间戳
+        task_data['updated_at'] = datetime.utcnow()
+
+        # 计算完成百分比
+        total_rows = task_data.get('total_rows', 0)
+        if total_rows > 0 and translated_rows is not None:
+            task_data['completion_percentage'] = (translated_rows / total_rows) * 100
+
+        # 标记为脏数据（需要持久化）
+        task_repo._dirty_tasks.add(task_id)
+
+        logger.debug(f"任务 {task_id} 进度已更新到缓存: {translated_rows}/{total_rows}")
 
     async def update_task_sheets(
         self,

@@ -109,11 +109,15 @@ class TaskRepository:
                                   completed: int = 0, failed: int = 0):
         """
         更新任务进度 - 高频操作，仅更新缓存
+        注意：这个函数保留用于简单的进度更新，复杂更新请使用project_manager
         """
         if task_id in self._cache:
             task = self._cache[task_id]
-            task["progress"] = progress
-            task["completed_tasks"] = completed
+            # 更新新旧字段
+            task["completion_percentage"] = progress
+            task["progress"] = progress  # 兼容旧字段
+            task["translated_rows"] = completed
+            task["completed_tasks"] = completed  # 兼容旧字段
             task["failed_tasks"] = failed
             task["updated_at"] = datetime.utcnow()
 

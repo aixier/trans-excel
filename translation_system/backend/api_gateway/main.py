@@ -64,12 +64,12 @@ app.add_middleware(
 )
 
 
-# 安全中间件
-if not settings.debug_mode:
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", "*.example.com"]
-    )
+# 安全中间件 - 暂时禁用主机验证以支持所有域名访问
+# if not settings.debug_mode:
+#     app.add_middleware(
+#         TrustedHostMiddleware,
+#         allowed_hosts=["localhost", "127.0.0.1", "*.example.com"]
+#     )
 
 
 # 请求日志中间件

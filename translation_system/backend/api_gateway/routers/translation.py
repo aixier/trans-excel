@@ -220,13 +220,25 @@ async def upload_translation_file(
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
             "file_name": file.filename,
+            # 使用统一的字段名
+            "total_rows": total_rows,
+            "translated_rows": 0,
+            "current_iteration": 0,
+            "completion_percentage": 0,
+            # 统计字段
+            "total_api_calls": 0,
+            "total_tokens_used": 0,
+            "total_cost": 0.0,
+            # 兼容旧字段
             "total_tasks": total_rows,
             "completed_tasks": 0,
             "failed_tasks": 0,
             "progress": 0,
+            # 配置信息
             "source_langs": source_langs_list,
             "target_languages": target_languages_list,
             "sheets": sheets_to_process,
+            "sheet_progress": {},
             "config": {
                 'batch_size': batch_size,
                 'max_concurrent': max_concurrent,
@@ -436,21 +448,25 @@ async def get_task_progress(
         # 从任务仓库查找（优先使用缓存）
         task = await task_repo.get_task(task_id, db)
         if task:
+            # 兼容两种字段名（旧的total_tasks和新的total_rows）
+            total_rows = task.get("total_rows", task.get("total_tasks", 0))
+            translated_rows = task.get("translated_rows", task.get("completed_tasks", 0))
+
             return TaskProgressResponse(
                 task_id=task_id,
                 status=TaskStatus(task["status"]),
                 progress=TaskProgress(
-                    total_rows=task.get("total_tasks", 0),
-                    translated_rows=task.get("completed_tasks", 0),
-                    current_iteration=1,
+                    total_rows=total_rows,
+                    translated_rows=translated_rows,
+                    current_iteration=task.get("current_iteration", 1),
                     max_iterations=5,
-                    completion_percentage=task.get("progress", 0),
+                    completion_percentage=task.get("completion_percentage", task.get("progress", 0)),
                     estimated_time_remaining=0
                 ),
                 statistics=TranslationMetrics(
-                    total_api_calls=task.get("api_calls", 0),
-                    total_tokens_used=task.get("tokens_used", 0),
-                    total_cost=task.get("cost", 0.0),
+                    total_api_calls=task.get("total_api_calls", task.get("api_calls", 0)),
+                    total_tokens_used=task.get("total_tokens_used", task.get("tokens_used", 0)),
+                    total_cost=task.get("total_cost", task.get("cost", 0.0)),
                     average_response_time=0.0,
                     success_rate=0.95
                 ),
@@ -515,13 +531,18 @@ async def list_translation_tasks(
         # 转换为响应格式
         task_responses = []
         for task in filtered_tasks:
+            # 兼容新旧字段名
+            total_rows = task.get("total_rows", task.get("total_tasks", 0))
+            translated_rows = task.get("translated_rows", task.get("completed_tasks", 0))
+            completion_percentage = task.get("completion_percentage", task.get("progress", 0))
+
             task_responses.append(TaskListItem(
                 task_id=task["id"],
                 file_name=task.get("file_name", "Unknown"),
                 status=task.get("status", "pending"),
-                progress=task.get("progress", 0),
-                total_rows=task.get("total_tasks", 0),
-                translated_rows=task.get("completed_tasks", 0),
+                progress=completion_percentage,
+                total_rows=total_rows,
+                translated_rows=translated_rows,
                 languages=task.get("target_languages", []),
                 created_at=task.get("created_at", datetime.utcnow()),
                 updated_at=task.get("updated_at", task.get("created_at", datetime.utcnow()))
