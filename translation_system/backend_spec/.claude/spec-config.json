@@ -1,0 +1,63 @@
+{
+  "spec_workflow": {
+    "version": "2.0.0",
+    "project_type": "backend",
+    "project_name": "Translation System Backend Spec",
+    "project_status": "specification_phase",
+    "implementation_status": "not_started",
+    "auto_create_directories": true,
+    "auto_reference_requirements": true,
+    "enforce_approval_workflow": true,
+    "default_feature_prefix": "feature-",
+    "supported_formats": [
+      "markdown",
+      "ascii"
+    ],
+    "agents_enabled": true,
+    "language": "zh-CN",
+    "architecture": {
+      "type": "dataframe-centric",
+      "layers": ["api", "service", "model", "infrastructure"],
+      "core_tech": ["fastapi", "pandas", "mysql", "redis"]
+    },
+    "specifications": {
+      "defined": [
+        "excel-processing",
+        "translation-engine",
+        "task-management",
+        "api-gateway"
+      ],
+      "status": {
+        "excel-processing": {
+          "requirements": "defined",
+          "design": "defined",
+          "tasks": "defined",
+          "implementation": "not_started"
+        },
+        "translation-engine": {
+          "requirements": "planned",
+          "design": "planned",
+          "tasks": "planned",
+          "implementation": "not_started"
+        },
+        "task-management": {
+          "requirements": "planned",
+          "design": "planned",
+          "tasks": "planned",
+          "implementation": "not_started"
+        },
+        "api-gateway": {
+          "requirements": "planned",
+          "design": "planned",
+          "tasks": "planned",
+          "implementation": "not_started"
+        }
+      }
+    },
+    "reference_implementation": {
+      "path": "../backend_v2",
+      "purpose": "学习和参考已实现的系统架构",
+      "note": "backend_spec将基于规范从零开始实现"
+    }
+  }
+}

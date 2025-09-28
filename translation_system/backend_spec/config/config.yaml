@@ -1,0 +1,62 @@
+# Translation System Backend Configuration
+
+# API配置
+api:
+  host: "0.0.0.0"
+  port: 8013
+  title: "Translation System Backend V2"
+  version: "2.0.0"
+  description: "Excel批量翻译管理系统API"
+  docs_url: "/docs"
+  redoc_url: "/redoc"
+
+# 文件处理配置
+excel:
+  max_file_size: 104857600  # 100MB in bytes
+  chunk_size: 10000         # 分块读取行数
+  allowed_extensions:
+    - .xlsx
+    - .xls
+  temp_dir: "./temp"
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+  file_path: "logs/app.log"
+  rotation: "10 MB"
+  retention: "30 days"
+  compression: "zip"
+
+# DataFrame配置
+dataframe:
+  memory_limit: 2147483648  # 2GB in bytes
+  dtype_optimization: true
+  use_categorical: true
+
+# 会话管理配置
+session:
+  timeout: 3600            # 1小时（秒）
+  max_sessions: 100
+  cleanup_interval: 300    # 5分钟清理一次
+
+# 性能配置
+performance:
+  max_workers: 4
+  async_timeout: 30
+  batch_size: 5           # LLM批处理大小
+
+# 开发环境配置
+development:
+  debug: true
+  reload: true
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+
+# 生产环境配置
+production:
+  debug: false
+  reload: false
+  cors_origins:
+    - "*"
