@@ -8,6 +8,7 @@ import uuid
 from models.excel_dataframe import ExcelDataFrame
 from models.task_dataframe import TaskDataFrameManager
 from models.game_info import GameInfo
+from utils.color_detector import is_yellow_color, is_blue_color
 from services.context_extractor import ContextExtractor
 from services.batch_allocator import BatchAllocator
 from services.language_detector import LanguageDetector
@@ -54,7 +55,7 @@ class TaskSplitter:
             task_counter += len(sheet_tasks)
 
         # Allocate batches
-        all_tasks = self.batch_allocator.optimize_batches(all_tasks)
+        all_tasks = self.batch_allocator.allocate_batches(all_tasks)
 
         # Create DataFrame
         for task in all_tasks:
@@ -98,6 +99,15 @@ class TaskSplitter:
             elif col in ['VN', 'VI', 'VIETNAMESE', '越南语']:
                 col_mapping['VN'] = idx
                 has_explicit_columns = True
+            elif col in ['TR', 'TURKISH', '土耳其语', '土耳其文']:
+                col_mapping['TR'] = idx
+                has_explicit_columns = True
+            elif col in ['IND', 'ID', 'INDONESIAN', '印尼语', '印度尼西亚语']:
+                col_mapping['IND'] = idx
+                has_explicit_columns = True
+            elif col in ['ES', 'SPANISH', '西班牙语', '西语']:
+                col_mapping['ES'] = idx
+                has_explicit_columns = True
 
         # If we have explicit columns, use them directly
         if has_explicit_columns:
@@ -138,13 +148,16 @@ class TaskSplitter:
                     if target_lang in col_mapping:
                         target_col = col_mapping[target_lang]
 
-                        # Check if translation is needed
+                        # Check if translation is needed and determine task type
                         needs_translation = self._check_needs_translation(
                             sheet_name, row_idx, target_col, source_text
                         )
 
                         if needs_translation:
-                            # Create task
+                            # Determine task type based on cell color
+                            task_type = self._determine_task_type(sheet_name, row_idx, source_col_idx)
+
+                            # Create task with type
                             task = self._create_task(
                                 sheet_name,
                                 row_idx,
@@ -153,7 +166,8 @@ class TaskSplitter:
                                 source_text,
                                 actual_source_lang,
                                 target_lang,
-                                start_counter + len(tasks)
+                                start_counter + len(tasks),
+                                task_type
                             )
                             tasks.append(task)
 
@@ -202,7 +216,10 @@ class TaskSplitter:
                     )
 
                     if needs_translation:
-                        # Create task
+                        # Determine task type based on cell color
+                        task_type = self._determine_task_type(sheet_name, row_idx, source_col)
+
+                        # Create task with type
                         task = self._create_task(
                             sheet_name,
                             row_idx,
@@ -211,7 +228,8 @@ class TaskSplitter:
                             source_text,
                             source_lang,
                             target_lang,
-                            start_counter + len(tasks)
+                            start_counter + len(tasks),
+                            task_type
                         )
                         tasks.append(task)
 
@@ -236,11 +254,11 @@ class TaskSplitter:
         color = self.excel_df.get_cell_color(sheet_name, row_idx, col_idx)
 
         # Yellow cells always need translation
-        if color in ['#FFFF00', '#FFFFFF00']:
+        if color and is_yellow_color(color):
             return True
 
         # Blue cells need translation
-        if color in ['#0000FF', '#FF0000FF']:
+        if color and is_blue_color(color):
             return True
 
         # Empty cells need translation if source has content
@@ -249,6 +267,22 @@ class TaskSplitter:
 
         # If already has content and no color marking, skip
         return False
+
+    def _determine_task_type(
+        self,
+        sheet_name: str,
+        row_idx: int,
+        col_idx: int
+    ) -> str:
+        """Determine task type based on cell color."""
+        color = self.excel_df.get_cell_color(sheet_name, row_idx, col_idx)
+
+        if color and is_yellow_color(color):
+            return 'yellow'  # Yellow re-translation task
+        elif color and is_blue_color(color):
+            return 'blue'    # Blue shortening task
+        else:
+            return 'normal'  # Normal translation task
 
     def _create_task(
         self,
@@ -259,7 +293,8 @@ class TaskSplitter:
         source_text: str,
         source_lang: str,
         target_lang: str,
-        task_num: int
+        task_num: int,
+        task_type: str = 'normal'
     ) -> Dict[str, Any]:
         """Create a single task dictionary."""
         # Extract context
@@ -283,6 +318,7 @@ class TaskSplitter:
             'task_id': f"TASK_{task_num:04d}",
             'batch_id': '',  # Will be assigned by batch allocator
             'group_id': group_id,
+            'task_type': task_type,  # 'normal', 'yellow', 'blue'
             'source_lang': source_lang,
             'source_text': source_text,
             'source_context': source_context,

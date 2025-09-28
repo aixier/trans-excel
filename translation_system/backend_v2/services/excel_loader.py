@@ -42,13 +42,17 @@ class ExcelLoader:
                         if isinstance(fill.fgColor.rgb, str):
                             color = f"#{fill.fgColor.rgb}" if fill.fgColor.rgb else None
                             if color and color != "#00000000":  # Ignore transparent
-                                excel_df.set_cell_color(sheet_name, row_idx, col_idx, color)
+                                # Skip header row for DataFrame indexing (pandas read_excel skips header)
+                                if row_idx > 0:
+                                    excel_df.set_cell_color(sheet_name, row_idx - 1, col_idx, color)
 
                     # Extract comment
                     if cell.comment:
-                        excel_df.set_cell_comment(
-                            sheet_name, row_idx, col_idx, cell.comment.text
-                        )
+                        # Skip header row for DataFrame indexing
+                        if row_idx > 0:
+                            excel_df.set_cell_comment(
+                                sheet_name, row_idx - 1, col_idx, cell.comment.text
+                            )
 
         wb.close()
         return excel_df

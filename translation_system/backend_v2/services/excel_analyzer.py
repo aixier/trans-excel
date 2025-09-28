@@ -5,6 +5,7 @@ from typing import Dict, Any, List
 from models.excel_dataframe import ExcelDataFrame
 from models.game_info import GameInfo
 from services.language_detector import LanguageDetector
+from utils.color_detector import is_yellow_color, is_blue_color
 
 
 class ExcelAnalyzer:
@@ -63,40 +64,89 @@ class ExcelAnalyzer:
         """Analyze statistics for task estimation."""
         stats = excel_df.get_statistics()
 
-        # Estimate translation tasks
-        estimated_tasks = 0
+        # Three types of tasks to count
+        normal_tasks = 0  # Normal translation tasks
+        yellow_tasks = 0  # Yellow re-translation tasks
+        blue_tasks = 0    # Blue shortening tasks
+
         char_distribution = {'min': float('inf'), 'max': 0, 'total': 0, 'count': 0}
 
         for sheet_name in excel_df.get_sheet_names():
             df = excel_df.get_sheet(sheet_name)
+            columns = list(df.columns)
 
-            # Count non-empty cells that might need translation
+            # Identify source and target columns
+            source_cols = []
+            target_cols = []
+
+            for idx, col in enumerate(columns):
+                col_upper = str(col).upper()
+                # Source columns
+                if col_upper in ['CH', 'CN', '中文', 'EN', 'ENGLISH', '英文']:
+                    source_cols.append(idx)
+                # Target columns
+                elif col_upper in ['TR', 'TH', 'PT', 'VN', 'VI', 'ES', 'IND', 'ID', 'TURKISH', '土耳其语']:
+                    target_cols.append(idx)
+
+            # Count all three types of tasks
+            # Type 1: Normal translation tasks (all rows with source text and empty targets)
             for row_idx in range(len(df)):
-                for col_idx in range(len(df.columns)):
-                    value = df.iloc[row_idx, col_idx]
+                # Check if source columns have content
+                has_source = False
+                source_text = None
+                for source_col_idx in source_cols:
+                    if source_col_idx < len(columns):
+                        source_value = df.iloc[row_idx, source_col_idx]
+                        if pd.notna(source_value) and isinstance(source_value, str) and len(source_value.strip()) > 0:
+                            has_source = True
+                            source_text = str(source_value).strip()
+                            break
 
-                    if pd.notna(value) and isinstance(value, str) and len(value.strip()) > 0:
-                        # Check if cell has color (potential translation task)
-                        color = excel_df.get_cell_color(sheet_name, row_idx, col_idx)
-
-                        # Yellow (#FFFF00) or Blue (#0000FF) indicates translation need
-                        if color in ['#FFFF00', '#FFFFFF00', '#0000FF', '#FF0000FF']:
-                            estimated_tasks += 1
-                            char_len = len(value)
-                            char_distribution['min'] = min(char_distribution['min'], char_len)
-                            char_distribution['max'] = max(char_distribution['max'], char_len)
-                            char_distribution['total'] += char_len
-                            char_distribution['count'] += 1
-                        # Or if no color info, estimate based on content
-                        elif not color:
-                            lang = self.language_detector.detect_language(value)
-                            if lang in ['CH', 'EN']:
-                                estimated_tasks += 1
-                                char_len = len(value)
+                if has_source and source_text:
+                    # Count empty target columns
+                    for target_col_idx in target_cols:
+                        if target_col_idx < len(columns):
+                            target_value = df.iloc[row_idx, target_col_idx]
+                            if pd.isna(target_value) or str(target_value).strip() == '':
+                                normal_tasks += 1
+                                char_len = len(source_text)
                                 char_distribution['min'] = min(char_distribution['min'], char_len)
                                 char_distribution['max'] = max(char_distribution['max'], char_len)
                                 char_distribution['total'] += char_len
                                 char_distribution['count'] += 1
+
+            # Type 2 & 3: Yellow and Blue cells
+            for row_idx in range(len(df)):
+                for col_idx in range(len(columns)):
+                    cell_value = df.iloc[row_idx, col_idx]
+                    if pd.notna(cell_value) and isinstance(cell_value, str) and len(cell_value.strip()) > 0:
+                        cell_color = excel_df.get_cell_color(sheet_name, row_idx, col_idx)
+
+                        if cell_color and is_yellow_color(cell_color):
+                            # Type 2: Yellow cells (re-translate to all following columns)
+                            cols_after = len(columns) - col_idx - 1
+                            if cols_after > 0:
+                                yellow_tasks += cols_after
+                                text = str(cell_value).strip()
+                                char_len = len(text)
+                                for _ in range(cols_after):
+                                    char_distribution['min'] = min(char_distribution['min'], char_len)
+                                    char_distribution['max'] = max(char_distribution['max'], char_len)
+                                    char_distribution['total'] += char_len
+                                    char_distribution['count'] += 1
+
+                        elif cell_color and is_blue_color(cell_color):
+                            # Type 3: Blue cells (shortening to self)
+                            blue_tasks += 1
+                            text = str(cell_value).strip()
+                            char_len = len(text)
+                            char_distribution['min'] = min(char_distribution['min'], char_len)
+                            char_distribution['max'] = max(char_distribution['max'], char_len)
+                            char_distribution['total'] += char_len
+                            char_distribution['count'] += 1
+
+        # Total estimated tasks
+        estimated_tasks = normal_tasks + yellow_tasks + blue_tasks
 
         # Calculate average
         if char_distribution['count'] > 0:
@@ -109,6 +159,11 @@ class ExcelAnalyzer:
         return {
             **stats,
             'estimated_tasks': int(estimated_tasks),
+            'task_breakdown': {
+                'normal_tasks': int(normal_tasks),
+                'yellow_tasks': int(yellow_tasks),
+                'blue_tasks': int(blue_tasks)
+            },
             'char_distribution': {
                 'min': int(char_distribution['min']) if char_distribution['min'] != float('inf') else 0,
                 'max': int(char_distribution['max']),
@@ -138,10 +193,10 @@ class ExcelAnalyzer:
                     needs_translation = False
                     task_type = 'normal'
 
-                    if color == '#FFFF00' or color == '#FFFFFF00':  # Yellow
+                    if is_yellow_color(color):
                         needs_translation = True
                         task_type = 'yellow'
-                    elif color == '#0000FF' or color == '#FF0000FF':  # Blue
+                    elif is_blue_color(color):
                         needs_translation = True
                         task_type = 'blue'
                     elif pd.isna(value) or value == '':  # Empty but might need translation

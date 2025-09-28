@@ -12,10 +12,10 @@ class BatchAllocator:
 
     def allocate_batches(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Allocate tasks into batches based on max_chars_per_batch.
+        Allocate tasks into batches based on max_chars_per_batch and task_type.
 
         Args:
-            tasks: List of task dictionaries with 'source_text', 'target_lang', etc.
+            tasks: List of task dictionaries with 'source_text', 'target_lang', 'task_type', etc.
 
         Returns:
             List of tasks with batch_id assigned
@@ -23,20 +23,25 @@ class BatchAllocator:
         if not tasks:
             return []
 
-        # Group tasks by target language
-        tasks_by_lang = {}
+        # Group tasks by target language AND task type
+        # Different task types cannot be in the same batch
+        tasks_by_key = {}
         for task in tasks:
             lang = task.get('target_lang', 'UNKNOWN')
-            if lang not in tasks_by_lang:
-                tasks_by_lang[lang] = []
-            tasks_by_lang[lang].append(task)
+            task_type = task.get('task_type', 'normal')
+            # Create composite key: language + task type
+            key = f"{lang}_{task_type.upper()}"
 
-        # Allocate batches for each language
-        for lang, lang_tasks in tasks_by_lang.items():
+            if key not in tasks_by_key:
+                tasks_by_key[key] = []
+            tasks_by_key[key].append(task)
+
+        # Allocate batches for each language+type combination
+        for key, key_tasks in tasks_by_key.items():
             batch_num = 0
             current_chars = 0
 
-            for task in lang_tasks:
+            for task in key_tasks:
                 # Calculate task character count
                 source_text = task.get('source_text', '')
                 source_context = task.get('source_context', '')
@@ -48,8 +53,11 @@ class BatchAllocator:
                     batch_num += 1
                     current_chars = 0
 
-                # Assign batch_id
-                task['batch_id'] = f"BATCH_{lang}_{batch_num:03d}"
+                # Assign batch_id with task type in the name
+                # Format: BATCH_{lang}_{TYPE}_{num}
+                lang = task.get('target_lang', 'UNKNOWN')
+                task_type = task.get('task_type', 'normal').upper()
+                task['batch_id'] = f"BATCH_{lang}_{task_type}_{batch_num:03d}"
                 task['char_count'] = task_chars
                 current_chars += task_chars
 
