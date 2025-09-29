@@ -12,13 +12,21 @@ api:
   port: 8013
   cors_origins: ["*"]
 
-# LLM configuration
-llm:
-  # Execution control parameters
+# Task execution control - 任务拆解和批次控制
+task_execution:
+  # Task splitting control - 任务拆解控制
   batch_control:
-    max_chars_per_batch: 1000  # Maximum characters per batch
-    max_concurrent_workers: 10   # Maximum concurrent workers
+    max_chars_per_batch: 1000      # 每批次最大字符数（用于任务拆解）
+    max_concurrent_workers: 10     # 最大并发worker数
 
+  # Split operation parameters - 拆解操作参数 (reserved for future use)
+  # split_control:
+  #   max_task_chars: 500           # 单个任务最大字符数 (未使用)
+  #   context_overlap: 50           # 上下文重叠字符数 (未使用)
+  #   min_batch_size: 1             # 最小批次大小 (未使用)
+
+# LLM configuration - LLM API配置
+llm:
   # Default LLM provider
   default_provider: qwen-plus
 
@@ -30,7 +38,7 @@ llm:
       base_url: "https://api.openai.com/v1"
       model: "gpt-4-turbo-preview"
       temperature: 0.3
-      max_tokens: 4000
+      max_tokens: 8000              # LLM API最大输出token数
       timeout: 90
       max_retries: 3
       retry_delay: 3.0
@@ -41,7 +49,7 @@ llm:
       base_url: "https://api.openai.com/v1"
       model: "gpt-5-nano"
       temperature: 0.3
-      max_tokens: 4000
+      max_tokens: 8000              # LLM API最大输出token数
       timeout: 90
       max_retries: 3
       retry_delay: 3.0
@@ -53,7 +61,7 @@ llm:
       base_url: "https://dashscope.aliyuncs.com/api/v1"
       model: "qwen-max"
       temperature: 0.3
-      max_tokens: 4000
+      max_tokens: 8000              # LLM API最大输出token数
       timeout: 90
       max_retries: 3
       retry_delay: 3.0
@@ -64,7 +72,7 @@ llm:
       base_url: "https://dashscope.aliyuncs.com/api/v1"
       model: "qwen-plus"
       temperature: 0.3
-      max_tokens: 4000
+      max_tokens: 8000              # LLM API最大输出token数
       timeout: 90
       max_retries: 3
       retry_delay: 3.0

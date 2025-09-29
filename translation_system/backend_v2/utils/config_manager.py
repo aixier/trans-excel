@@ -58,13 +58,14 @@ class ConfigManager:
 
     @property
     def max_chars_per_batch(self) -> int:
-        """Get max characters per batch."""
-        return self.get('llm.batch_control.max_chars_per_batch', 50000)
+        """Get max characters per batch for task splitting."""
+        return self.get('task_execution.batch_control.max_chars_per_batch', 50000)
 
     @property
     def max_concurrent_workers(self) -> int:
         """Get max concurrent workers."""
-        return self.get('llm.batch_control.max_concurrent_workers', 10)
+        return self.get('task_execution.batch_control.max_concurrent_workers', 10)
+
 
     @property
     def log_level(self) -> str:

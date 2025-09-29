@@ -184,7 +184,8 @@ async def get_execution_config():
     """
     config = config_manager.get_config()
     llm_config = config.get('llm', {})
-    batch_control = llm_config.get('batch_control', {})
+    task_execution_config = config.get('task_execution', {})
+    batch_control = task_execution_config.get('batch_control', {})
 
     return {
         'max_concurrent_workers': batch_control.get('max_concurrent_workers', 10),

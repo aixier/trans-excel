@@ -64,7 +64,8 @@ class LocalizationEngine:
         target_language: str,
         region_code: str,
         game_background: str = None,
-        task_type: str = 'new'
+        task_type: str = 'new',
+        source_language: str = None  # 新增源语言参数
     ) -> str:
         """创建区域化翻译提示词 - 升级Demo中的通用提示词"""
 
@@ -72,6 +73,10 @@ class LocalizationEngine:
         if region_code not in self.regions:
             region_code = self.get_region_for_language(target_language)
         region = self.regions.get(region_code, self.regions['na'])
+
+        # 智能源语言选择：如果未指定源语言，根据目标语言智能选择
+        if not source_language:
+            source_language = self._get_smart_source_language(target_language)
 
         # 基础提示词 (基于Demo的JSON格式要求)
         base_prompt = f"""你是专业的游戏本地化翻译专家，专门为{region.name}地区进行本地化翻译。
@@ -81,7 +86,7 @@ class LocalizationEngine:
 - 本地化要点：{region.localization_notes}
 
 翻译任务：
-- 源语言：中文
+- 源语言：{self._get_language_name(source_language)}
 - 目标语言：{self._get_language_name(target_language)}
 - 目标地区：{region.name}"""
 
@@ -122,7 +127,8 @@ class LocalizationEngine:
         task_type: str = 'new',
         cell_comments: Dict[str, str] = None,
         cell_colors: Dict[str, Dict] = None,
-        terminology: Dict = None  # 新增术语参数
+        terminology: Dict = None,  # 新增术语参数
+        source_language: str = None  # 新增源语言参数
     ) -> str:
         """创建批量翻译提示词 - 基于Demo的批处理格式，支持单元格元数据"""
 
@@ -130,6 +136,10 @@ class LocalizationEngine:
         if region_code not in self.regions and target_languages:
             region_code = self.get_region_for_language(target_languages[0])
         region = self.regions.get(region_code, self.regions['na'])
+
+        # 智能源语言选择：如果未指定源语言，根据目标语言智能选择
+        if not source_language and target_languages:
+            source_language = self._get_smart_source_language(target_languages[0])
 
         # 构建语言列表
         language_names = [self._get_language_name(lang) for lang in target_languages]
@@ -141,7 +151,7 @@ class LocalizationEngine:
 - 本地化要点：{region.localization_notes}
 
 翻译任务：
-- 源语言：中文
+- 源语言：{self._get_language_name(source_language)}
 - 目标语言：{', '.join(language_names)}
 - 目标地区：{region.name}"""
 
@@ -214,6 +224,8 @@ class LocalizationEngine:
     def _get_language_name(self, lang_code: str) -> str:
         """获取语言名称"""
         lang_names = {
+            'ch': 'Chinese (中文)',
+            'cn': 'Chinese (中文)',
             'en': 'English (英语)',
             'pt': 'Portuguese (葡萄牙语)',
             'th': 'Thai (泰语)',
@@ -252,3 +264,30 @@ class LocalizationEngine:
         if not region:
             return False
         return language in region.languages or language == 'en'  # 英语作为通用语言
+
+    def _get_smart_source_language(self, target_language: str) -> str:
+        """
+        根据目标语言智能选择源语言
+
+        选择规则：
+        - 亚洲语言目标 (VN/JP/KR/TH/TW) → 源语言默认CH
+        - 其他语言目标 → 源语言优先EN，其次CH
+
+        Args:
+            target_language: 目标语言代码
+
+        Returns:
+            推荐的源语言代码
+        """
+        target_lang = target_language.lower()
+
+        # 亚洲语言列表
+        asian_languages = ['vn', 'vi', 'jp', 'ja', 'kr', 'ko', 'th', 'tw', 'cn', 'ch']
+
+        if target_lang in asian_languages:
+            # 亚洲语言目标 → 中文作为源语言
+            return 'ch'
+        else:
+            # 其他语言目标 → 英文优先，中文次之
+            # 这里默认返回英文，实际项目中可以进一步检查是否有英文内容
+            return 'en'

@@ -8,6 +8,7 @@ from api.analyze_api import router as analyze_router
 from api.task_api import router as task_router
 from api.execute_api import router as execute_router
 from api.monitor_api import router as monitor_router
+from api.download_api import router as download_router
 from utils.config_manager import config_manager
 
 
@@ -39,6 +40,7 @@ app.include_router(analyze_router)
 app.include_router(task_router)
 app.include_router(execute_router)
 app.include_router(monitor_router)
+app.include_router(download_router)
 
 
 @app.get("/")
@@ -56,6 +58,9 @@ async def root():
             "/api/execute/stop/{session_id}",
             "/api/monitor/status/{session_id}",
             "/api/monitor/dataframe/{session_id}",
+            "/api/download/{session_id}",
+            "/api/download/{session_id}/info",
+            "/api/download/{session_id}/summary",
             "/docs"
         ]
     }

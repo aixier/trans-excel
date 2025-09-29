@@ -118,11 +118,6 @@ class LLMFactory:
         if not provider_config.get('enabled', True):
             raise ValueError(f"Provider {provider_name} is disabled")
 
-        # Add batch control parameters
-        batch_control = llm_config.get('batch_control', {})
-        provider_config['max_concurrent_workers'] = batch_control.get('max_concurrent_workers', 10)
-        provider_config['max_chars_per_batch'] = batch_control.get('max_chars_per_batch', 50000)
-
         # Add retry configuration
         retry_config = llm_config.get('retry', {})
         provider_config['max_retries'] = retry_config.get('max_attempts', 3)
