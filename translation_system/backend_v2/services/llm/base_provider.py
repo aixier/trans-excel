@@ -18,6 +18,7 @@ class TranslationRequest:
     target_lang: str
     context: str = ""
     game_info: Dict[str, Any] = field(default_factory=dict)
+    task_type: str = "normal"  # 'normal', 'yellow', 'blue'
     task_id: Optional[str] = None
     batch_id: Optional[str] = None
     group_id: Optional[str] = None

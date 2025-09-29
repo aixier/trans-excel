@@ -41,14 +41,30 @@ class QwenProvider(BaseLLMProvider):
         self._log_request(request)
 
         try:
-            # Build prompt
-            prompt = self.prompt_template.build_translation_prompt(
+            # Build task-specific prompt (根据任务类型选择合适的prompt)
+            prompt = self.prompt_template.build_task_specific_prompt(
                 source_text=request.source_text,
                 source_lang=request.source_lang,
                 target_lang=request.target_lang,
+                task_type=request.task_type,
                 context=request.context,
                 game_info=request.game_info
             )
+
+            # 打印完整的 prompt 内容用于调试
+            print(f"\n{'='*80}")
+            print(f"🤖 Qwen Provider - 完整 Prompt 内容")
+            print(f"{'='*80}")
+            print(f"📝 任务类型: {request.task_type}")
+            print(f"🔤 源语言: {request.source_lang} → 目标语言: {request.target_lang}")
+            print(f"📄 源文本: {request.source_text}")
+            print(f"{'='*80}")
+            print(f"📋 System Message:")
+            print(f"你是一名专业的游戏翻译专家。")
+            print(f"{'='*80}")
+            print(f"📋 User Prompt:")
+            print(prompt)
+            print(f"{'='*80}\n")
 
             # Prepare API request
             api_request = {

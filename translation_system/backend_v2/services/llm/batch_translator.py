@@ -117,12 +117,15 @@ class BatchTranslator:
             combined_prompt = self._build_batch_prompt(batch_tasks, target_lang)
 
             # Create a single translation request
+            # 注意：批量翻译时使用统一的task_type，优先级：blue > yellow > normal
+            batch_task_type = self._determine_batch_task_type(batch_tasks)
             translation_request = TranslationRequest(
                 source_text=combined_prompt,
                 source_lang=batch_tasks[0].get('source_lang', 'CH'),
                 target_lang=target_lang,
                 context=self._extract_context(batch_tasks),
-                game_info=batch_tasks[0].get('game_context', {})
+                game_info=batch_tasks[0].get('game_context', {}),
+                task_type=batch_task_type
             )
 
             # Call LLM once for all tasks
@@ -186,6 +189,20 @@ class BatchTranslator:
         ])
 
         return '\n'.join(prompt_lines)
+
+    def _determine_batch_task_type(self, tasks: List[Dict]) -> str:
+        """
+        Determine the task type for a batch.
+        Priority: blue > yellow > normal (最严格的任务类型优先)
+        """
+        task_types = [task.get('task_type', 'normal') for task in tasks]
+
+        if 'blue' in task_types:
+            return 'blue'    # 有缩短任务，使用蓝色模式
+        elif 'yellow' in task_types:
+            return 'yellow'  # 有重译任务，使用黄色模式
+        else:
+            return 'normal'  # 全部为普通任务
 
     def _parse_batch_response(self, response_text: str, expected_count: int) -> List[str]:
         """

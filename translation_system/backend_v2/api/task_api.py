@@ -73,8 +73,32 @@ async def split_tasks(request: SplitRequest):
         if task_manager.df is not None:
             tasks_list = task_manager.df.to_dict('records')
             batch_stats = batch_allocator.calculate_batch_statistics(tasks_list)
+
+            # 计算任务类型的批次分布
+            type_batch_distribution = {}
+            for task in tasks_list:
+                batch_id = task.get('batch_id', '')
+                task_type = task.get('task_type', 'normal')
+
+                # 从batch_id中解析语言和类型
+                # 格式: BATCH_{lang}_{TYPE}_{num}
+                if batch_id:
+                    parts = batch_id.split('_')
+                    if len(parts) >= 3:
+                        # 统计每个类型的批次
+                        type_key = task_type.lower()
+                        if type_key not in type_batch_distribution:
+                            type_batch_distribution[type_key] = set()
+                        type_batch_distribution[type_key].add(batch_id)
+
+            # 转换为计数
+            type_batch_counts = {
+                task_type: len(batch_ids)
+                for task_type, batch_ids in type_batch_distribution.items()
+            }
         else:
             batch_stats = {'total_batches': 0, 'batch_distribution': {}}
+            type_batch_counts = {}
 
         # Get preview (first 10 tasks)
         preview = []
@@ -94,6 +118,7 @@ async def split_tasks(request: SplitRequest):
             "task_count": stats['total'],
             "batch_count": batch_stats['total_batches'],
             "batch_distribution": batch_stats['batch_distribution'],
+            "type_batch_distribution": type_batch_counts,  # 添加任务类型批次分布
             "statistics": stats,
             "preview": preview,
             "download_url": f"/api/tasks/export/{request.session_id}"

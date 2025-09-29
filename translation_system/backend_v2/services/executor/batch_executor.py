@@ -160,6 +160,7 @@ class BatchExecutor:
                 target_lang=task['target_lang'],
                 context=task.get('source_context', ''),
                 game_info=game_info or {},
+                task_type=task.get('task_type', 'normal'),  # 传递任务类型
                 task_id=task['task_id'],
                 batch_id=task.get('batch_id'),
                 group_id=task.get('group_id')

@@ -129,11 +129,18 @@ class TaskDataFrameManager:
         return self.df[self.df['group_id'] == group_id]
 
     def get_pending_tasks(self, limit: int = None) -> pd.DataFrame:
-        """Get pending tasks."""
+        """Get pending tasks sorted by priority (descending)."""
         if self.df is None:
             return pd.DataFrame()
 
         pending = self.df[self.df['status'] == TaskStatus.PENDING]
+
+        # Sort by priority (descending) and then by task_id for stable ordering
+        pending = pending.sort_values(
+            by=['priority', 'task_id'],
+            ascending=[False, True]  # Higher priority first, then by task_id
+        )
+
         if limit:
             return pending.head(limit)
         return pending

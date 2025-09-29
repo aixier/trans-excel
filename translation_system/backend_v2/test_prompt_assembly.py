@@ -139,7 +139,7 @@ def demo_prompt_assembly():
     print(simple_prompt)
     print("─" * 50)
 
-    print("\n\n4️⃣ 任务类型区分示例")
+    print("\n\n4️⃣ 任务类型特殊Prompt演示")
     print("-" * 60)
 
     task_types = {
@@ -152,7 +152,30 @@ def demo_prompt_assembly():
         task = next((t for t in sample_tasks if t['task_type'] == task_type), sample_tasks[0])
         print(f"\n🏷️ {description}")
         print(f"示例文本: {task['source_text']}")
-        print(f"上下文标记: {task['task_type']}")
+        print(f"任务类型: {task['task_type']}")
+
+        # 使用任务类型特殊Prompt方法
+        task_specific_prompt = template.build_task_specific_prompt(
+            source_text=task['source_text'],
+            source_lang=task['source_lang'],
+            target_lang=task['target_lang'],
+            task_type=task['task_type'],
+            context=task['source_context'],
+            game_info=game_info_dict
+        )
+
+        print(f"\n🎯 {task_type.upper()}类型特殊Prompt:")
+        print("─" * 50)
+        # 只展示最后的特殊指令部分
+        if task_type == 'yellow':
+            print("... [基础游戏翻译Prompt] ...")
+            print("\n特别注意：这是重译任务，请重新审视现有翻译质量，提供更准确和地道的翻译。")
+        elif task_type == 'blue':
+            print("... [基础游戏翻译Prompt] ...")
+            print("\n特别注意：请在保持意思的前提下减少3-10个字，尽量缩短译文长度。")
+        else:
+            print("使用标准游戏翻译模板，无额外特殊指令")
+        print("─" * 50)
 
     print("\n\n5️⃣ Prompt组装流程总结")
     print("-" * 60)

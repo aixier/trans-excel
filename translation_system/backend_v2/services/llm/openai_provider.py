@@ -41,11 +41,12 @@ class OpenAIProvider(BaseLLMProvider):
         self._log_request(request)
 
         try:
-            # Build prompt
-            prompt = self.prompt_template.build_translation_prompt(
+            # Build task-specific prompt (根据任务类型选择合适的prompt)
+            prompt = self.prompt_template.build_task_specific_prompt(
                 source_text=request.source_text,
                 source_lang=request.source_lang,
                 target_lang=request.target_lang,
+                task_type=request.task_type,
                 context=request.context,
                 game_info=request.game_info
             )

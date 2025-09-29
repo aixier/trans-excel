@@ -143,6 +143,23 @@ class TaskSplitter:
 
                 source_text = str(source_text)
 
+                # Check if source cell itself has blue color (needs shortening)
+                source_cell_color = self.excel_df.get_cell_color(sheet_name, row_idx, source_col_idx)
+                if source_cell_color and is_blue_color(source_cell_color):
+                    # Create a blue task for shortening the source text itself
+                    task = self._create_task(
+                        sheet_name,
+                        row_idx,
+                        source_col_idx,
+                        source_col_idx,  # Target is the same as source
+                        source_text,
+                        actual_source_lang,
+                        actual_source_lang,  # Target lang is same as source lang
+                        start_counter + len(tasks),
+                        'blue'  # This is a blue shortening task
+                    )
+                    tasks.append(task)
+
                 # Check each target language
                 for target_lang in target_langs:
                     if target_lang in col_mapping:
@@ -154,8 +171,8 @@ class TaskSplitter:
                         )
 
                         if needs_translation:
-                            # Determine task type based on cell color
-                            task_type = self._determine_task_type(sheet_name, row_idx, source_col_idx)
+                            # Determine task type based on TARGET cell color (not source)
+                            task_type = self._determine_task_type(sheet_name, row_idx, target_col)
 
                             # Create task with type
                             task = self._create_task(
@@ -204,6 +221,23 @@ class TaskSplitter:
                 if not source_text:
                     continue
 
+                # Check if source cell itself has blue color (needs shortening)
+                source_cell_color = self.excel_df.get_cell_color(sheet_name, row_idx, source_col)
+                if source_cell_color and is_blue_color(source_cell_color):
+                    # Create a blue task for shortening the source text itself
+                    task = self._create_task(
+                        sheet_name,
+                        row_idx,
+                        source_col,
+                        source_col,  # Target is the same as source
+                        source_text,
+                        source_lang,
+                        source_lang,  # Target lang is same as source lang
+                        start_counter + len(tasks),
+                        'blue'  # This is a blue shortening task
+                    )
+                    tasks.append(task)
+
             # Check each target language
             for target_lang in target_langs:
                 # Find target column for this language
@@ -216,8 +250,8 @@ class TaskSplitter:
                     )
 
                     if needs_translation:
-                        # Determine task type based on cell color
-                        task_type = self._determine_task_type(sheet_name, row_idx, source_col)
+                        # Determine task type based on TARGET cell color (not source)
+                        task_type = self._determine_task_type(sheet_name, row_idx, target_col)
 
                         # Create task with type
                         task = self._create_task(
@@ -311,8 +345,8 @@ class TaskSplitter:
         # Get cell reference
         cell_ref = self._get_cell_reference(row_idx, target_col)
 
-        # Determine priority
-        priority = self._determine_priority(sheet_name, source_text)
+        # Determine priority based on task type and content
+        priority = self._determine_priority(sheet_name, source_text, task_type)
 
         return {
             'task_id': f"TASK_{task_num:04d}",
@@ -385,21 +419,34 @@ class TaskSplitter:
         # Row is 1-indexed
         return f"{col_letter}{row_idx + 2}"  # +2 because row 0 is header, Excel is 1-indexed
 
-    def _determine_priority(self, sheet_name: str, source_text: str) -> int:
-        """Determine task priority (1-10, higher is more important)."""
+    def _determine_priority(self, sheet_name: str, source_text: str, task_type: str = 'normal') -> int:
+        """
+        Determine task priority (1-10, higher is more important).
+
+        Priority order:
+        1. Yellow tasks (re-translation) - highest priority (9-10)
+        2. Blue tasks (shortening) - high priority (7-8)
+        3. Normal tasks (new translation) - normal priority (5-6)
+
+        Within each type, UI and short texts get +1 priority.
+        """
+        # Base priority by task type
+        if task_type == 'yellow':
+            base_priority = 9  # Yellow re-translation is highest priority
+        elif task_type == 'blue':
+            base_priority = 7  # Blue shortening is high priority
+        else:  # normal
+            base_priority = 5  # Normal translation is standard priority
+
+        # Additional priority adjustments based on content
         sheet_lower = sheet_name.lower()
 
-        # UI text is high priority
+        # UI text gets +1 priority within its type
         if 'ui' in sheet_lower:
-            return 8
+            base_priority = min(10, base_priority + 1)
 
-        # Short text is usually important
-        if len(source_text) <= 20:
-            return 7
+        # Short text (<=20 chars) gets slight boost within normal tasks
+        elif task_type == 'normal' and len(source_text) <= 20:
+            base_priority = min(10, base_priority + 1)
 
-        # Dialog is medium priority
-        if 'dialog' in sheet_lower:
-            return 5
-
-        # Default priority
-        return 5
+        return base_priority

@@ -313,21 +313,42 @@ COLOR_TASK_MAPPING = {
 
 ### 🎯 任务类型适配策略
 
-当前版本中，任务类型信息主要在任务拆分阶段确定，在Prompt组装时**暂未深度集成**，但系统已预留扩展空间：
+系统已实现任务类型特殊Prompt组装功能 `build_task_specific_prompt()`：
 
 ```python
-# 未来扩展示例
-def build_task_specific_prompt(task):
-    base_prompt = build_translation_prompt(...)
+# services/llm/prompt_template.py:172-215
+def build_task_specific_prompt(
+    self,
+    source_text: str,
+    source_lang: str,
+    target_lang: str,
+    task_type: str = 'normal',
+    context: str = "",
+    game_info: Dict[str, Any] = None
+) -> str:
+    """根据任务类型构建特定Prompt"""
 
-    if task['task_type'] == 'yellow':
-        # 重译任务特殊指令
-        return base_prompt + "\n特别注意：这是重译任务，请重新审视现有翻译质量。"
-    elif task['task_type'] == 'blue':
-        # 缩短任务特殊指令
-        return base_prompt + "\n特别注意：请在保持意思的前提下减少3-10个字，尽量缩短"
+    # 构建基础Prompt
+    base_prompt = self.build_translation_prompt(
+        source_text=source_text,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        context=context,
+        game_info=game_info
+    )
 
-    return base_prompt
+    # 根据任务类型添加特殊指令
+    if task_type == 'yellow':
+        # 黄色重译任务特殊指令
+        additional_instruction = "\n\n特别注意：这是重译任务，请重新审视现有翻译质量，提供更准确和地道的翻译。"
+        return base_prompt + additional_instruction
+    elif task_type == 'blue':
+        # 蓝色缩短任务特殊指令
+        additional_instruction = "\n\n特别注意：请在保持意思的前提下减少3-10个字，尽量缩短译文长度。"
+        return base_prompt + additional_instruction
+    else:
+        # 普通任务，返回基础Prompt
+        return base_prompt
 ```
 
 ## 五、LLM Provider 集成
@@ -416,6 +437,46 @@ task = {
 python3 test_prompt_assembly.py
 ```
 
+### 📝 2. 任务类型特殊Prompt使用
+
+**输入数据：**
+```python
+# 黄色重译任务
+yellow_task = {
+    'source_text': 'Your adventure begins now. Choose your destiny wisely.',
+    'source_lang': 'EN',
+    'target_lang': 'PT',
+    'task_type': 'yellow',
+    'context': '[Type] Description text'
+}
+
+# 蓝色缩短任务
+blue_task = {
+    'source_text': 'Press {BUTTON_A} to continue',
+    'source_lang': 'EN',
+    'target_lang': 'TH',
+    'task_type': 'blue',
+    'context': '[Format] Contains variables'
+}
+```
+
+**组装结果：**
+```python
+# 黄色重译任务Prompt (在基础Prompt后追加)
+"""
+... [标准游戏翻译Prompt内容] ...
+
+特别注意：这是重译任务，请重新审视现有翻译质量，提供更准确和地道的翻译。
+"""
+
+# 蓝色缩短任务Prompt (在基础Prompt后追加)
+"""
+... [标准游戏翻译Prompt内容] ...
+
+特别注意：请在保持意思的前提下减少3-10个字，尽量缩短译文长度。
+"""
+```
+
 ### 🚀 2. 批量任务处理流程
 
 **流程概览：**
@@ -445,20 +506,16 @@ class PromptTemplateCache:
 ### 🎯 2. Prompt质量控制
 
 ```python
-# Prompt长度控制
-def validate_prompt_length(prompt, max_tokens=4000):
-    """确保Prompt不超过模型限制"""
-    estimated_tokens = len(prompt) * 0.3  # 粗略估算
-    if estimated_tokens > max_tokens:
-        return compress_prompt(prompt, max_tokens)
-    return prompt
+# 注意：Prompt长度和上下文压缩已在任务拆分阶段通过 max_chars_per_batch 参数控制
+# 此阶段主要关注模板选择和参数验证
 
-# 上下文压缩
-def compress_context(context, max_length=200):
-    """压缩过长的上下文信息"""
-    if len(context) <= max_length:
-        return context
-    return context[:max_length] + "..."
+def validate_prompt_parameters(task_data):
+    """验证Prompt组装参数的完整性"""
+    required_fields = ['source_text', 'source_lang', 'target_lang']
+    for field in required_fields:
+        if not task_data.get(field):
+            raise ValueError(f"Missing required field: {field}")
+    return True
 ```
 
 ## 八、最佳实践与开发指南

@@ -168,3 +168,48 @@ class PromptTemplate:
 3. 每行一个翻译结果，保持编号对应"""
 
         return prompt
+
+    def build_task_specific_prompt(
+        self,
+        source_text: str,
+        source_lang: str,
+        target_lang: str,
+        task_type: str = 'normal',
+        context: str = "",
+        game_info: Dict[str, Any] = None
+    ) -> str:
+        """
+        Build task-specific prompt based on task type.
+
+        Args:
+            source_text: Text to translate
+            source_lang: Source language code
+            target_lang: Target language code
+            task_type: Task type ('normal', 'yellow', 'blue')
+            context: Translation context
+            game_info: Game information
+
+        Returns:
+            Task-specific formatted prompt string
+        """
+        # 构建基础Prompt
+        base_prompt = self.build_translation_prompt(
+            source_text=source_text,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            context=context,
+            game_info=game_info
+        )
+
+        # 根据任务类型添加特殊指令
+        if task_type == 'yellow':
+            # 黄色重译任务特殊指令
+            additional_instruction = "\n\n特别注意：这是重译任务，请重新审视现有翻译质量，提供更准确和地道的翻译。"
+            return base_prompt + additional_instruction
+        elif task_type == 'blue':
+            # 蓝色缩短任务特殊指令
+            additional_instruction = "\n\n特别注意：请在保持意思的前提下减少3-10个字，尽量缩短译文长度。"
+            return base_prompt + additional_instruction
+        else:
+            # 普通任务，返回基础Prompt
+            return base_prompt
