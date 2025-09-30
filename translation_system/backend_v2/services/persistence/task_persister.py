@@ -28,6 +28,7 @@ class TaskPersister:
         self.active_sessions: Dict[str, asyncio.Task] = {}
         self.persisted_tasks: Dict[str, Set[str]] = {}  # Track persisted task IDs
         self.task_versions: Dict[str, Dict[str, int]] = {}  # Track task version numbers
+        self.session_created: Set[str] = set()  # Track sessions already created in DB
 
     async def start_auto_persist(self, session_id: str):
         """
@@ -131,7 +132,10 @@ class TaskPersister:
                 return stats
 
             df = task_manager.df
-            
+
+            # Ensure session record exists in database (for foreign key constraint)
+            await self._ensure_session_exists(session_id)
+
             # Get persisted task set for this session
             persisted = self.persisted_tasks.get(session_id, set())
             versions = self.task_versions.get(session_id, {})
@@ -218,6 +222,63 @@ class TaskPersister:
             self.logger.error(f"Failed to persist tasks for session {session_id}: {e}")
             stats['failed'] = 1
             return stats
+
+    async def _ensure_session_exists(self, session_id: str):
+        """
+        Ensure session record exists in database before persisting tasks.
+        This is required for foreign key constraints.
+
+        Args:
+            session_id: Session ID
+        """
+        try:
+            # Check if session already exists in our tracking
+            if session_id in self.session_created:
+                return
+
+            # Get session info from memory
+            session_data = session_manager.get_session(session_id)
+            task_manager = session_manager.get_task_manager(session_id)
+
+            if not session_data or not task_manager:
+                self.logger.warning(f"Session data not found in memory for {session_id}")
+                return
+
+            # Create session record in database
+            filename = getattr(session_data, 'filename', 'unknown.xlsx')
+            total_tasks = len(task_manager.df) if task_manager.df is not None else 0
+
+            # Prepare session data dict
+            session_dict = {
+                'session_id': session_id,
+                'filename': filename,
+                'file_path': getattr(session_data, 'file_path', ''),
+                'status': 'executing',
+                'total_tasks': total_tasks,
+                'completed_tasks': 0,
+                'failed_tasks': 0,
+                'processing_tasks': 0,
+                'llm_provider': '',
+                'game_info': {},
+                'metadata': {}
+            }
+
+            await mysql_connector.create_session(session_dict)
+
+            # Mark as created
+            self.session_created.add(session_id)
+            self.logger.info(f"Created session record for {session_id}")
+
+        except Exception as e:
+            # If session already exists (duplicate key), that's OK
+            if 'Duplicate entry' in str(e) or '1062' in str(e):
+                self.session_created.add(session_id)
+                self.logger.debug(f"Session {session_id} already exists in database")
+            else:
+                # Critical error - cannot persist tasks without session record
+                self.logger.error(f"Failed to create session record: {e}")
+                # Re-raise to prevent task persistence from continuing
+                raise RuntimeError(f"Cannot persist tasks: session record creation failed - {e}")
 
     def _calculate_task_version(self, task: Dict[str, Any]) -> int:
         """

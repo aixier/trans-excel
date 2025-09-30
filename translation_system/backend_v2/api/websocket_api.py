@@ -80,15 +80,21 @@ class ConnectionManager:
             # Get current progress
             progress = progress_tracker.get_progress(session_id)
             
-            # Get session info
-            session_info = session_manager.get_session(session_id)
-            
+            # Get session info - SessionData is an object, not a dict
+            session_data = session_manager.get_session(session_id)
+
+            # Extract status from SessionData object
+            if session_data:
+                session_status = getattr(session_data, 'status', 'unknown')
+            else:
+                session_status = 'not_found'
+
             initial_data = {
                 'type': 'initial_status',
                 'timestamp': datetime.now().isoformat(),
                 'session_id': session_id,
                 'progress': progress,
-                'session_status': session_info.get('status', 'unknown') if session_info else 'not_found'
+                'session_status': session_status
             }
             
             await websocket.send_json(initial_data)

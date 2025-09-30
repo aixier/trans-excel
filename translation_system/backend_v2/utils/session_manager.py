@@ -32,7 +32,7 @@ class SessionManager:
 
     _instance = None
     _sessions: Dict[str, SessionData] = {}
-    _session_timeout = timedelta(hours=1)  # Default 1 hour timeout
+    _session_timeout = timedelta(hours=8)  # 8 hours timeout
 
     def __new__(cls):
         if cls._instance is None:

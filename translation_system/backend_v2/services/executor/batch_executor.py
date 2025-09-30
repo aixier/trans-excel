@@ -313,10 +313,11 @@ class RetryableBatchExecutor(BatchExecutor):
         batch_id: str,
         tasks: List[Dict[str, Any]],
         task_manager: TaskDataFrameManager,
+        session_id: str = None,
         game_info: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Execute batch with retry logic for failed tasks."""
-        results = await super().execute_batch(batch_id, tasks, task_manager, game_info)
+        results = await super().execute_batch(batch_id, tasks, task_manager, session_id, game_info)
 
         # Collect failed tasks for retry
         failed_tasks = []
@@ -341,11 +342,12 @@ class RetryableBatchExecutor(BatchExecutor):
             # Wait before retry
             await asyncio.sleep(5)
 
-            # Execute retry
+            # Execute retry with session_id
             retry_results = await super().execute_batch(
                 f"{batch_id}_retry",
                 failed_tasks,
                 task_manager,
+                session_id,
                 game_info
             )
 

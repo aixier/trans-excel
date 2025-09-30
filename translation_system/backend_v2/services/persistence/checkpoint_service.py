@@ -69,16 +69,18 @@ class CheckpointService:
             checkpoint_path = session_dir / f"checkpoint_{checkpoint_id}"
             checkpoint_path.mkdir(exist_ok=True)
 
-            # Save task DataFrame
-            task_df_path = checkpoint_path / "tasks.parquet"
-            task_manager.df.to_parquet(task_df_path)
+            # Save task DataFrame using pickle (no external dependency needed)
+            task_df_path = checkpoint_path / "tasks.pkl"
+            async with aiofiles.open(task_df_path, 'wb') as f:
+                await f.write(pickle.dumps(task_manager.df))
 
             # Save Excel DataFrames if available
             excel_df_path = None
-            if excel_manager and excel_manager.dataframes:
+            if excel_manager and excel_manager.sheets:
                 excel_df_path = checkpoint_path / "excel_dfs.pkl"
+                # Save the entire ExcelDataFrame object
                 async with aiofiles.open(excel_df_path, 'wb') as f:
-                    await f.write(pickle.dumps(excel_manager.dataframes))
+                    await f.write(pickle.dumps(excel_manager))
 
             # Calculate progress statistics
             df = task_manager.df
@@ -158,10 +160,11 @@ class CheckpointService:
             async with aiofiles.open(metadata_path, 'r') as f:
                 metadata = json.loads(await f.read())
 
-            # Restore task DataFrame
-            task_df_path = checkpoint_path / "tasks.parquet"
+            # Restore task DataFrame from pickle
+            task_df_path = checkpoint_path / "tasks.pkl"
             if task_df_path.exists():
-                task_df = pd.read_parquet(task_df_path)
+                async with aiofiles.open(task_df_path, 'rb') as f:
+                    task_df = pickle.loads(await f.read())
                 
                 # Create or update task manager
                 task_manager = session_manager.get_task_manager(session_id)
@@ -176,16 +179,11 @@ class CheckpointService:
             excel_df_path = checkpoint_path / "excel_dfs.pkl"
             if excel_df_path.exists():
                 async with aiofiles.open(excel_df_path, 'rb') as f:
-                    excel_dfs = pickle.loads(await f.read())
-                
-                # Create or update Excel manager
-                excel_manager = session_manager.get_excel_manager(session_id)
-                if not excel_manager:
-                    excel_manager = ExcelDataFramesManager(session_id)
-                    session_manager.set_excel_manager(session_id, excel_manager)
-                
-                excel_manager.dataframes = excel_dfs
-                self.logger.info(f"Restored {len(excel_dfs)} Excel sheets")
+                    excel_manager = pickle.loads(await f.read())
+
+                # Set restored Excel manager
+                session_manager.set_excel_df(session_id, excel_manager)
+                self.logger.info(f"Restored Excel data with {len(excel_manager.sheets)} sheets")
 
             self.logger.info(
                 f"Checkpoint restored: {metadata['progress_data']['completed_tasks']}/"
