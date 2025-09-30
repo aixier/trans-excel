@@ -1,19 +1,189 @@
 # Persistence Service
 
-独立的批量数据持久化服务，为翻译系统提供高效、解耦的数据存储能力。
+**通用的、可扩展的数据持久化微服务**
 
-## 📋 项目概述
+```
+One Service, Multiple Backends, Unified API
+(一个服务，多个后端，统一接口)
+```
 
-Persistence Service 是一个独立运行的微服务，负责将翻译系统的运行数据批量写入 MySQL 数据库。通过批量处理和容忍短暂数据丢失的设计，实现了架构简单、性能优异的持久化方案。
+---
+
+## 📚 项目文档
+
+本项目采用**文档驱动开发（Documentation Driven Development）**，在编写代码前完成详细的需求和架构设计。
+
+### 核心文档
+
+| 文档 | 说明 | 状态 | 阅读对象 |
+|------|------|------|----------|
+| **[需求文档 V2.0](docs/REQUIREMENTS_V2.md)** | 完整的功能需求、非功能需求、用户场景 | ✅ 完成 | 产品经理、开发团队 |
+| **[架构设计 V2.0](docs/ARCHITECTURE_V2.md)** | 完整的架构设计、技术选型、核心组件 | ✅ 完成 | 架构师、开发团队 |
+| **[项目路线图](docs/ROADMAP.md)** | 演进路线、里程碑、资源规划 | ✅ 完成 | 项目经理、团队全员 |
+
+### 参考文档（Phase 1 设计）
+
+| 文档 | 说明 | 状态 |
+|------|------|------|
+| [需求文档 V1.0](docs/REQUIREMENTS.md) | Phase 1 基础需求（仅批量写入） | 🔄 参考 |
+| [架构设计 V1.0](docs/ARCHITECTURE.md) | Phase 1 基础架构 | 🔄 参考 |
+
+---
+
+## 🎯 项目概述
+
+### 问题背景
+
+当前翻译系统存在的问题：
+- 数据库压力大（每条任务都触发写入）
+- 架构耦合严重（持久化逻辑与业务逻辑混合）
+- 事务复杂度高（Session 和 Task 两阶段提交）
+- 并发问题（DataFrame 和数据库状态不一致）
+
+### 解决方案
+
+通过 **Persistence Service** 实现：
+1. **批量写入**：1000 条/批，降低数据库压力 95%+
+2. **存储抽象**：插件式架构，支持 MySQL、OSS、Redis、Elasticsearch
+3. **异步非阻塞**：Fire-and-Forget 模式，API 响应 < 10ms
+4. **完整功能**：不仅写入，还支持查询、恢复、管理
 
 ### 核心特性
 
-- **完全解耦**：与主业务系统通过 HTTP API 通信
-- **批量高效**：批量写入数据库，减少 99%+ 数据库操作
-- **简单可靠**：无消息队列、无复杂重试，接受最多 30 秒数据丢失
-- **异步非阻塞**：Fire-and-Forget 调用，不阻塞业务逻辑
+| 特性 | 说明 | Phase |
+|------|------|-------|
+| **批量写入** | 批量持久化会话和任务数据 | Phase 1 |
+| **数据查询** | 查询历史数据、分页、过滤、排序 | Phase 1 |
+| **数据恢复** | 服务重启后恢复未完成会话 | Phase 1 |
+| **文件存储** | 上传/下载文件到 OSS | Phase 2 |
+| **用户管理** | 用户信息和会话管理 | Phase 3 |
+| **审计日志** | 操作日志记录和查询 | Phase 4 |
 
-## 🚀 快速开始
+---
+
+## 🏗️ 架构概览
+
+### 分层架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Client Applications                   │
+│  Backend V2 | Frontend | Admin Dashboard               │
+└────────────────────────┬────────────────────────────────┘
+                         │ HTTP + JSON
+┌────────────────────────▼────────────────────────────────┐
+│              Persistence Service                        │
+│                                                          │
+│  API Layer (FastAPI)                                    │
+│    ↓                                                     │
+│  Service Layer (BufferManager, QueryService, Recovery)  │
+│    ↓                                                     │
+│  Storage Abstraction Layer (Plugin System)              │
+│    ↓                                                     │
+│  Storage Plugins (MySQL, OSS, Redis, ES)                │
+└──────────────────┬──────────────────────────────────────┘
+                   │
+     ┌─────────────┼─────────────┬──────────────┐
+     ▼             ▼             ▼              ▼
+┌─────────┐  ┌─────────┐  ┌─────────┐  ┌────────────┐
+│  MySQL  │  │   OSS   │  │  Redis  │  │Elasticsearch│
+└─────────┘  └─────────┘  └─────────┘  └────────────┘
+```
+
+### 核心组件
+
+| 组件 | 职责 | 技术 |
+|------|------|------|
+| **API Layer** | HTTP 端点、数据验证 | FastAPI + Pydantic |
+| **Buffer Manager** | 批量缓冲、刷新策略 | Python asyncio |
+| **Query Service** | 查询构建、结果聚合 | QueryBuilder + ORM |
+| **Recovery Service** | 数据恢复、会话重建 | Business Logic |
+| **Storage Plugins** | 存储后端适配 | Plugin Architecture |
+
+---
+
+## 📊 演进路线
+
+### Phase 1: 翻译数据持久化 MVP (Week 1-5)
+
+**目标**：完成核心功能，服务于翻译系统
+
+**功能**：
+- ✅ 批量写入（sessions/tasks）
+- ✅ 数据查询（列表、详情）
+- ✅ 数据恢复（未完成会话）
+- ✅ 系统管理（健康检查、统计）
+
+**技术栈**：
+- FastAPI + Uvicorn
+- aiomysql + MySQL 8.0
+- Pydantic 2.5
+
+### Phase 2: 文件存储持久化 (Week 6-10)
+
+**目标**：添加文件存储能力
+
+**功能**：
+- 文件上传/下载（OSS）
+- 文件元数据管理
+- 预签名 URL
+
+### Phase 3: 用户数据持久化 (Week 11-15)
+
+**目标**：支持用户系统
+
+**功能**：
+- 用户信息管理
+- 用户会话管理（Redis）
+- 缓存策略
+
+### Phase 4: 审计日志持久化 (Week 16-20)
+
+**目标**：完整的审计能力
+
+**功能**：
+- 审计日志记录（Elasticsearch）
+- 日志查询和导出
+- 全文搜索
+
+---
+
+## 📋 API 快速参考
+
+### Phase 1 核心 API
+
+#### 批量写入
+```bash
+POST /api/v1/translation/sessions/batch    # 批量写入会话
+POST /api/v1/translation/tasks/batch       # 批量写入任务
+POST /api/v1/translation/flush             # 强制刷新缓冲区
+```
+
+#### 数据查询
+```bash
+GET /api/v1/translation/sessions                    # 查询会话列表
+GET /api/v1/translation/sessions/{id}               # 查询单个会话
+GET /api/v1/translation/sessions/{id}/tasks         # 查询会话任务
+GET /api/v1/translation/tasks                       # 查询任务列表
+GET /api/v1/translation/tasks/{id}                  # 查询单个任务
+```
+
+#### 数据恢复
+```bash
+GET  /api/v1/translation/recovery/incomplete-sessions   # 未完成会话列表
+POST /api/v1/translation/recovery/restore/{id}          # 恢复会话数据
+```
+
+#### 系统管理
+```bash
+GET /health                             # 健康检查
+GET /api/v1/system/metrics              # 性能指标
+GET /api/v1/system/config               # 配置信息
+```
+
+---
+
+## 🚀 快速开始（未来实现后）
 
 ### 前置要求
 
@@ -24,7 +194,8 @@ Persistence Service 是一个独立运行的微服务，负责将翻译系统的
 ### 安装步骤
 
 ```bash
-# 1. 进入项目目录
+# 1. 克隆项目
+git clone <repository-url>
 cd persistence_service
 
 # 2. 创建虚拟环境
@@ -36,10 +207,11 @@ source venv/bin/activate  # Linux/macOS
 pip install -r requirements.txt
 
 # 4. 配置数据库
+cp config/config.yaml.example config/config.yaml
 vim config/config.yaml  # 修改数据库连接信息
 
-# 5. 初始化数据库（创建表）
-mysql -u root -p ai_terminal < docs/schema.sql
+# 5. 初始化数据库
+mysql -u root -p ai_terminal < database/schema.sql
 
 # 6. 启动服务
 python main.py
@@ -59,281 +231,159 @@ curl http://localhost:8001/health
 }
 ```
 
-## 📚 文档
+---
 
-完整文档位于 `docs/` 目录：
+## 📈 性能指标
 
-| 文档 | 说明 |
-|------|------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构设计、核心组件、数据流 |
-| [API.md](docs/API.md) | API 接口文档、调用示例 |
-| [DATA_MODELS.md](docs/DATA_MODELS.md) | 数据模型、数据库表结构 |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署指南、配置说明、运维 |
+### Phase 1 目标
 
-## 🔧 配置
+| 指标 | 目标值 | 测量方法 |
+|------|--------|----------|
+| API 响应时间（写入） | < 10ms | P95 |
+| API 响应时间（查询） | < 50ms | P95 |
+| 吞吐量（写入） | > 5000 条/分钟 | 峰值 |
+| 数据库压力降低 | 95%+ | 对比现有方案 |
+| 服务可用性 | 99.9% | Uptime 监控 |
 
-主要配置文件：`config/config.yaml`
+### Phase 2+ 目标
 
-```yaml
-# 缓冲区配置
-buffer:
-  max_buffer_size: 1000        # 缓冲区大小（条）
-  flush_interval: 30           # 刷新间隔（秒）
+| 指标 | Phase 2 | Phase 3 | Phase 4 |
+|------|---------|---------|---------|
+| API 响应时间 | < 10ms | < 5ms | < 5ms |
+| 吞吐量 | 10000 条/min | 20000 条/min | 50000 条/min |
+| 可用性 | 99.95% | 99.99% | 99.99% |
 
-# 数据库配置
-database:
-  host: "localhost"
-  port: 3306
-  user: "root"
-  password: ""
-  database: "ai_terminal"
-  pool_size: 10
+---
 
-# 服务配置
-service:
-  host: "0.0.0.0"
-  port: 8001
-```
+## 🛡️ 设计权衡
 
-支持环境变量覆盖：
-```bash
-export DB_HOST=localhost
-export DB_PASSWORD=your_password
-export BUFFER_MAX_SIZE=2000
-```
+### 优点
 
-## 📡 API 端点
+✅ **性能优异**：批量处理降低数据库压力 95%+
+✅ **架构解耦**：业务系统不依赖持久化细节
+✅ **易于扩展**：插件式架构，轻松添加新存储
+✅ **简单可靠**：无消息队列，架构简单
 
-### 批量持久化
+### 代价
 
-```bash
-# 批量持久化会话
-POST /api/v1/persistence/sessions/batch
+❌ **数据延迟**：数据最多延迟 30 秒写入
+❌ **数据丢失**：服务崩溃最多丢失 1000 条或 30 秒数据
+❌ **最终一致**：内存与数据库短暂不一致
 
-# 批量持久化任务
-POST /api/v1/persistence/tasks/batch
+### 适用场景
 
-# 强制刷新缓冲区
-POST /api/v1/persistence/flush
+✅ **适合**：
+- 可容忍短时间数据丢失（如进度跟踪）
+- 高频写入场景（如任务状态更新）
+- 需要降低数据库压力的场景
 
-# 获取缓冲区统计
-GET /api/v1/persistence/stats
-```
+❌ **不适合**：
+- 金融交易等零容忍数据丢失场景
+- 需要实时数据一致性的场景
 
-### 健康检查
+---
 
-```bash
-# 简单健康检查
-GET /
-
-# 详细健康检查
-GET /health
-```
-
-详细 API 文档见 [docs/API.md](docs/API.md)
-
-## 🔌 客户端集成
-
-在 Backend V2 中使用：
-
-```python
-from services.persistence.persistence_client import persistence_client
-
-# 持久化会话
-await persistence_client.persist_session(session_data)
-
-# 持久化任务
-await persistence_client.persist_tasks(tasks_data)
-
-# 强制刷新（停止/暂停时）
-await persistence_client.flush_all()
-```
-
-## 📊 性能指标
-
-| 指标 | 目标值 |
-|------|--------|
-| API 响应时间 | < 10ms |
-| 批量写入时间 | < 1s (1000 条) |
-| 数据库压力降低 | 95%+ |
-| 最大数据丢失 | 30 秒 或 1000 条 |
-
-## 🏗️ 项目结构
+## 🗂️ 项目结构（未来实现）
 
 ```
 persistence_service/
 ├── main.py                    # FastAPI 应用入口
-├── api/                       # API 路由层
-│   └── batch_api.py
-├── services/                  # 业务逻辑层
-│   └── buffer_manager.py
-├── database/                  # 数据访问层
-│   └── mysql_connector.py
+├── api/                       # API 层
+│   └── v1/
+│       ├── translation_api.py
+│       ├── storage_api.py
+│       └── system_api.py
+├── services/                  # 服务层
+│   ├── buffer_manager.py
+│   ├── query_service.py
+│   └── recovery_service.py
+├── storage/                   # 存储层
+│   ├── backend.py            # 抽象接口
+│   ├── mysql_plugin.py
+│   ├── oss_plugin.py
+│   └── redis_plugin.py
 ├── models/                    # 数据模型
 │   └── api_models.py
-├── config/                    # 配置管理
+├── config/                    # 配置
 │   ├── settings.py
 │   └── config.yaml
 ├── docs/                      # 文档
-│   ├── ARCHITECTURE.md
-│   ├── API.md
-│   ├── DATA_MODELS.md
-│   └── DEPLOYMENT.md
-└── requirements.txt           # Python 依赖
+│   ├── REQUIREMENTS_V2.md
+│   ├── ARCHITECTURE_V2.md
+│   ├── ROADMAP.md
+│   └── API.md
+├── tests/                     # 测试
+│   ├── unit/
+│   ├── integration/
+│   └── performance/
+└── README.md                  # 本文档
 ```
 
-## 🔍 监控和运维
+---
 
-### 查看服务状态
+## 📖 文档导航
 
-```bash
-# 缓冲区统计
-curl http://localhost:8001/api/v1/persistence/stats
+### 产品文档
+- [需求文档 V2.0](docs/REQUIREMENTS_V2.md) - 完整的功能需求和用户场景
+- [项目路线图](docs/ROADMAP.md) - 演进路线和里程碑
 
-# 健康检查
-curl http://localhost:8001/health
-```
+### 技术文档
+- [架构设计 V2.0](docs/ARCHITECTURE_V2.md) - 完整的架构设计和技术选型
+- [API 接口文档](docs/API.md) - API 详细说明（Phase 1 完成后）
+- [数据模型文档](docs/DATA_MODELS.md) - 数据模型设计（Phase 1 完成后）
 
-### 日志查看
+### 运维文档
+- [部署文档](docs/DEPLOYMENT.md) - 部署和配置说明（Phase 1 完成后）
+- [监控告警](docs/MONITORING.md) - 监控指标和告警规则（Phase 2 完成后）
 
-```bash
-# 实时日志
-tail -f logs/persistence_service.log
+---
 
-# 错误日志
-grep ERROR logs/persistence_service.log
-```
+## 👥 团队
 
-### 手动刷新
+| 角色 | 人数 | 主要职责 |
+|------|------|----------|
+| 产品经理 | 1 | 需求管理、优先级决策 |
+| 架构师 | 1 | 架构设计、技术选型 |
+| 后端工程师 | 2 | 核心功能开发 |
+| 测试工程师 | 1 | 测试用例、质量保证 |
+| 运维工程师 | 1 | 部署、监控、运维 |
 
-```bash
-# 触发强制刷新（如停止前）
-curl -X POST http://localhost:8001/api/v1/persistence/flush
-```
+---
 
-## 🛡️ 容错设计
+## 📅 当前状态
 
-### 数据丢失场景
+**Phase**: Phase 1 - 设计阶段
 
-- **服务崩溃**：丢失内存缓冲区数据（最多 1000 条或 30 秒）
-- **数据库故障**：丢弃当前批次，继续接收新数据
-- **网络超时**：客户端记录警告，不重试
+**完成情况**：
+- [x] 需求文档 V2.0
+- [x] 架构设计 V2.0
+- [x] 项目路线图
+- [ ] 核心代码实现（待开始）
+- [ ] 单元测试（待开始）
+- [ ] 集成测试（待开始）
 
-### 不会发生的问题
+**下一步**：
+1. 产品经理和架构师评审需求和架构文档
+2. 评审通过后，开始编写代码
+3. 实现 Phase 1 核心功能
 
-- ✅ 数据重复（幂等性保证）
-- ✅ 数据不一致（批量原子操作）
-- ✅ 数据损坏（Pydantic 验证）
+---
 
-## 🚦 生产部署
+## 📞 联系方式
 
-### 使用 systemd
+如有问题或建议，请联系：
+- 项目经理：[待补充]
+- 技术负责人：[待补充]
+- Issue Tracker：[待补充]
 
-```bash
-# 创建服务文件
-sudo vim /etc/systemd/system/persistence-service.service
-
-# 启动服务
-sudo systemctl start persistence-service
-sudo systemctl enable persistence-service
-
-# 查看状态
-sudo systemctl status persistence-service
-```
-
-详细部署指南见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-
-## ⚠️ 重要说明
-
-### 适用场景
-
-✅ **适合：**
-- 可容忍短时间数据丢失的场景（如进度跟踪）
-- 高频写入场景（如任务状态更新）
-- 需要降低数据库压力的场景
-
-❌ **不适合：**
-- 金融交易等零容忍数据丢失场景
-- 需要实时数据一致性的场景
-
-### 设计权衡
-
-- ✅ **获得**：架构简单、性能优异、完全解耦
-- ❌ **代价**：最多丢失 30 秒或 1000 条数据
-
-## 🤝 与主系统集成
-
-```
-Backend V2 (主业务)
-      ↓
-PersistenceClient
-      ↓ HTTP POST (Fire-and-Forget)
-Persistence Service
-      ↓ 批量写入（1000 条/次）
-MySQL Database
-```
-
-## 📝 开发计划
-
-### Phase 1: 原型验证（当前）
-- [x] 目录结构
-- [x] 架构设计文档
-- [x] API 接口文档
-- [ ] 核心代码实现
-- [ ] 单元测试
-
-### Phase 2: 生产就绪
-- [ ] 监控指标（Prometheus）
-- [ ] 健康检查增强
-- [ ] 优雅关闭
-- [ ] 完善错误处理
-
-### Phase 3: 高可用
-- [ ] 多实例部署
-- [ ] 负载均衡
-- [ ] 连接池优化
-
-## 🐛 故障排查
-
-### 服务无法启动
-
-```bash
-# 检查端口占用
-netstat -tlnp | grep 8001
-
-# 检查配置文件
-cat config/config.yaml
-
-# 检查日志
-tail -f logs/persistence_service.log
-```
-
-### 数据库连接失败
-
-```bash
-# 检查 MySQL 状态
-systemctl status mysql
-
-# 测试连接
-mysql -h localhost -u root -p ai_terminal
-```
-
-更多故障排查见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#7-故障处理)
+---
 
 ## 📄 许可证
 
 MIT License
 
-## 👥 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📮 联系方式
-
-如有问题，请通过以下方式联系：
-- Issue: [GitHub Issues](#)
-- Email: [admin@example.com](#)
-
 ---
 
-**注意**：这是一个为翻译系统特别设计的实用方案，通过接受短暂数据丢失换取架构简单性和高性能。请确保理解其设计权衡后再使用。
+**最后更新**: 2025-09-30
+**文档状态**: ✅ 设计完成，待评审
+**下次评审**: 待定
