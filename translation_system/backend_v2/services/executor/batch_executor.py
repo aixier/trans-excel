@@ -13,6 +13,7 @@ from services.llm.base_provider import (
 )
 from services.llm.batch_translator import BatchTranslator
 from models.task_dataframe import TaskDataFrameManager, TaskStatus
+from services.executor.progress_tracker import progress_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class BatchExecutor:
         batch_id: str,
         tasks: List[Dict[str, Any]],
         task_manager: TaskDataFrameManager,
+        session_id: str = None,
         game_info: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
@@ -48,6 +50,7 @@ class BatchExecutor:
             batch_id: Batch identifier
             tasks: List of task dictionaries
             task_manager: Task DataFrame manager
+            session_id: Session ID for progress tracking
             game_info: Game information
 
         Returns:
@@ -65,6 +68,14 @@ class BatchExecutor:
                     'start_time': datetime.now()
                 }
             )
+
+            # Trigger progress update for WebSocket
+            if session_id:
+                await progress_tracker.update_task_progress(
+                    session_id,
+                    task['task_id'],
+                    TaskStatus.PROCESSING
+                )
 
         # Prepare translation requests
         requests = self._prepare_requests(tasks, game_info)
@@ -101,6 +112,17 @@ class BatchExecutor:
                         )
                         results['successful'] += 1
                         results['total_tokens'] += task.get('token_count', 0)
+
+                        # Trigger progress update for WebSocket
+                        if session_id:
+                            await progress_tracker.update_task_progress(
+                                session_id,
+                                task['task_id'],
+                                TaskStatus.COMPLETED,
+                                result=task.get('result'),
+                                confidence=task.get('confidence', 0.7),
+                                duration_ms=task.get('duration_ms', 0)
+                            )
                     else:
                         task_manager.update_task(
                             task['task_id'],
@@ -111,6 +133,15 @@ class BatchExecutor:
                             }
                         )
                         results['failed'] += 1
+
+                        # Trigger progress update for WebSocket
+                        if session_id:
+                            await progress_tracker.update_task_progress(
+                                session_id,
+                                task['task_id'],
+                                TaskStatus.FAILED,
+                                error_message=task.get('error_message', 'Translation failed')
+                            )
             else:
                 # Use original method
                 responses = await self.llm_provider.translate_batch(requests)

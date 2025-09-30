@@ -17,10 +17,20 @@ from services.language_detector import LanguageDetector
 class TaskSplitter:
     """Split Excel into translation tasks."""
 
-    def __init__(self, excel_df: ExcelDataFrame, game_info: GameInfo = None):
+    def __init__(self, excel_df: ExcelDataFrame, game_info: GameInfo = None, extract_context: bool = True, context_options: Dict[str, bool] = None):
+        """
+        Initialize task splitter.
+
+        Args:
+            excel_df: Excel data structure
+            game_info: Game information for context
+            extract_context: Whether to extract row context (slower but provides more info)
+            context_options: Dict specifying which context types to extract (only applies when extract_context=True)
+        """
         self.excel_df = excel_df
         self.game_info = game_info
-        self.context_extractor = ContextExtractor(game_info)
+        self.extract_context = extract_context
+        self.context_extractor = ContextExtractor(game_info, context_options) if extract_context else None
         self.batch_allocator = BatchAllocator()
         self.language_detector = LanguageDetector()
         self.task_manager = TaskDataFrameManager()
@@ -76,6 +86,9 @@ class TaskSplitter:
             return []
 
         tasks = []
+
+        # Pre-fetch color map for this sheet (already loaded in memory)
+        sheet_color_map = self.excel_df.color_map.get(sheet_name, {})
 
         # Check for explicit language columns by name
         column_names = [str(col).upper() for col in df.columns]
@@ -134,29 +147,35 @@ class TaskSplitter:
                 else:
                     return []
 
-            # Process each row with explicit columns
-            for row_idx in range(len(df)):
-                # Get source text
-                source_text = df.iloc[row_idx, source_col_idx]
+            # Process each row with explicit columns - optimized version
+            # Convert DataFrame to numpy array for faster access
+            df_values = df.values
+
+            for row_idx in range(len(df_values)):
+                # Get source text (direct array access)
+                source_text = df_values[row_idx, source_col_idx]
                 if pd.isna(source_text) or not str(source_text).strip():
                     continue
 
                 source_text = str(source_text)
 
-                # Check if source cell itself has blue color (needs shortening)
-                source_cell_color = self.excel_df.get_cell_color(sheet_name, row_idx, source_col_idx)
-                if source_cell_color and is_blue_color(source_cell_color):
-                    # Create a blue task for shortening the source text itself
+                # Check source cell color (important for yellow re-translation)
+                source_cell_color = sheet_color_map.get((row_idx, source_col_idx))
+                source_is_yellow = source_cell_color and is_yellow_color(source_cell_color)
+                source_is_blue = source_cell_color and is_blue_color(source_cell_color)
+
+                # If source cell has blue color, create a blue task for shortening
+                if source_is_blue:
                     task = self._create_task(
                         sheet_name,
                         row_idx,
                         source_col_idx,
-                        source_col_idx,  # Target is the same as source
+                        source_col_idx,
                         source_text,
                         actual_source_lang,
-                        actual_source_lang,  # Target lang is same as source lang
+                        actual_source_lang,
                         start_counter + len(tasks),
-                        'blue'  # This is a blue shortening task
+                        'blue'
                     )
                     tasks.append(task)
 
@@ -165,15 +184,35 @@ class TaskSplitter:
                     if target_lang in col_mapping:
                         target_col = col_mapping[target_lang]
 
-                        # Check if translation is needed and determine task type
-                        needs_translation = self._check_needs_translation(
-                            sheet_name, row_idx, target_col, source_text
-                        )
+                        # Get target cell value (direct array access)
+                        target_value = df_values[row_idx, target_col]
+
+                        # Check target cell color
+                        target_color = sheet_color_map.get((row_idx, target_col))
+
+                        # Determine if needs translation and task type
+                        needs_translation = False
+                        task_type = 'normal'
+
+                        # Priority 1: Target cell has color marking
+                        if target_color:
+                            if is_yellow_color(target_color):
+                                needs_translation = True
+                                task_type = 'yellow'
+                            elif is_blue_color(target_color):
+                                needs_translation = True
+                                task_type = 'blue'
+                        # Priority 2: Source cell has yellow marking -> need re-translation
+                        elif source_is_yellow:
+                            needs_translation = True
+                            task_type = 'yellow'  # Source changed, need re-translate
+                        # Priority 3: Empty target cell needs translation
+                        elif pd.isna(target_value) or str(target_value).strip() == '':
+                            if source_text and source_text.strip():
+                                needs_translation = True
+                                task_type = 'normal'
 
                         if needs_translation:
-                            # Determine task type based on TARGET cell color (not source)
-                            task_type = self._determine_task_type(sheet_name, row_idx, target_col)
-
                             # Create task with type
                             task = self._create_task(
                                 sheet_name,
@@ -330,33 +369,59 @@ class TaskSplitter:
         task_num: int,
         task_type: str = 'normal'
     ) -> Dict[str, Any]:
-        """Create a single task dictionary."""
-        # Extract context
-        source_context = self.context_extractor.extract_context(
-            self.excel_df, sheet_name, row_idx, source_col
-        )
+        """Create a single task dictionary (optimized version)."""
+        # Cache frequently used values
+        text_len = len(source_text)
+        now = datetime.now()
 
-        # Get game context
-        game_context = self.game_info.to_context_string() if self.game_info else ""
+        # Fast cell reference calculation
+        col_num = target_col + 1
+        col_letter = ''
+        while col_num > 0:
+            col_num -= 1
+            col_letter = chr(col_num % 26 + ord('A')) + col_letter
+            col_num //= 26
+        cell_ref = f"{col_letter}{row_idx + 2}"
 
-        # Determine group_id
-        group_id = self._determine_group_id(sheet_name, source_text)
+        # Fast priority calculation based on task type
+        if task_type == 'yellow':
+            priority = 9
+        elif task_type == 'blue':
+            priority = 7
+        else:
+            priority = 5
 
-        # Get cell reference
-        cell_ref = self._get_cell_reference(row_idx, target_col)
+        # Fast group_id determination
+        sheet_lower = sheet_name.lower()
+        if 'ui' in sheet_lower:
+            group_id = 'GROUP_UI_001'
+        elif 'dialog' in sheet_lower:
+            group_id = 'GROUP_DIALOG_001'
+        elif text_len <= 20:
+            group_id = 'GROUP_SHORT_001'
+        elif text_len <= 100:
+            group_id = 'GROUP_MEDIUM_001'
+        else:
+            group_id = 'GROUP_LONG_001'
 
-        # Determine priority based on task type and content
-        priority = self._determine_priority(sheet_name, source_text, task_type)
+        # Extract context (optional, this is the slowest part)
+        if self.extract_context and self.context_extractor:
+            source_context = self.context_extractor.extract_context(
+                self.excel_df, sheet_name, row_idx, source_col
+            )
+        else:
+            source_context = ""
 
+        # Build task dict directly (avoid intermediate variables)
         return {
             'task_id': f"TASK_{task_num:04d}",
-            'batch_id': '',  # Will be assigned by batch allocator
+            'batch_id': '',
             'group_id': group_id,
-            'task_type': task_type,  # 'normal', 'yellow', 'blue'
+            'task_type': task_type,
             'source_lang': source_lang,
             'source_text': source_text,
             'source_context': source_context,
-            'game_context': game_context,
+            'game_context': self.game_info.to_context_string() if self.game_info else "",
             'target_lang': target_lang,
             'excel_id': self.excel_df.excel_id,
             'sheet_name': sheet_name,
@@ -367,9 +432,9 @@ class TaskSplitter:
             'priority': priority,
             'result': '',
             'confidence': 0.0,
-            'char_count': len(source_text),
-            'created_at': datetime.now(),
-            'updated_at': datetime.now(),
+            'char_count': text_len,
+            'created_at': now,
+            'updated_at': now,
             'start_time': None,
             'end_time': None,
             'duration_ms': 0,

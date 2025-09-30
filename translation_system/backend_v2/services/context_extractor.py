@@ -9,8 +9,32 @@ from models.game_info import GameInfo
 class ContextExtractor:
     """Extract context information for translation tasks."""
 
-    def __init__(self, game_info: GameInfo = None):
+    def __init__(self, game_info: GameInfo = None, context_options: Dict[str, bool] = None):
+        """
+        Initialize context extractor.
+
+        Args:
+            game_info: Game information
+            context_options: Dict specifying which context types to extract:
+                - 'game_info': Game context (default: True)
+                - 'comments': Cell comments (default: True)
+                - 'neighbors': Neighboring cells (default: True)
+                - 'content_analysis': Content characteristics (default: True)
+                - 'sheet_type': Sheet type inference (default: True)
+                Note: Column header is always extracted (required for translation)
+        """
         self.game_info = game_info
+
+        # Default: all enabled
+        default_options = {
+            'game_info': True,
+            'comments': True,
+            'neighbors': True,
+            'content_analysis': True,
+            'sheet_type': True
+        }
+
+        self.context_options = {**default_options, **(context_options or {})}
 
     def extract_context(
         self,
@@ -22,40 +46,44 @@ class ContextExtractor:
         """Extract context for a specific cell."""
         context_parts = []
 
-        # 1. Add game context if available
-        if self.game_info:
+        # 1. Add game context if available and enabled
+        if self.context_options.get('game_info', True) and self.game_info:
             game_context = self.game_info.to_context_string()
             if game_context:
                 context_parts.append(f"[Game] {game_context}")
 
-        # 2. Extract from cell comment
-        comment = excel_df.get_cell_comment(sheet_name, row_idx, col_idx)
-        if comment:
-            context_parts.append(f"[Comment] {comment}")
+        # 2. Extract from cell comment (if enabled)
+        if self.context_options.get('comments', True):
+            comment = excel_df.get_cell_comment(sheet_name, row_idx, col_idx)
+            if comment:
+                context_parts.append(f"[Comment] {comment}")
 
-        # 3. Extract from column header
+        # 3. Extract from column header (ALWAYS - required for translation)
         df = excel_df.get_sheet(sheet_name)
         if df is not None and col_idx < len(df.columns):
             col_header = str(df.columns[col_idx])
             if col_header and not col_header.startswith('Unnamed'):
                 context_parts.append(f"[Column] {col_header}")
 
-        # 4. Extract from neighboring cells
-        neighbor_context = self._extract_neighbor_context(excel_df, sheet_name, row_idx, col_idx)
-        if neighbor_context:
-            context_parts.append(neighbor_context)
+        # 4. Extract from neighboring cells (if enabled)
+        if self.context_options.get('neighbors', True):
+            neighbor_context = self._extract_neighbor_context(excel_df, sheet_name, row_idx, col_idx)
+            if neighbor_context:
+                context_parts.append(neighbor_context)
 
-        # 5. Infer from content characteristics
-        value = excel_df.get_cell_value(sheet_name, row_idx, col_idx)
-        if value and isinstance(value, str):
-            content_context = self._infer_content_context(value)
-            if content_context:
-                context_parts.append(content_context)
+        # 5. Infer from content characteristics (if enabled)
+        if self.context_options.get('content_analysis', True):
+            value = excel_df.get_cell_value(sheet_name, row_idx, col_idx)
+            if value and isinstance(value, str):
+                content_context = self._infer_content_context(value)
+                if content_context:
+                    context_parts.append(content_context)
 
-        # 6. Add sheet context
-        sheet_context = self._get_sheet_context(sheet_name)
-        if sheet_context:
-            context_parts.append(sheet_context)
+        # 6. Add sheet context (if enabled)
+        if self.context_options.get('sheet_type', True):
+            sheet_context = self._get_sheet_context(sheet_name)
+            if sheet_context:
+                context_parts.append(sheet_context)
 
         return " | ".join(context_parts) if context_parts else ""
 

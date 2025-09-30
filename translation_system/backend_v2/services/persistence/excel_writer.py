@@ -7,7 +7,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 
-from models.excel_dataframes import ExcelDataFramesManager
+from models.excel_dataframe import ExcelDataFrame
 from models.task_dataframe import TaskDataFrameManager, TaskStatus
 from utils.session_manager import session_manager
 

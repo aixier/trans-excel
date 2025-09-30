@@ -67,6 +67,10 @@ class SessionManager:
         session = self.get_session(session_id)
         return session.excel_df if session else None
 
+    def get_excel_manager(self, session_id: str) -> Optional[ExcelDataFrame]:
+        """Get Excel manager from session (alias for get_excel_df)."""
+        return self.get_excel_df(session_id)
+
     def set_task_manager(self, session_id: str, task_manager: TaskDataFrameManager) -> bool:
         """Set task manager for a session."""
         session = self.get_session(session_id)

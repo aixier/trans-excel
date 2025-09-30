@@ -159,7 +159,7 @@ class TaskDataFrameManager:
         total_chars = self.df['char_count'].sum() if 'char_count' in self.df.columns else 0
         avg_confidence = self.df['confidence'].mean() if 'confidence' in self.df.columns else 0.0
 
-        return {
+        stats = {
             'total': int(len(self.df)),
             'by_status': {k: int(v) for k, v in self.df['status'].value_counts().to_dict().items()},
             'by_language': {k: int(v) for k, v in self.df['target_lang'].value_counts().to_dict().items()},
@@ -167,6 +167,12 @@ class TaskDataFrameManager:
             'total_chars': int(total_chars) if not pd.isna(total_chars) else 0,
             'avg_confidence': float(avg_confidence) if not pd.isna(avg_confidence) else 0.0
         }
+
+        # Add task type distribution if column exists
+        if 'task_type' in self.df.columns:
+            stats['by_type'] = {k: int(v) for k, v in self.df['task_type'].value_counts().to_dict().items()}
+
+        return stats
 
     def export_to_excel(self, filepath: str) -> None:
         """Export DataFrame to Excel file."""

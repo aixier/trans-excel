@@ -141,11 +141,11 @@ class ConnectionManager:
             progress: Progress data
         """
         message = {
-            'type': 'progress_update',
+            'type': 'progress',
             'session_id': session_id,
-            'progress': progress
+            'data': progress  # Changed from 'progress' to 'data' to match frontend
         }
-        
+
         await self.broadcast_to_session(session_id, message)
 
     async def send_task_update(

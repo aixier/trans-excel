@@ -12,7 +12,7 @@ import aiofiles
 
 from database.mysql_connector import mysql_connector
 from models.task_dataframe import TaskDataFrameManager
-from models.excel_dataframes import ExcelDataFramesManager
+from models.excel_dataframe import ExcelDataFrame
 from utils.session_manager import session_manager
 
 logger = logging.getLogger(__name__)

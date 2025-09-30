@@ -281,9 +281,9 @@ class WorkerPool:
 
                     self.logger.info(f"{worker_name} processing batch {batch_id}")
 
-                    # Execute batch
+                    # Execute batch with session_id for WebSocket progress updates
                     result = await executor.execute_batch(
-                        batch_id, tasks, task_manager, game_info
+                        batch_id, tasks, task_manager, self.current_session_id, game_info
                     )
 
                     # Update statistics
