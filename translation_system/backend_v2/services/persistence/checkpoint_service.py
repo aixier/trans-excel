@@ -10,7 +10,8 @@ from datetime import datetime
 import pandas as pd
 import aiofiles
 
-from database.mysql_connector import mysql_connector
+# 禁用持久化服务 - 改为纯内存运行
+# from database.mysql_connector import mysql_connector
 from models.task_dataframe import TaskDataFrameManager
 from models.excel_dataframe import ExcelDataFrame
 from utils.session_manager import session_manager
@@ -109,15 +110,16 @@ class CheckpointService:
             async with aiofiles.open(metadata_path, 'w') as f:
                 await f.write(json.dumps(metadata, indent=2))
 
+            # 禁用持久化服务 - 改为纯内存运行
             # Save to database
-            await self._save_checkpoint_to_db(
-                session_id,
-                checkpoint_type,
-                str(task_df_path),
-                str(excel_df_path) if excel_df_path else None,
-                progress_data,
-                metadata
-            )
+            # await self._save_checkpoint_to_db(
+            #     session_id,
+            #     checkpoint_type,
+            #     str(task_df_path),
+            #     str(excel_df_path) if excel_df_path else None,
+            #     progress_data,
+            #     metadata
+            # )
 
             duration = (datetime.now() - start_time).total_seconds()
             self.logger.info(

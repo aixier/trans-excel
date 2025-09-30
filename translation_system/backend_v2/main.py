@@ -9,21 +9,24 @@ from api.task_api import router as task_router
 from api.execute_api import router as execute_router
 from api.monitor_api import router as monitor_router
 from api.download_api import router as download_router
-from api.log_api import router as log_router
-from api.resume_api import router as resume_router
+# 禁用持久化服务 - 改为纯内存运行
+# from api.log_api import router as log_router
+# from api.resume_api import router as resume_router
+# from api.database_api import router as database_router
 from api.websocket_api import router as websocket_router
 from api.pool_monitor_api import router as pool_monitor_router
-from api.database_api import router as database_router
 from utils.config_manager import config_manager
-from services.monitor.performance_monitor import performance_monitor
-from services.logging.log_persister import log_persister
-from database.mysql_connector import MySQLConnector
+# 禁用持久化服务 - 改为纯内存运行
+# from services.monitor.performance_monitor import performance_monitor
+# from services.logging.log_persister import log_persister
+# from database.mysql_connector import MySQLConnector
 import asyncio
 from fastapi import Request
 import time
 
 # Global instances
-mysql_connector = MySQLConnector()
+# 禁用持久化服务 - 改为纯内存运行
+# mysql_connector = MySQLConnector()
 
 
 # Configure logging
@@ -55,11 +58,13 @@ app.include_router(task_router)
 app.include_router(execute_router)
 app.include_router(monitor_router)
 app.include_router(download_router)
-app.include_router(log_router)
-app.include_router(resume_router)
+# 禁用持久化服务 - 改为纯内存运行
+# app.include_router(log_router)
+# app.include_router(resume_router)
 app.include_router(websocket_router)
 app.include_router(pool_monitor_router)
-app.include_router(database_router)
+# 禁用持久化服务 - 改为纯内存运行
+# app.include_router(database_router)
 
 
 # HTTP request logging middleware disabled for performance
@@ -118,45 +123,50 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """Startup event handler."""
-    logger.info("Starting Translation System Backend V2")
+    logger.info("Starting Translation System Backend V2 - Memory Only Mode")
     logger.info(f"Max chars per batch: {config_manager.max_chars_per_batch}")
     logger.info(f"Max concurrent workers: {config_manager.max_concurrent_workers}")
+    logger.info("Persistence disabled - running in memory-only mode")
 
+    # 禁用持久化服务 - 改为纯内存运行
     # Initialize database connection pool
-    try:
-        await mysql_connector.initialize()
-        logger.info("Database connection pool initialized")
-    except Exception as e:
-        logger.warning(f"Failed to initialize database connection: {e}")
-        logger.warning("System will run without persistence features")
+    # try:
+    #     await mysql_connector.initialize()
+    #     logger.info("Database connection pool initialized")
+    # except Exception as e:
+    #     logger.warning(f"Failed to initialize database connection: {e}")
+    #     logger.warning("System will run without persistence features")
 
+    # 禁用持久化服务 - 改为纯内存运行
     # Start performance monitoring
-    try:
-        await performance_monitor.start()
-        logger.info("Performance monitoring started")
-    except Exception as e:
-        logger.warning(f"Failed to start performance monitoring: {e}")
-        logger.warning("System will run without performance monitoring")
+    # try:
+    #     await performance_monitor.start()
+    #     logger.info("Performance monitoring started")
+    # except Exception as e:
+    #     logger.warning(f"Failed to start performance monitoring: {e}")
+    #     logger.warning("System will run without performance monitoring")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Shutdown event handler."""
-    logger.info("Shutting down Translation System Backend V2")
+    logger.info("Shutting down Translation System Backend V2 - Memory Only Mode")
 
+    # 禁用持久化服务 - 改为纯内存运行
     # Stop performance monitoring
-    try:
-        await performance_monitor.stop()
-        logger.info("Performance monitoring stopped")
-    except Exception as e:
-        logger.warning(f"Error stopping performance monitoring: {e}")
+    # try:
+    #     await performance_monitor.stop()
+    #     logger.info("Performance monitoring stopped")
+    # except Exception as e:
+    #     logger.warning(f"Error stopping performance monitoring: {e}")
 
+    # 禁用持久化服务 - 改为纯内存运行
     # Close database connection pool
-    try:
-        await mysql_connector.close()
-        logger.info("Database connection pool closed")
-    except Exception as e:
-        logger.warning(f"Error closing database connection: {e}")
+    # try:
+    #     await mysql_connector.close()
+    #     logger.info("Database connection pool closed")
+    # except Exception as e:
+    #     logger.warning(f"Error closing database connection: {e}")
 
 
 if __name__ == "__main__":

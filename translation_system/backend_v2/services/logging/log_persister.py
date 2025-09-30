@@ -12,7 +12,8 @@ from collections import deque
 import threading
 from logging.handlers import RotatingFileHandler
 
-from database.mysql_connector import mysql_connector
+# 禁用持久化服务 - 改为纯内存运行
+# from database.mysql_connector import mysql_connector
 
 
 @dataclass
@@ -286,31 +287,35 @@ class LogPersister:
             self.logger.error(f"Failed to write logs to files: {e}")
 
     async def _write_to_database(self, logs: List[LogEntry]):
-        """Write logs to database in batches."""
-        try:
-            # Process logs in batches
-            for i in range(0, len(logs), self.batch_size):
-                batch = logs[i:i + self.batch_size]
+        """Write logs to database in batches (disabled for memory-only mode)."""
+        # 禁用持久化服务 - 改为纯内存运行
+        # 只写文件，不写数据库
+        pass
 
-                for log_entry in batch:
-                    try:
-                        await mysql_connector.log_execution(
-                            session_id=log_entry.session_id,
-                            level=log_entry.level,
-                            message=log_entry.message,
-                            details=log_entry.details,
-                            component=log_entry.component
-                        )
-                    except Exception as e:
-                        self.logger.warning(f"Failed to write log to database: {e}")
-                        self.stats['db_errors'] += 1
-                        continue
-
-            self.stats['logs_to_db'] += len(logs)
-
-        except Exception as e:
-            self.stats['db_errors'] += 1
-            self.logger.error(f"Failed to write logs to database: {e}")
+        # try:
+        #     # Process logs in batches
+        #     for i in range(0, len(logs), self.batch_size):
+        #         batch = logs[i:i + self.batch_size]
+        #
+        #         for log_entry in batch:
+        #             try:
+        #                 await mysql_connector.log_execution(
+        #                     session_id=log_entry.session_id,
+        #                     level=log_entry.level,
+        #                     message=log_entry.message,
+        #                     details=log_entry.details,
+        #                     component=log_entry.component
+        #                 )
+        #             except Exception as e:
+        #                 self.logger.warning(f"Failed to write log to database: {e}")
+        #                 self.stats['db_errors'] += 1
+        #                 continue
+        #
+        #     self.stats['logs_to_db'] += len(logs)
+        #
+        # except Exception as e:
+        #     self.stats['db_errors'] += 1
+        #     self.logger.error(f"Failed to write logs to database: {e}")
 
     async def query_logs(
         self,

@@ -6,7 +6,8 @@ from typing import Dict, Any, Optional, List, Set
 from datetime import datetime
 import pandas as pd
 
-from database.mysql_connector import mysql_connector
+# 禁用持久化服务 - 改为纯内存运行
+# from database.mysql_connector import mysql_connector
 from models.task_dataframe import TaskDataFrameManager, TaskStatus
 from utils.session_manager import session_manager
 
@@ -37,18 +38,22 @@ class TaskPersister:
         Args:
             session_id: Session ID
         """
-        # Stop existing persistence task if any
-        await self.stop_auto_persist(session_id)
+        # 禁用持久化服务 - 改为纯内存运行
+        self.logger.info(f"Auto-persistence disabled (memory-only mode) for session {session_id}")
+        return
 
-        # Initialize tracking structures
-        self.persisted_tasks[session_id] = set()
-        self.task_versions[session_id] = {}
-
-        # Create and store the persistence task
-        task = asyncio.create_task(self._persist_loop(session_id))
-        self.active_sessions[session_id] = task
-        
-        self.logger.info(f"Started auto-persistence for session {session_id}")
+        # # Stop existing persistence task if any
+        # await self.stop_auto_persist(session_id)
+        #
+        # # Initialize tracking structures
+        # self.persisted_tasks[session_id] = set()
+        # self.task_versions[session_id] = {}
+        #
+        # # Create and store the persistence task
+        # task = asyncio.create_task(self._persist_loop(session_id))
+        # self.active_sessions[session_id] = task
+        #
+        # self.logger.info(f"Started auto-persistence for session {session_id}")
 
     async def stop_auto_persist(self, session_id: str):
         """
@@ -57,20 +62,24 @@ class TaskPersister:
         Args:
             session_id: Session ID
         """
-        if session_id in self.active_sessions:
-            task = self.active_sessions[session_id]
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-            del self.active_sessions[session_id]
-            
-            # Clean up tracking structures
-            self.persisted_tasks.pop(session_id, None)
-            self.task_versions.pop(session_id, None)
-            
-            self.logger.info(f"Stopped auto-persistence for session {session_id}")
+        # 禁用持久化服务 - 改为纯内存运行
+        self.logger.info(f"Auto-persistence already disabled (memory-only mode) for session {session_id}")
+        return
+
+        # if session_id in self.active_sessions:
+        #     task = self.active_sessions[session_id]
+        #     task.cancel()
+        #     try:
+        #         await task
+        #     except asyncio.CancelledError:
+        #         pass
+        #     del self.active_sessions[session_id]
+        #
+        #     # Clean up tracking structures
+        #     self.persisted_tasks.pop(session_id, None)
+        #     self.task_versions.pop(session_id, None)
+        #
+        #     self.logger.info(f"Stopped auto-persistence for session {session_id}")
 
     async def _persist_loop(self, session_id: str):
         """
@@ -116,16 +125,25 @@ class TaskPersister:
         Returns:
             Persistence statistics
         """
-        start_time = datetime.now()
-        stats = {
+        # 禁用持久化服务 - 改为纯内存运行
+        # 返回空统计
+        return {
             'new_tasks': 0,
             'updated_tasks': 0,
             'unchanged_tasks': 0,
             'failed': 0
         }
 
-        try:
-            # Get task manager
+        # start_time = datetime.now()
+        # stats = {
+        #     'new_tasks': 0,
+        #     'updated_tasks': 0,
+        #     'unchanged_tasks': 0,
+        #     'failed': 0
+        # }
+        #
+        # try:
+        #     # Get task manager
             task_manager = session_manager.get_task_manager(session_id)
             if not task_manager or task_manager.df is None:
                 self.logger.warning(f"No task manager found for session {session_id}")
