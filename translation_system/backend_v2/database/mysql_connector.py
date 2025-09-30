@@ -30,17 +30,24 @@ class MySQLConnector:
 
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default database configuration from environment."""
+        # Load from .env file if exists
+        from pathlib import Path
+        env_file = Path(__file__).parent.parent / '.env'
+        if env_file.exists():
+            import dotenv
+            dotenv.load_dotenv(env_file)
+
         return {
-            'host': os.getenv('MYSQL_HOST', 'localhost'),
+            'host': os.getenv('MYSQL_HOST', 'rm-bp13t8tx0697ewx4wpo.mysql.rds.aliyuncs.com'),
             'port': int(os.getenv('MYSQL_PORT', 3306)),
-            'user': os.getenv('MYSQL_USER', 'root'),
-            'password': os.getenv('MYSQL_PASSWORD', ''),
-            'database': os.getenv('MYSQL_DATABASE', 'translation_system'),
+            'user': os.getenv('MYSQL_USER', 'chenyang'),
+            'password': os.getenv('MYSQL_PASSWORD', 'mRA9ycdvj8NW71qG5Dnajq'),
+            'database': os.getenv('MYSQL_DATABASE', 'ai_terminal'),
             'minsize': int(os.getenv('MYSQL_POOL_MIN', 1)),
             'maxsize': int(os.getenv('MYSQL_POOL_MAX', 10)),
-            'charset': 'utf8mb4',
+            'charset': os.getenv('MYSQL_CHARSET', 'utf8mb4'),
             'autocommit': False,
-            'echo': False
+            'echo': os.getenv('MYSQL_ECHO', 'false').lower() == 'true'
         }
 
     async def initialize(self):
@@ -73,7 +80,162 @@ class MySQLConnector:
             self.pool.close()
             await self.pool.wait_closed()
             self._initialized = False
-            self.logger.info("MySQL connection pool closed")
+            self.logger.info("Database connection pool closed")
+
+    # ==================== Connection Pool Monitoring ====================
+
+    def get_pool_stats(self) -> Dict[str, Any]:
+        """
+        Get connection pool statistics for monitoring.
+
+        Returns:
+            Dictionary containing pool statistics
+        """
+        if not self.pool:
+            return {
+                'status': 'not_initialized',
+                'size': 0,
+                'free': 0,
+                'in_use': 0,
+                'max_size': 0,
+                'min_size': 0,
+                'wait_queue': 0,
+                'health': 'critical'
+            }
+
+        return {
+            'status': 'active',
+            'size': self.pool.size,              # Current pool size
+            'free': self.pool.freesize,          # Available connections
+            'in_use': self.pool.size - self.pool.freesize,  # Connections in use
+            'max_size': self.pool.maxsize,       # Maximum pool size
+            'min_size': self.pool.minsize,       # Minimum pool size
+            'wait_queue': len(self.pool._waiters) if hasattr(self.pool, '_waiters') else 0,
+            'health': self._get_pool_health(),
+            'usage_percent': ((self.pool.size - self.pool.freesize) / self.pool.maxsize * 100) if self.pool.maxsize > 0 else 0
+        }
+
+    def _get_pool_health(self) -> str:
+        """
+        Determine pool health status based on usage.
+
+        Returns:
+            Health status: 'healthy', 'warning', or 'critical'
+        """
+        if not self.pool:
+            return 'critical'
+
+        usage_ratio = (self.pool.size - self.pool.freesize) / self.pool.maxsize if self.pool.maxsize > 0 else 0
+
+        if usage_ratio < 0.7:
+            return 'healthy'
+        elif usage_ratio < 0.9:
+            return 'warning'
+        else:
+            return 'critical'
+
+    async def check_pool_health(self) -> Dict[str, Any]:
+        """
+        Perform comprehensive health check on connection pool.
+
+        Returns:
+            Health check results including latency and connectivity
+        """
+        health_check = {
+            'timestamp': datetime.now().isoformat(),
+            'pool_stats': self.get_pool_stats(),
+            'connection_test': False,
+            'query_test': False,
+            'latency_ms': 0,
+            'status': 'unknown'
+        }
+
+        if not self.pool:
+            health_check['status'] = 'unhealthy'
+            health_check['error'] = 'Connection pool not initialized'
+            return health_check
+
+        try:
+            # Test connection acquisition and query execution
+            start = datetime.now()
+            async with self.get_connection() as cursor:
+                await cursor.execute("SELECT 1 as health_check")
+                result = await cursor.fetchone()
+                health_check['query_test'] = result[0] == 1
+
+            health_check['connection_test'] = True
+            health_check['latency_ms'] = (datetime.now() - start).total_seconds() * 1000
+            health_check['status'] = 'healthy' if health_check['latency_ms'] < 100 else 'degraded'
+
+        except Exception as e:
+            health_check['status'] = 'unhealthy'
+            health_check['error'] = str(e)
+            self.logger.error(f"Pool health check failed: {e}")
+
+        return health_check
+
+    async def get_connection_metrics(self) -> Dict[str, Any]:
+        """
+        Get detailed connection metrics and recommendations.
+
+        Returns:
+            Comprehensive metrics and optimization recommendations
+        """
+        pool_stats = self.get_pool_stats()
+
+        metrics = {
+            'timestamp': datetime.now().isoformat(),
+            'pool_stats': pool_stats,
+            'thresholds': {
+                'warning_usage': 70,  # % usage for warning
+                'critical_usage': 90,  # % usage for critical
+                'max_wait_queue': 5    # Max acceptable wait queue
+            },
+            'recommendations': []
+        }
+
+        # Generate recommendations based on current state
+        if pool_stats['status'] == 'not_initialized':
+            metrics['recommendations'].append({
+                'level': 'critical',
+                'message': 'Initialize connection pool before use'
+            })
+            return metrics
+
+        usage_percent = pool_stats.get('usage_percent', 0)
+
+        if usage_percent > 90:
+            metrics['recommendations'].append({
+                'level': 'critical',
+                'message': f'Critical pool usage ({usage_percent:.1f}%). Increase max_size immediately.'
+            })
+        elif usage_percent > 70:
+            metrics['recommendations'].append({
+                'level': 'warning',
+                'message': f'High pool usage ({usage_percent:.1f}%). Consider increasing max_size.'
+            })
+
+        if pool_stats.get('wait_queue', 0) > 5:
+            metrics['recommendations'].append({
+                'level': 'warning',
+                'message': f"{pool_stats['wait_queue']} connections waiting. Pool may be exhausted."
+            })
+
+        if pool_stats['free'] == 0:
+            metrics['recommendations'].append({
+                'level': 'critical',
+                'message': 'No free connections available. System may experience delays.'
+            })
+
+        if not metrics['recommendations']:
+            metrics['recommendations'].append({
+                'level': 'info',
+                'message': 'Connection pool operating normally.'
+            })
+
+        return metrics
+
+    # ==================== Database Operations ====================
 
     @asynccontextmanager
     async def get_connection(self):
@@ -298,6 +460,81 @@ class MySQLConnector:
             WHERE task_id = %s
         """
         await self.execute(query, tuple(params))
+
+    async def batch_update_tasks(self, task_updates: List[Dict[str, Any]]) -> int:
+        """
+        Batch update multiple tasks efficiently using INSERT ... ON DUPLICATE KEY UPDATE.
+        This reduces database round trips from N updates to 1.
+
+        Args:
+            task_updates: List of task dictionaries with task_id and fields to update
+
+        Returns:
+            Number of rows affected
+        """
+        if not task_updates:
+            return 0
+
+        # Build values for INSERT
+        values = []
+        params = []
+
+        for task in task_updates:
+            # Required field
+            task_id = task.get('task_id')
+            if not task_id:
+                continue
+
+            # Prepare values for this task (all fields needed for INSERT)
+            values.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+            params.extend([
+                task_id,
+                task.get('session_id', ''),  # Required for INSERT
+                task.get('status', 'pending'),
+                task.get('result'),
+                task.get('confidence'),
+                task.get('token_count'),
+                task.get('cost'),
+                task.get('llm_model'),
+                task.get('error_message'),
+                task.get('retry_count'),
+                task.get('duration_ms'),
+                task.get('is_final', False),
+                task.get('start_time'),  # started_at
+                task.get('end_time')     # completed_at
+            ])
+
+        if not values:
+            return 0
+
+        # Build the batch update query
+        query = f"""
+            INSERT INTO translation_tasks (
+                task_id, session_id, status, result, confidence,
+                token_count, cost, llm_model, error_message,
+                retry_count, duration_ms, is_final, started_at, completed_at
+            )
+            VALUES {', '.join(values)}
+            ON DUPLICATE KEY UPDATE
+                status = COALESCE(VALUES(status), status),
+                result = COALESCE(VALUES(result), result),
+                confidence = COALESCE(VALUES(confidence), confidence),
+                token_count = COALESCE(VALUES(token_count), token_count),
+                cost = COALESCE(VALUES(cost), cost),
+                llm_model = COALESCE(VALUES(llm_model), llm_model),
+                error_message = COALESCE(VALUES(error_message), error_message),
+                retry_count = COALESCE(VALUES(retry_count), retry_count),
+                duration_ms = COALESCE(VALUES(duration_ms), duration_ms),
+                is_final = COALESCE(VALUES(is_final), is_final),
+                started_at = COALESCE(VALUES(started_at), started_at),
+                completed_at = COALESCE(VALUES(completed_at), completed_at)
+        """
+
+        async with self.transaction() as cursor:
+            await cursor.execute(query, params)
+            affected = cursor.rowcount
+            self.logger.debug(f"Batch updated {affected} tasks")
+            return affected
 
     async def get_tasks_by_session(self, session_id: str, 
                                    status: str = None) -> List[Dict[str, Any]]:
