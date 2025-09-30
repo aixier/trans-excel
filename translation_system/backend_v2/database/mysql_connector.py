@@ -248,6 +248,94 @@ class MySQLConnector:
                 yield cursor
 
     @asynccontextmanager
+    async def get_healthy_connection(self, retry_count: int = 3, retry_delay: float = 1.0):
+        """
+        Get a healthy connection from the pool with automatic retry and recovery.
+
+        Args:
+            retry_count: Number of retry attempts
+            retry_delay: Base delay between retries (uses exponential backoff)
+
+        Yields:
+            Database cursor
+
+        Raises:
+            Exception: If all retry attempts fail
+        """
+        last_error = None
+
+        for attempt in range(retry_count):
+            try:
+                if not self._initialized:
+                    await self.initialize()
+
+                # Try to acquire connection with timeout
+                async with asyncio.timeout(10):  # 10 second timeout
+                    async with self.pool.acquire() as conn:
+                        # Test connection health with ping
+                        await conn.ping()
+
+                        async with conn.cursor() as cursor:
+                            # Test with simple query
+                            await cursor.execute("SELECT 1")
+                            await cursor.fetchone()
+
+                            # Connection is healthy, yield it
+                            yield cursor
+                            return
+
+            except (aiomysql.OperationalError, aiomysql.InterfaceError, asyncio.TimeoutError) as e:
+                last_error = e
+                self.logger.warning(
+                    f"Connection attempt {attempt + 1}/{retry_count} failed: {e.__class__.__name__}: {e}"
+                )
+
+                if attempt < retry_count - 1:
+                    # Exponential backoff
+                    delay = retry_delay * (2 ** attempt)
+                    await asyncio.sleep(delay)
+
+                    # On connection errors, try to reinitialize the pool
+                    if "Lost connection" in str(e) or "Can't connect" in str(e):
+                        self.logger.info("Attempting to reinitialize connection pool...")
+                        await self.reinitialize_pool()
+
+            except Exception as e:
+                # For other exceptions, raise immediately
+                self.logger.error(f"Unexpected error getting connection: {e}")
+                raise
+
+        # All retries failed
+        self.logger.error(f"Failed to get healthy connection after {retry_count} attempts")
+        raise last_error or Exception("Failed to get healthy connection")
+
+    async def reinitialize_pool(self):
+        """
+        Reinitialize the connection pool.
+        This is useful when connections have been lost or the pool is corrupted.
+        """
+        try:
+            # Close existing pool if any
+            if self.pool:
+                self.logger.info("Closing existing connection pool...")
+                self.pool.close()
+                await self.pool.wait_closed()
+                self._initialized = False
+
+            # Wait a moment before recreating
+            await asyncio.sleep(1)
+
+            # Create new pool
+            self.logger.info("Creating new connection pool...")
+            await self.initialize()
+            self.logger.info("Connection pool reinitialized successfully")
+
+        except Exception as e:
+            self.logger.error(f"Failed to reinitialize connection pool: {e}")
+            self._initialized = False
+            raise
+
+    @asynccontextmanager
     async def transaction(self):
         """Execute operations in a transaction."""
         if not self._initialized:
@@ -343,7 +431,7 @@ class MySQLConnector:
             Session ID
         """
         query = """
-            INSERT INTO translation_sessions 
+            INSERT INTO translation_sessions
             (session_id, filename, file_path, status, game_info, llm_provider, metadata)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
@@ -357,6 +445,53 @@ class MySQLConnector:
             json.dumps(session_data.get('metadata', {}))
         )
         await self.execute(query, params)
+        return session_data['session_id']
+
+    async def create_session_idempotent(self, session_data: Dict[str, Any]) -> str:
+        """
+        Idempotently create a translation session using INSERT ... ON DUPLICATE KEY UPDATE.
+        This ensures the operation can be safely retried without errors.
+
+        Args:
+            session_data: Session data
+
+        Returns:
+            Session ID
+        """
+        # Using new MySQL 8.0.19+ syntax for single-row INSERT
+        query = """
+            INSERT INTO translation_sessions
+            (session_id, filename, file_path, status, game_info, llm_provider, metadata,
+             total_tasks, completed_tasks, failed_tasks, processing_tasks)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) AS new
+            ON DUPLICATE KEY UPDATE
+                updated_at = CURRENT_TIMESTAMP,
+                -- Only update status if current status is 'failed' or 'error'
+                status = IF(status IN ('failed', 'error'), new.status, status),
+                -- Update counts only if they're greater
+                total_tasks = IF(new.total_tasks > total_tasks, new.total_tasks, total_tasks),
+                completed_tasks = GREATEST(completed_tasks, new.completed_tasks),
+                failed_tasks = GREATEST(failed_tasks, new.failed_tasks),
+                processing_tasks = new.processing_tasks
+        """
+        params = (
+            session_data['session_id'],
+            session_data['filename'],
+            session_data.get('file_path', ''),
+            session_data.get('status', 'created'),
+            json.dumps(session_data.get('game_info', {})),
+            session_data.get('llm_provider', ''),
+            json.dumps(session_data.get('metadata', {})),
+            session_data.get('total_tasks', 0),
+            session_data.get('completed_tasks', 0),
+            session_data.get('failed_tasks', 0),
+            session_data.get('processing_tasks', 0)
+        )
+
+        async with self.transaction() as cursor:
+            await cursor.execute(query, params)
+            self.logger.debug(f"Session {session_data['session_id']} created/updated (idempotent)")
+
         return session_data['session_id']
 
     async def update_session(self, session_id: str, updates: Dict[str, Any]):
@@ -425,6 +560,50 @@ class MySQLConnector:
             params_list.append(params)
 
         await self.execute_many(query, params_list)
+
+    async def insert_tasks_idempotent(self, tasks: List[Dict[str, Any]]):
+        """
+        Idempotently bulk insert translation tasks using INSERT IGNORE.
+        Tasks with duplicate task_id will be silently skipped.
+
+        Args:
+            tasks: List of task dictionaries
+        """
+        if not tasks:
+            return
+
+        query = """
+            INSERT IGNORE INTO translation_tasks (
+                task_id, session_id, batch_id, group_id, sheet_name,
+                row_index, col_index, source_text, source_lang, target_lang,
+                source_context, status
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """
+
+        params_list = []
+        for task in tasks:
+            params = (
+                task['task_id'],
+                task['session_id'],
+                task.get('batch_id', ''),
+                task.get('group_id', ''),
+                task.get('sheet_name', ''),
+                task.get('row', 0),
+                task.get('col', 0),
+                task['source_text'],
+                task.get('source_lang', 'CH'),
+                task.get('target_lang', 'PT'),
+                task.get('source_context', ''),
+                task.get('status', 'pending')
+            )
+            params_list.append(params)
+
+        async with self.transaction() as cursor:
+            await cursor.executemany(query, params_list)
+            affected = cursor.rowcount
+            self.logger.debug(f"Inserted {affected} new tasks (idempotent, {len(tasks) - affected} already existed)")
 
     async def update_task(self, task_id: str, updates: Dict[str, Any]):
         """Update a single task."""
@@ -508,6 +687,9 @@ class MySQLConnector:
             return 0
 
         # Build the batch update query
+        # Note: Using VALUES() function which is deprecated in MySQL 8.0.20+
+        # but still works. The new ROW alias syntax doesn't support multiple VALUES rows easily.
+        # TODO: Consider refactoring to use single-row inserts or temporary tables when VALUES() is removed
         query = f"""
             INSERT INTO translation_tasks (
                 task_id, session_id, status, result, confidence,
@@ -568,9 +750,22 @@ class MySQLConnector:
 
     # Statistics methods
     async def update_session_statistics(self, session_id: str):
-        """Update session statistics using stored procedure."""
-        async with self.get_connection() as cursor:
-            await cursor.callproc('UpdateSessionStatistics', (session_id,))
+        """
+        Update session statistics based on task counts.
+        This replaces the stored procedure with Python code for better compatibility.
+        """
+        query = """
+            UPDATE translation_sessions s
+            SET
+                s.total_tasks = (SELECT COUNT(*) FROM translation_tasks WHERE session_id = %s),
+                s.completed_tasks = (SELECT COUNT(*) FROM translation_tasks WHERE session_id = %s AND status = 'completed'),
+                s.failed_tasks = (SELECT COUNT(*) FROM translation_tasks WHERE session_id = %s AND status = 'failed'),
+                s.processing_tasks = (SELECT COUNT(*) FROM translation_tasks WHERE session_id = %s AND status = 'processing'),
+                s.updated_at = CURRENT_TIMESTAMP
+            WHERE s.session_id = %s
+        """
+        params = (session_id, session_id, session_id, session_id, session_id)
+        await self.execute(query, params)
 
     async def get_session_progress(self, session_id: str) -> Dict[str, Any]:
         """Get detailed session progress."""

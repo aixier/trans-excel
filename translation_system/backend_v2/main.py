@@ -13,6 +13,7 @@ from api.log_api import router as log_router
 from api.resume_api import router as resume_router
 from api.websocket_api import router as websocket_router
 from api.pool_monitor_api import router as pool_monitor_router
+from api.database_api import router as database_router
 from utils.config_manager import config_manager
 from services.monitor.performance_monitor import performance_monitor
 from services.logging.log_persister import log_persister
@@ -58,6 +59,7 @@ app.include_router(log_router)
 app.include_router(resume_router)
 app.include_router(websocket_router)
 app.include_router(pool_monitor_router)
+app.include_router(database_router)
 
 
 # HTTP request logging middleware disabled for performance

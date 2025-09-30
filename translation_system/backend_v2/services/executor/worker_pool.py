@@ -316,6 +316,13 @@ class WorkerPool:
             if all(worker.done() for worker in self.active_workers):
                 self.status = ExecutionStatus.COMPLETED
                 self.statistics['end_time'] = datetime.now()
+
+                # Log final progress (100%)
+                final_status = self.get_status()
+                self.logger.info(
+                    f"Progress: {final_status['completion_rate']:.1f}% "
+                    f"({final_status['progress']['completed']}/{final_status['progress']['total']})"
+                )
                 self.logger.info("Execution completed")
                 break
 

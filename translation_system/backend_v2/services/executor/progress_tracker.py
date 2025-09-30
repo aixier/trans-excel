@@ -179,11 +179,15 @@ class ProgressTracker:
         # Initial cache update
         await self._update_progress_cache(session_id)
 
-        # Start periodic updates
-        asyncio.create_task(self._periodic_update(session_id))
+        # Start periodic updates with proper error handling
+        task = asyncio.create_task(self._periodic_update(session_id))
+        task.add_done_callback(lambda t: self._handle_monitor_completion(session_id, t))
 
     async def _periodic_update(self, session_id: str):
         """Periodically update progress cache."""
+        completion_check_count = 0
+        max_completion_checks = 3  # Check completion status multiple times
+
         while True:
             try:
                 await asyncio.sleep(2)  # Update every 2 seconds
@@ -193,23 +197,85 @@ class ProgressTracker:
                 if not task_manager or task_manager.df is None:
                     break
 
+                # Regular update
+                await self._update_progress_cache(session_id)
+
                 # Check if all tasks are completed
                 df = task_manager.df
                 pending = len(df[df['status'] == TaskStatus.PENDING])
                 processing = len(df[df['status'] == TaskStatus.PROCESSING])
+                total = len(df)
+                completed = len(df[df['status'] == TaskStatus.COMPLETED])
 
-                if pending == 0 and processing == 0:
-                    # All tasks completed
-                    await self._update_progress_cache(session_id)
+                if pending == 0 and processing == 0 and total > 0:
+                    # Tasks appear to be complete, double-check
+                    completion_check_count += 1
+
+                    # Force update with 100% completion
+                    self.progress_cache[session_id]['completion_rate'] = 100.0
+                    self.progress_cache[session_id]['pending'] = 0
+                    self.progress_cache[session_id]['processing'] = 0
+
+                    # Send update
                     await self._trigger_callbacks(session_id)
-                    break
 
-                # Regular update
-                await self._update_progress_cache(session_id)
+                    self.logger.info(
+                        f"Session {session_id} completed - 100% progress sent "
+                        f"(check {completion_check_count}/{max_completion_checks})"
+                    )
+
+                    # Continue checking a few more times to ensure client receives it
+                    if completion_check_count >= max_completion_checks:
+                        break
+
+                    # Wait a bit longer before next check
+                    await asyncio.sleep(1)
+                else:
+                    # Reset completion check if tasks are still running
+                    completion_check_count = 0
 
             except Exception as e:
                 self.logger.error(f"Periodic update failed: {e}")
                 break
+
+    def _handle_monitor_completion(self, session_id: str, task: asyncio.Task):
+        """
+        Handle completion of monitoring task.
+
+        Args:
+            session_id: Session ID
+            task: The completed task
+        """
+        try:
+            task.result()  # This will raise any exception that occurred
+            self.logger.info(f"Progress monitoring for {session_id} completed normally")
+        except asyncio.CancelledError:
+            self.logger.info(f"Progress monitoring for {session_id} was cancelled")
+        except Exception as e:
+            self.logger.error(f"Progress monitoring for {session_id} failed: {e}")
+
+    async def send_completion_notification(self, session_id: str):
+        """
+        Send explicit completion notification with 100% progress.
+
+        Args:
+            session_id: Session ID
+        """
+        try:
+            # Force update progress cache to ensure 100%
+            await self._update_progress_cache(session_id)
+
+            # Ensure progress shows 100%
+            if session_id in self.progress_cache:
+                self.progress_cache[session_id]['completion_rate'] = 100.0
+
+            # Send final update
+            await self._trigger_callbacks(session_id)
+
+            self.logger.info(f"Sent completion notification for session {session_id}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to send completion notification: {e}")
 
     def clear_cache(self, session_id: str):
         """

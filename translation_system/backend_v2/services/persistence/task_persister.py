@@ -169,9 +169,9 @@ class TaskPersister:
                     # Task unchanged
                     stats['unchanged_tasks'] += 1
 
-            # Persist new tasks
+            # Persist new tasks using idempotent insert
             if new_tasks:
-                await mysql_connector.insert_tasks(new_tasks)
+                await mysql_connector.insert_tasks_idempotent(new_tasks)
                 self.logger.debug(f"Inserted {len(new_tasks)} new tasks for session {session_id}")
 
             # Batch update existing tasks (optimized from individual updates)
@@ -226,16 +226,12 @@ class TaskPersister:
     async def _ensure_session_exists(self, session_id: str):
         """
         Ensure session record exists in database before persisting tasks.
-        This is required for foreign key constraints.
+        Uses idempotent creation to handle retries and concurrent attempts.
 
         Args:
             session_id: Session ID
         """
         try:
-            # Check if session already exists in our tracking
-            if session_id in self.session_created:
-                return
-
             # Get session info from memory
             session_data = session_manager.get_session(session_id)
             task_manager = session_manager.get_task_manager(session_id)
@@ -244,11 +240,10 @@ class TaskPersister:
                 self.logger.warning(f"Session data not found in memory for {session_id}")
                 return
 
-            # Create session record in database
+            # Prepare session data dict
             filename = getattr(session_data, 'filename', 'unknown.xlsx')
             total_tasks = len(task_manager.df) if task_manager.df is not None else 0
 
-            # Prepare session data dict
             session_dict = {
                 'session_id': session_id,
                 'filename': filename,
@@ -258,27 +253,24 @@ class TaskPersister:
                 'completed_tasks': 0,
                 'failed_tasks': 0,
                 'processing_tasks': 0,
-                'llm_provider': '',
-                'game_info': {},
-                'metadata': {}
+                'llm_provider': getattr(session_data, 'llm_provider', ''),
+                'game_info': getattr(session_data, 'game_info', {}),
+                'metadata': getattr(session_data, 'metadata', {})
             }
 
-            await mysql_connector.create_session(session_dict)
+            # Use idempotent creation - safe for retries and concurrent calls
+            await mysql_connector.create_session_idempotent(session_dict)
 
-            # Mark as created
+            # Mark as created (this is just a cache optimization)
             self.session_created.add(session_id)
-            self.logger.info(f"Created session record for {session_id}")
+            self.logger.debug(f"Session record ensured for {session_id}")
 
         except Exception as e:
-            # If session already exists (duplicate key), that's OK
-            if 'Duplicate entry' in str(e) or '1062' in str(e):
-                self.session_created.add(session_id)
-                self.logger.debug(f"Session {session_id} already exists in database")
-            else:
-                # Critical error - cannot persist tasks without session record
-                self.logger.error(f"Failed to create session record: {e}")
-                # Re-raise to prevent task persistence from continuing
-                raise RuntimeError(f"Cannot persist tasks: session record creation failed - {e}")
+            # Don't add to session_created set on failure
+            self.session_created.discard(session_id)
+            self.logger.error(f"Failed to ensure session exists: {e}")
+            # Re-raise to prevent task persistence from continuing
+            raise RuntimeError(f"Cannot persist tasks: session record creation failed - {e}")
 
     def _calculate_task_version(self, task: Dict[str, Any]) -> int:
         """

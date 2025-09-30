@@ -64,6 +64,15 @@ async def start_execution(request: ExecuteRequest):
         if result['status'] == 'error':
             raise HTTPException(status_code=400, detail=result['message'])
 
+        # Start progress monitoring for WebSocket updates
+        try:
+            from services.executor.progress_tracker import progress_tracker
+            await progress_tracker.start_progress_monitoring(request.session_id)
+            logger.info(f"Started progress monitoring for session {request.session_id}")
+        except Exception as e:
+            logger.warning(f"Failed to start progress monitoring: {e}")
+            # Don't fail the execution if monitoring fails
+
         # Start auto-persistence for this session
         try:
             await task_persister.start_auto_persist(request.session_id)

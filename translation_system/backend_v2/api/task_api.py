@@ -54,6 +54,12 @@ class TaskPreview(BaseModel):
 async def _perform_split_async(session_id: str, source_lang: Optional[str], target_langs: List[str], extract_context: bool = True, context_options: Optional[Dict[str, bool]] = None):
     """Background task to perform the actual splitting."""
     try:
+        logger.info(f"========== 开始任务拆分 ==========")
+        logger.info(f"Session ID: {session_id}")
+        logger.info(f"源语言: {source_lang or 'auto-detect'}")
+        logger.info(f"目标语言: {target_langs}")
+        logger.info(f"上下文提取: {extract_context}")
+
         # Update progress
         splitting_progress[session_id] = {
             'status': 'processing',
@@ -62,6 +68,7 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
             'total_sheets': 0,
             'processed_sheets': 0
         }
+        logger.info(f"初始化进度: {splitting_progress[session_id]}")
 
         # Get session data
         excel_df = session_manager.get_excel_df(session_id)
@@ -91,11 +98,13 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
         task_counter = 0
 
         for idx, sheet_name in enumerate(sheet_names, 1):
+            progress_percent = 10 + (idx / total_sheets) * 70
             splitting_progress[session_id].update({
                 'processed_sheets': idx,
-                'progress': 10 + (idx / total_sheets) * 70,  # 10-80%
+                'progress': progress_percent,
                 'message': f'正在处理表格: {sheet_name} ({idx}/{total_sheets})'
             })
+            logger.info(f"处理表格 {idx}/{total_sheets}: {sheet_name}, 进度: {progress_percent:.1f}%")
 
             sheet_tasks = splitter._process_sheet(
                 sheet_name,
@@ -110,23 +119,29 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
             await asyncio.sleep(0.01)
 
         # Allocate batches
+        logger.info(f"拆分完成，共生成 {len(all_tasks)} 个任务，开始分配批次...")
         splitting_progress[session_id].update({
             'progress': 85,
             'message': f'分配批次... (共 {len(all_tasks)} 个任务)'
         })
         all_tasks = splitter.batch_allocator.allocate_batches(all_tasks)
+        logger.info(f"批次分配完成")
 
         # Create DataFrame
         splitting_progress[session_id].update({
             'progress': 90,
             'message': '创建任务数据表...'
         })
+        logger.info("开始创建任务DataFrame...")
 
         for task in all_tasks:
             splitter.task_manager.add_task(task)
 
+        logger.info(f"任务DataFrame创建完成，共 {len(all_tasks)} 个任务")
+
         # Store task manager in session
         session_manager.set_task_manager(session_id, splitter.task_manager)
+        logger.info(f"Task manager已保存到session: {session_id}")
 
         # Get statistics
         stats = splitter.task_manager.get_statistics()
@@ -166,9 +181,15 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
             'type_batch_distribution': type_batch_counts,
             'statistics': stats
         }
+        logger.info(f"========== 任务拆分完成 ==========")
+        logger.info(f"总任务数: {stats['total']}")
+        logger.info(f"批次数: {batch_stats['total_batches']}")
+        logger.info(f"任务类型分布: {type_batch_counts}")
+        logger.info(f"最终进度: {splitting_progress[session_id]}")
 
     except Exception as e:
-        logger.error(f"Error in async split: {e}", exc_info=True)
+        logger.error(f"========== 任务拆分失败 ==========")
+        logger.error(f"错误: {e}", exc_info=True)
         splitting_progress[session_id] = {
             'status': 'failed',
             'progress': 0,
