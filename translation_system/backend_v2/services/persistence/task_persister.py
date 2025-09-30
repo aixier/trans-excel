@@ -170,11 +170,14 @@ class TaskPersister:
                 await mysql_connector.insert_tasks(new_tasks)
                 self.logger.debug(f"Inserted {len(new_tasks)} new tasks for session {session_id}")
 
-            # Update existing tasks
-            for task in updated_tasks:
-                await mysql_connector.update_task(
-                    task['task_id'],
-                    {
+            # Batch update existing tasks (optimized from individual updates)
+            if updated_tasks:
+                # Prepare batch updates with session_id
+                batch_updates = []
+                for task in updated_tasks:
+                    update_dict = {
+                        'task_id': task['task_id'],
+                        'session_id': session_id,  # Add session_id for batch update
                         'status': task.get('status'),
                         'result': task.get('result'),
                         'confidence': task.get('confidence'),
@@ -188,7 +191,11 @@ class TaskPersister:
                         'start_time': task.get('start_time'),
                         'end_time': task.get('end_time')
                     }
-                )
+                    batch_updates.append(update_dict)
+
+                # Execute batch update in a single query
+                affected = await mysql_connector.batch_update_tasks(batch_updates)
+                self.logger.debug(f"Batch updated {affected} tasks for session {session_id}")
 
             # Update session statistics
             await self._update_session_stats(session_id, df)

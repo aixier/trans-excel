@@ -210,7 +210,7 @@ class LogPersister:
                 self.logger.error(f"Error in flush loop: {e}")
 
     async def flush_logs(self):
-        """Flush buffered logs to file and database."""
+        """Flush buffered logs to file only (database write disabled for performance)."""
         if not self.log_buffer:
             return
 
@@ -222,11 +222,11 @@ class LogPersister:
         if not logs_to_process:
             return
 
-        # Write to files
+        # Write to files only (removed database write for performance)
         await self._write_to_files(logs_to_process)
 
-        # Write to database
-        await self._write_to_database(logs_to_process)
+        # Database write disabled - logs are available in files
+        # await self._write_to_database(logs_to_process)  # DISABLED
 
         self.stats['last_flush'] = datetime.now().isoformat()
         self.logger.debug(f"Flushed {len(logs_to_process)} log entries")

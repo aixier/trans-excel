@@ -5,6 +5,7 @@ from typing import Optional, List
 import pandas as pd
 
 from services.executor.worker_pool import worker_pool
+from services.monitor.performance_monitor import performance_monitor
 from utils.session_manager import session_manager
 from utils.json_converter import convert_numpy_types
 from models.task_dataframe import TaskStatus
@@ -267,3 +268,30 @@ async def get_execution_summary(session_id: str):
             }
 
     return convert_numpy_types(summary)
+
+
+@router.get("/performance")
+async def get_performance_metrics(session_id: Optional[str] = None, hours: int = 1):
+    """
+    Get system performance metrics.
+
+    Args:
+        session_id: Specific session ID (optional)
+        hours: Hours of historical data to retrieve
+
+    Returns:
+        Performance metrics
+    """
+    try:
+        # Get current metrics
+        current = performance_monitor.get_current_metrics()
+
+        # Get historical metrics
+        historical = performance_monitor.get_historical_metrics(session_id, hours)
+
+        return convert_numpy_types({
+            'current': current,
+            'historical': historical
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get performance metrics: {str(e)}")

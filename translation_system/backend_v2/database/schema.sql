@@ -1,8 +1,9 @@
 -- Translation System Database Schema
 -- MySQL database schema for translation task persistence
 
-CREATE DATABASE IF NOT EXISTS translation_system;
-USE translation_system;
+-- Using existing ai_terminal database
+-- CREATE DATABASE IF NOT EXISTS ai_terminal;
+USE ai_terminal;
 
 -- Translation sessions table
 CREATE TABLE IF NOT EXISTS translation_sessions (
