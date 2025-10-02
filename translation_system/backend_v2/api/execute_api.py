@@ -8,15 +8,8 @@ import logging
 
 from services.executor.worker_pool import worker_pool
 from services.llm.llm_factory import LLMFactory
-# 禁用持久化服务 - 改为纯内存运行
-# from services.persistence.task_persister import task_persister
-# from services.persistence.checkpoint_service import CheckpointService
 from utils.session_manager import session_manager
 from utils.config_manager import config_manager
-
-# 禁用持久化服务 - 改为纯内存运行
-# Initialize checkpoint service
-# checkpoint_service = CheckpointService()
 
 router = APIRouter(prefix="/api/execute", tags=["execute"])
 logger = logging.getLogger(__name__)
@@ -75,15 +68,6 @@ async def start_execution(request: ExecuteRequest):
             logger.warning(f"Failed to start progress monitoring: {e}")
             # Don't fail the execution if monitoring fails
 
-        # 禁用持久化服务 - 改为纯内存运行
-        # Start auto-persistence for this session
-        # try:
-        #     await task_persister.start_auto_persist(request.session_id)
-        #     logger.info(f"Started auto-persistence for session {request.session_id}")
-        # except Exception as e:
-        #     logger.warning(f"Failed to start auto-persistence: {e}")
-        #     # Don't fail the execution if persistence fails
-
         logger.info(f"Started execution for session {request.session_id} (memory-only mode)")
         return result
 
@@ -115,22 +99,6 @@ async def stop_execution(session_id: str):
 
     if result['status'] == 'error':
         raise HTTPException(status_code=400, detail=result['message'])
-
-    # 禁用持久化服务 - 改为纯内存运行
-    # Stop auto-persistence
-    # try:
-    #     await task_persister.stop_auto_persist(session_id)
-    #     logger.info(f"Stopped auto-persistence for session {session_id}")
-    # except Exception as e:
-    #     logger.warning(f"Failed to stop auto-persistence: {e}")
-
-    # 禁用持久化服务 - 改为纯内存运行
-    # Create final checkpoint before stopping
-    # try:
-    #     checkpoint_info = await checkpoint_service.save_checkpoint(session_id, 'manual')
-    #     logger.info(f"Created final checkpoint: {checkpoint_info['checkpoint_id']}")
-    # except Exception as e:
-    #     logger.warning(f"Failed to create final checkpoint: {e}")
 
     logger.info(f"Stopped execution for session {session_id} (memory-only mode)")
     return result
@@ -213,50 +181,6 @@ async def get_execution_status(session_id: str):
         'session_id': session_id,
         'message': 'No active execution for this session'
     }
-
-
-# 禁用持久化服务 - 改为纯内存运行
-# @router.post("/checkpoint/{session_id}")
-# async def create_checkpoint(session_id: str, checkpoint_type: str = "manual"):
-#     """
-#     Create a checkpoint for the session.
-#
-#     Args:
-#         session_id: Session ID
-#         checkpoint_type: Type of checkpoint (manual, auto, error)
-#
-#     Returns:
-#         Checkpoint information
-#     """
-#     try:
-#         checkpoint_info = await checkpoint_service.save_checkpoint(session_id, checkpoint_type)
-#         logger.info(f"Created {checkpoint_type} checkpoint for session {session_id}")
-#         return checkpoint_info
-#     except Exception as e:
-#         logger.error(f"Failed to create checkpoint: {e}")
-#         raise HTTPException(status_code=500, detail=f"Failed to create checkpoint: {str(e)}")
-
-
-# 禁用持久化服务 - 改为纯内存运行
-# @router.post("/checkpoint/restore/{session_id}")
-# async def restore_checkpoint(session_id: str, checkpoint_id: Optional[str] = None):
-#     """
-#     Restore from a checkpoint.
-#
-#     Args:
-#         session_id: Session ID
-#         checkpoint_id: Specific checkpoint ID (latest if None)
-#
-#     Returns:
-#         Restore information
-#     """
-#     try:
-#         restore_info = await checkpoint_service.restore_checkpoint(session_id, checkpoint_id)
-#         logger.info(f"Restored checkpoint for session {session_id}")
-#         return restore_info
-#     except Exception as e:
-#         logger.error(f"Failed to restore checkpoint: {e}")
-#         raise HTTPException(status_code=500, detail=f"Failed to restore checkpoint: {str(e)}")
 
 
 @router.get("/config")

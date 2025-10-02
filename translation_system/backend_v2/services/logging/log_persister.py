@@ -12,9 +12,6 @@ from collections import deque
 import threading
 from logging.handlers import RotatingFileHandler
 
-# 禁用持久化服务 - 改为纯内存运行
-# from database.mysql_connector import mysql_connector
-
 
 @dataclass
 class LogEntry:
@@ -223,11 +220,8 @@ class LogPersister:
         if not logs_to_process:
             return
 
-        # Write to files only (removed database write for performance)
+        # Write to files only (database write disabled for memory-only mode)
         await self._write_to_files(logs_to_process)
-
-        # Database write disabled - logs are available in files
-        # await self._write_to_database(logs_to_process)  # DISABLED
 
         self.stats['last_flush'] = datetime.now().isoformat()
         self.logger.debug(f"Flushed {len(logs_to_process)} log entries")
@@ -288,34 +282,7 @@ class LogPersister:
 
     async def _write_to_database(self, logs: List[LogEntry]):
         """Write logs to database in batches (disabled for memory-only mode)."""
-        # 禁用持久化服务 - 改为纯内存运行
-        # 只写文件，不写数据库
         pass
-
-        # try:
-        #     # Process logs in batches
-        #     for i in range(0, len(logs), self.batch_size):
-        #         batch = logs[i:i + self.batch_size]
-        #
-        #         for log_entry in batch:
-        #             try:
-        #                 await mysql_connector.log_execution(
-        #                     session_id=log_entry.session_id,
-        #                     level=log_entry.level,
-        #                     message=log_entry.message,
-        #                     details=log_entry.details,
-        #                     component=log_entry.component
-        #                 )
-        #             except Exception as e:
-        #                 self.logger.warning(f"Failed to write log to database: {e}")
-        #                 self.stats['db_errors'] += 1
-        #                 continue
-        #
-        #     self.stats['logs_to_db'] += len(logs)
-        #
-        # except Exception as e:
-        #     self.stats['db_errors'] += 1
-        #     self.logger.error(f"Failed to write logs to database: {e}")
 
     async def query_logs(
         self,
@@ -451,15 +418,6 @@ class LogPersister:
 
             if cleanup_count > 0:
                 self.logger.info(f"Cleaned up {cleanup_count} old log files")
-
-            # Also cleanup database logs if configured
-            try:
-                await mysql_connector.execute(
-                    "DELETE FROM execution_logs WHERE timestamp < %s",
-                    (current_time - timedelta(days=days_old),)
-                )
-            except Exception as e:
-                self.logger.warning(f"Failed to cleanup old database logs: {e}")
 
         except Exception as e:
             self.logger.error(f"Failed to cleanup old logs: {e}")

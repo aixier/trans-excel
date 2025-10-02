@@ -10,8 +10,6 @@ from datetime import datetime
 import pandas as pd
 import aiofiles
 
-# 禁用持久化服务 - 改为纯内存运行
-# from database.mysql_connector import mysql_connector
 from models.task_dataframe import TaskDataFrameManager
 from models.excel_dataframe import ExcelDataFrame
 from utils.session_manager import session_manager
@@ -109,17 +107,6 @@ class CheckpointService:
             metadata_path = checkpoint_path / "metadata.json"
             async with aiofiles.open(metadata_path, 'w') as f:
                 await f.write(json.dumps(metadata, indent=2))
-
-            # 禁用持久化服务 - 改为纯内存运行
-            # Save to database
-            # await self._save_checkpoint_to_db(
-            #     session_id,
-            #     checkpoint_type,
-            #     str(task_df_path),
-            #     str(excel_df_path) if excel_df_path else None,
-            #     progress_data,
-            #     metadata
-            # )
 
             duration = (datetime.now() - start_time).total_seconds()
             self.logger.info(
@@ -229,47 +216,6 @@ class CheckpointService:
                 return checkpoints[-1]
 
         return None
-
-    async def _save_checkpoint_to_db(
-        self,
-        session_id: str,
-        checkpoint_type: str,
-        task_df_path: str,
-        excel_df_path: Optional[str],
-        progress_data: Dict[str, Any],
-        metadata: Dict[str, Any]
-    ):
-        """
-        Save checkpoint information to database.
-        """
-        try:
-            # Mark previous checkpoints as not latest
-            query = """
-                UPDATE checkpoints 
-                SET is_latest = FALSE 
-                WHERE session_id = %s AND is_latest = TRUE
-            """
-            await mysql_connector.execute(query, (session_id,))
-
-            # Insert new checkpoint
-            query = """
-                INSERT INTO checkpoints (
-                    session_id, checkpoint_type, task_df_path, 
-                    excel_df_path, progress_data, metadata, is_latest
-                ) VALUES (%s, %s, %s, %s, %s, %s, TRUE)
-            """
-            params = (
-                session_id,
-                checkpoint_type,
-                task_df_path,
-                excel_df_path,
-                json.dumps(progress_data),
-                json.dumps(metadata)
-            )
-            await mysql_connector.execute(query, params)
-
-        except Exception as e:
-            self.logger.error(f"Failed to save checkpoint to database: {e}")
 
     async def start_auto_checkpoint(self, session_id: str):
         """
