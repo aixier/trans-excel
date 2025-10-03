@@ -93,6 +93,30 @@ class TaskDataFrameManager:
         # Append to DataFrame
         self.df = pd.concat([self.df, pd.DataFrame([task_data])], ignore_index=True)
 
+    def add_tasks_batch(self, tasks: list[Dict[str, Any]]) -> None:
+        """Add multiple tasks at once (much faster than add_task for large batches)."""
+        if not tasks:
+            return
+
+        if self.df is None:
+            self.df = self.create_empty_dataframe()
+
+        # Set default values for all tasks
+        now = datetime.now()
+        for task_data in tasks:
+            task_data.setdefault('status', TaskStatus.PENDING)
+            task_data.setdefault('priority', 5)
+            task_data.setdefault('retry_count', 0)
+            task_data.setdefault('is_final', False)
+            task_data.setdefault('created_at', now)
+            task_data.setdefault('updated_at', now)
+            task_data.setdefault('confidence', 0.0)
+            task_data.setdefault('char_count', len(task_data.get('source_text', '')))
+
+        # Create DataFrame from all tasks at once
+        new_df = pd.DataFrame(tasks)
+        self.df = pd.concat([self.df, new_df], ignore_index=True)
+
     def update_task(self, task_id: str, updates: Dict[str, Any]) -> None:
         """Update task by task_id."""
         if self.df is None:

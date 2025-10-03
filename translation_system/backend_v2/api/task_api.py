@@ -127,15 +127,15 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
         all_tasks = splitter.batch_allocator.allocate_batches(all_tasks)
         logger.info(f"批次分配完成")
 
-        # Create DataFrame
+        # Create DataFrame (use batch method for performance)
         splitting_progress[session_id].update({
             'progress': 90,
             'message': '创建任务数据表...'
         })
         logger.info("开始创建任务DataFrame...")
 
-        for task in all_tasks:
-            splitter.task_manager.add_task(task)
+        # Use batch add for much better performance
+        splitter.task_manager.add_tasks_batch(all_tasks)
 
         logger.info(f"任务DataFrame创建完成，共 {len(all_tasks)} 个任务")
 

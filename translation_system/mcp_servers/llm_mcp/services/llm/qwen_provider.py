@@ -91,6 +91,17 @@ class QwenProvider(BaseLLMProvider):
                 }
             }
 
+            # Log request
+            logger.info("=" * 80)
+            logger.info(f"🚀 Qwen API Request to: {self.ENDPOINT}")
+            logger.info(f"Model: {self.model}")
+            logger.info(f"Temperature: {temperature}")
+            logger.info("-" * 80)
+            logger.info(f"System Prompt:\n{system_prompt}")
+            logger.info("-" * 80)
+            logger.info(f"User Prompt:\n{user_prompt}")
+            logger.info("=" * 80)
+
             # Make API call
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -100,6 +111,31 @@ class QwenProvider(BaseLLMProvider):
                     timeout=60
                 ) as response:
                     result = await response.json()
+
+                    # Log response
+                    logger.info("=" * 80)
+                    logger.info(f"✅ Qwen API Response (Status: {response.status})")
+                    logger.info(f"Request ID: {result.get('request_id')}")
+                    if response.status == 200:
+                        output = result.get('output', {})
+                        choices = output.get('choices', [])
+                        if choices:
+                            content = choices[0]['message']['content']
+                            logger.info("-" * 80)
+                            logger.info(f"Translated Text (完整):\n{content}")
+                            logger.info("-" * 80)
+                        usage = output.get('usage', {})
+                        logger.info(f"Token使用: input={usage.get('input_tokens')}, output={usage.get('output_tokens')}, total={usage.get('total_tokens')}")
+
+                        # Calculate cost
+                        input_tokens = usage.get('input_tokens', 0)
+                        output_tokens = usage.get('output_tokens', 0)
+                        pricing = self.PRICING.get(self.model, self.PRICING['qwen-plus'])
+                        cost = (input_tokens / 1000 * pricing['input']) + (output_tokens / 1000 * pricing['output'])
+                        logger.info(f"本次费用: ${cost:.6f}")
+                    else:
+                        logger.error(f"Error Response: {json.dumps(result, ensure_ascii=False)}")
+                    logger.info("=" * 80)
 
                     if response.status != 200:
                         error_msg = result.get('message', 'Unknown error')
