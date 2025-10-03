@@ -1,0 +1,57 @@
+# Color Detection Configuration for Task MCP
+
+# Yellow color ranges (for re-translation tasks)
+yellow_colors:
+  # Pure yellow - 纯黄色
+  - name: "Pure Yellow"
+    pattern: "FFFF"  # Contains FFFF in hex
+    rgb_range:
+      r: [200, 255]  # Red: 200-255
+      g: [200, 255]  # Green: 200-255
+      b: [0, 100]    # Blue: 0-100
+
+  # Light yellow - 浅黄色
+  - name: "Light Yellow"
+    rgb_range:
+      r: [250, 255]
+      g: [250, 255]
+      b: [150, 200]
+
+# Blue color ranges (for shortening tasks)
+blue_colors:
+  # Sky blue / Cyan - 天蓝色/青色
+  - name: "Sky Blue"
+    hex_values:
+      - "00B0F0"  # Exact hex match (without FF prefix)
+      - "00B0EF"
+      - "00AFEF"
+    rgb_range:
+      r: [0, 50]      # Red: 0-50
+      g: [150, 200]   # Green: 150-200
+      b: [230, 255]   # Blue: 230-255
+
+  # Pure blue - 纯蓝色
+  - name: "Pure Blue"
+    pattern: "0000FF"  # Contains 0000FF
+    rgb_range:
+      r: [0, 50]
+      g: [0, 50]
+      b: [200, 255]
+
+  # Light blue - 浅蓝色
+  - name: "Light Blue"
+    rgb_range:
+      r: [100, 200]
+      g: [150, 220]
+      b: [220, 255]
+
+# Fallback detection (if config fails)
+fallback:
+  yellow:
+    r_min: 200
+    g_min: 200
+    b_max: 100
+  blue:
+    r_max: 100
+    g_min: 150
+    b_min: 200

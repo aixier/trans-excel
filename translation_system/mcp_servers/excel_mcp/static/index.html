@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel MCP Server - Test Page</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header p { opacity: 0.9; }
+
+        .section {
+            padding: 30px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .section:last-child { border-bottom: none; }
+        .section h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+        }
+        .section h2::before {
+            content: "";
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        .form-group textarea {
+            min-height: 80px;
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .response-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .response-box pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 0;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .status-queued {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .status-processing {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-completed {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e5e7eb;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sheet-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .sheet-item {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sheet-item:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .file-upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 20px;
+        }
+        .file-upload-area:hover {
+            border-color: #667eea;
+            background: #f9fafb;
+        }
+        .file-upload-area.dragover {
+            border-color: #667eea;
+            background: #eff6ff;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .info-box strong {
+            color: #1e40af;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        tr:hover {
+            background: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Excel MCP Server</h1>
+            <p>Test Interface for Excel Analysis and Processing</p>
+        </div>
+
+        <!-- Section 1: Configuration -->
+        <div class="section">
+            <h2>⚙️ Configuration</h2>
+            <div class="form-group">
+                <label>Token:</label>
+                <textarea id="tokenInput" placeholder="Enter your token here"></textarea>
+            </div>
+            <div class="info-box">
+                <strong>💡 开发测试 Token:</strong> 直接输入 <code>test_token_123</code><br>
+                <strong>📝 说明:</strong> 此 token 在 <code>backend_service/tokens.json</code> 中配置
+            </div>
+        </div>
+
+        <!-- Section 2: Upload/Analyze Excel -->
+        <div class="section">
+            <h2>📤 Step 1: Upload & Analyze Excel</h2>
+
+            <!-- Tab selection -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-secondary" onclick="showTab('url')">📎 Use URL</button>
+                <button class="btn btn-secondary" onclick="showTab('upload')">📁 Upload File</button>
+            </div>
+
+            <!-- URL Tab -->
+            <div id="urlTab" style="display: none;">
+                <div class="form-group">
+                    <label>Excel File URL:</label>
+                    <input type="text" id="fileUrl" placeholder="https://example.com/file.xlsx">
+                </div>
+                <button class="btn btn-primary" onclick="analyzeFromUrl()">🔍 Analyze from URL</button>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="uploadTab" style="display: none;">
+                <div class="file-upload-area" id="dropArea">
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;" onchange="handleFileSelect(event)">
+                    <p style="margin-bottom: 10px;">📁 Drop Excel file here or click to browse</p>
+                    <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">Choose File</button>
+                    <p id="fileName" style="margin-top: 10px; color: #667eea; font-weight: 500;"></p>
+                </div>
+                <button class="btn btn-primary" onclick="analyzeFromUpload()">🔍 Analyze Uploaded File</button>
+            </div>
+
+            <!-- Analysis Options -->
+            <div class="form-group" style="margin-top: 20px;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="detectLanguage" checked style="width: auto; margin-right: 8px;">
+                    Detect Language
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="detectFormats" checked style="width: auto; margin-right: 8px;">
+                    Detect Formats & Colors
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="analyzeColors" checked style="width: auto; margin-right: 8px;">
+                    Analyze Colored Cells
+                </label>
+            </div>
+
+            <!-- Progress -->
+            <div id="analysisProgress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+                </div>
+                <p style="text-align: center; color: #6b7280; font-size: 14px;" id="progressMessage">Processing...</p>
+            </div>
+
+            <!-- Response -->
+            <div class="response-box" id="analyzeResponse"></div>
+        </div>
+
+        <!-- Section 3: Analysis Results -->
+        <div class="section">
+            <h2>📈 Step 2: View Analysis Results</h2>
+
+            <div class="form-group">
+                <label>Session ID:</label>
+                <input type="text" id="sessionId" placeholder="Enter session ID from analysis">
+            </div>
+            <button class="btn btn-primary" onclick="getStatus()">🔄 Get Status</button>
+            <button class="btn btn-secondary" onclick="startPolling()">⏱️ Start Auto-Refresh (2s)</button>
+            <button class="btn btn-secondary" onclick="stopPolling()">⏸️ Stop Auto-Refresh</button>
+
+            <div id="statusDisplay"></div>
+
+            <!-- Statistics Cards -->
+            <div id="statsCards" style="display: none;">
+                <h3 style="margin: 20px 0 10px 0; font-size: 16px; color: #374151;">📊 分析统计：</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statSheets">-</div>
+                        <div class="stat-label">Sheet数量</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statCells">-</div>
+                        <div class="stat-label">总单元格</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statTasks">-</div>
+                        <div class="stat-label">总任务数</div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 20px 0 10px 0; font-size: 16px; color: #374151;">📋 任务类型明细：</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statNormalTasks">-</div>
+                        <div class="stat-label">普通翻译任务</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statYellowTasks">-</div>
+                        <div class="stat-label">黄色重翻任务</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statBlueTasks">-</div>
+                        <div class="stat-label">蓝色缩短任务</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="response-box" id="statusResponse"></div>
+        </div>
+
+        <!-- Section 4: Sheet Operations -->
+        <div class="section">
+            <h2>📋 Step 3: Work with Sheets</h2>
+
+            <button class="btn btn-primary" onclick="getSheets()">📑 Get Sheets List</button>
+
+            <div id="sheetsDisplay" style="display: none;">
+                <h3 style="margin: 20px 0 10px 0; font-size: 16px; color: #374151;">Available Sheets:</h3>
+                <div class="sheet-list" id="sheetsList"></div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <div class="form-group">
+                    <label>Sheet Name:</label>
+                    <input type="text" id="sheetName" placeholder="Enter sheet name to parse">
+                </div>
+                <div class="form-group">
+                    <label>Limit Rows (optional):</label>
+                    <input type="number" id="limitRows" placeholder="e.g., 100" min="1">
+                </div>
+                <button class="btn btn-primary" onclick="parseSheet()">📄 Parse Sheet</button>
+            </div>
+
+            <div class="response-box" id="sheetResponse"></div>
+        </div>
+
+        <!-- Section 5: Data Conversion -->
+        <div class="section">
+            <h2>🔄 Step 4: Convert Data</h2>
+
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-success" onclick="convertToJson()">📦 Convert to JSON</button>
+                <button class="btn btn-success" onclick="convertToCsv()">📄 Convert to CSV</button>
+            </div>
+
+            <div class="form-group">
+                <label>Sheet Name (for conversion):</label>
+                <input type="text" id="convertSheetName" placeholder="Enter sheet name">
+            </div>
+
+            <div class="response-box" id="convertResponse"></div>
+        </div>
+
+        <!-- Section 6: Task Splitting -->
+        <div class="section">
+            <h2>✂️ Step 5: Split into Translation Tasks</h2>
+
+            <div class="form-group">
+                <label>Source Language:</label>
+                <select id="splitSourceLang">
+                    <option value="">Auto-detect</option>
+                    <option value="CH">Chinese (CH)</option>
+                    <option value="EN" selected>English (EN)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Target Languages:</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <label><input type="checkbox" id="lang_TR" value="TR" checked> Turkish (TR)</label>
+                    <label><input type="checkbox" id="lang_TH" value="TH"> Thai (TH)</label>
+                    <label><input type="checkbox" id="lang_PT" value="PT"> Portuguese (PT)</label>
+                    <label><input type="checkbox" id="lang_VN" value="VN"> Vietnamese (VN)</label>
+                    <label><input type="checkbox" id="lang_IND" value="IND"> Indonesian (IND)</label>
+                    <label><input type="checkbox" id="lang_ES" value="ES"> Spanish (ES)</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="extractContext" checked>
+                    Enable Context Extraction (slower but more accurate)
+                </label>
+            </div>
+
+            <button class="btn btn-primary" onclick="splitTasks()">✂️ Split Tasks</button>
+
+            <div id="splitProgress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="splitProgressFill">0%</div>
+                </div>
+            </div>
+
+            <div class="response-box" id="splitResponse"></div>
+        </div>
+
+        <!-- Section 7: View Tasks -->
+        <div class="section">
+            <h2>📋 Step 6: View Task Results</h2>
+
+            <button class="btn btn-primary" onclick="getTasks()">📋 Get Tasks</button>
+            <button class="btn btn-secondary" onclick="getBatches()">📦 Get Batches</button>
+
+            <div class="stats-grid" id="taskStats" style="display: none;"></div>
+            <div class="response-box" id="tasksResponse"></div>
+        </div>
+
+        <!-- Section 8: Export Tasks -->
+        <div class="section">
+            <h2>💾 Step 7: Export Tasks</h2>
+
+            <div class="form-group">
+                <label>Export Format:</label>
+                <select id="exportFormat">
+                    <option value="excel">Excel (.xlsx)</option>
+                    <option value="json">JSON (.json)</option>
+                    <option value="csv">CSV (.csv)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="includeContext" checked>
+                    Include Context Information
+                </label>
+            </div>
+
+            <button class="btn btn-success" onclick="exportTasks()">💾 Export Tasks</button>
+            <div class="response-box" id="exportResponse"></div>
+        </div>
+    </div>
+
+    <script>
+        let pollingInterval = null;
+        let selectedFile = null;
+        let currentSessionId = null;
+
+        // Show initial tab
+        showTab('url');
+
+        function showTab(tab) {
+            document.getElementById('urlTab').style.display = tab === 'url' ? 'block' : 'none';
+            document.getElementById('uploadTab').style.display = tab === 'upload' ? 'block' : 'none';
+        }
+
+        // File upload handling
+        const dropArea = document.getElementById('dropArea');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('dragover');
+            }, false);
+        });
+
+        dropArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                selectedFile = files[0];
+                document.getElementById('fileName').textContent = `Selected: ${selectedFile.name}`;
+            }
+        }, false);
+
+        function handleFileSelect(event) {
+            selectedFile = event.target.files[0];
+            if (selectedFile) {
+                document.getElementById('fileName').textContent = `Selected: ${selectedFile.name}`;
+            }
+        }
+
+        function getToken() {
+            const token = document.getElementById('tokenInput').value.trim();
+            if (!token) {
+                alert('Please enter a token first!');
+                return null;
+            }
+            // 直接返回 token，backend_service 会自动处理 Bearer 前缀
+            return token;
+        }
+
+        async function analyzeFromUrl() {
+            const token = getToken();
+            if (!token) return;
+
+            const fileUrl = document.getElementById('fileUrl').value.trim();
+            if (!fileUrl) {
+                alert('Please enter a file URL!');
+                return;
+            }
+
+            const options = {
+                detect_language: document.getElementById('detectLanguage').checked,
+                detect_formats: document.getElementById('detectFormats').checked,
+                analyze_colors: document.getElementById('analyzeColors').checked
+            };
+
+            await callMcpTool('excel_analyze', {
+                token: token,
+                file_url: fileUrl,
+                options: options
+            }, 'analyzeResponse');
+        }
+
+        async function analyzeFromUpload() {
+            const token = getToken();
+            if (!token) return;
+
+            if (!selectedFile) {
+                alert('Please select a file first!');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64Data = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+
+                const options = {
+                    detect_language: document.getElementById('detectLanguage').checked,
+                    detect_formats: document.getElementById('detectFormats').checked,
+                    analyze_colors: document.getElementById('analyzeColors').checked
+                };
+
+                await callMcpTool('excel_analyze', {
+                    token: token,
+                    file: base64Data,
+                    filename: selectedFile.name,
+                    options: options
+                }, 'analyzeResponse');
+            };
+            reader.readAsArrayBuffer(selectedFile);
+        }
+
+        async function getStatus() {
+            const token = getToken();
+            if (!token) return;
+
+            const sessionId = document.getElementById('sessionId').value.trim();
+            if (!sessionId) {
+                alert('Please enter a session ID!');
+                return;
+            }
+
+            currentSessionId = sessionId;
+            await callMcpTool('excel_get_status', {
+                token: token,
+                session_id: sessionId
+            }, 'statusResponse');
+        }
+
+        async function getSheets() {
+            const token = getToken();
+            if (!token) return;
+
+            const sessionId = document.getElementById('sessionId').value.trim();
+            if (!sessionId) {
+                alert('Please enter a session ID!');
+                return;
+            }
+
+            const result = await callMcpTool('excel_get_sheets', {
+                token: token,
+                session_id: sessionId
+            }, 'sheetResponse');
+
+            if (result && result.sheets) {
+                displaySheets(result.sheets);
+            }
+        }
+
+        function displaySheets(sheets) {
+            const container = document.getElementById('sheetsList');
+            container.innerHTML = '';
+
+            sheets.forEach(sheet => {
+                const item = document.createElement('div');
+                item.className = 'sheet-item';
+                item.textContent = `${sheet.name} (${sheet.rows}×${sheet.cols})`;
+                item.onclick = () => {
+                    document.getElementById('sheetName').value = sheet.name;
+                    document.getElementById('convertSheetName').value = sheet.name;
+                };
+                container.appendChild(item);
+            });
+
+            document.getElementById('sheetsDisplay').style.display = 'block';
+        }
+
+        async function parseSheet() {
+            const token = getToken();
+            if (!token) return;
+
+            const sessionId = document.getElementById('sessionId').value.trim();
+            const sheetName = document.getElementById('sheetName').value.trim();
+
+            if (!sessionId || !sheetName) {
+                alert('Please enter session ID and sheet name!');
+                return;
+            }
+
+            const limit = document.getElementById('limitRows').value;
+            const args = {
+                token: token,
+                session_id: sessionId,
+                sheet_name: sheetName
+            };
+
+            if (limit) {
+                args.limit = parseInt(limit);
+            }
+
+            await callMcpTool('excel_parse_sheet', args, 'sheetResponse');
+        }
+
+        async function convertToJson() {
+            const token = getToken();
+            if (!token) return;
+
+            const sessionId = document.getElementById('sessionId').value.trim();
+            const sheetName = document.getElementById('convertSheetName').value.trim();
+
+            if (!sessionId) {
+                alert('Please enter session ID!');
+                return;
+            }
+
+            const args = {
+                token: token,
+                session_id: sessionId
+            };
+
+            if (sheetName) {
+                args.sheet_name = sheetName;
+            }
+
+            await callMcpTool('excel_convert_to_json', args, 'convertResponse');
+        }
+
+        async function convertToCsv() {
+            const token = getToken();
+            if (!token) return;
+
+            const sessionId = document.getElementById('sessionId').value.trim();
+            const sheetName = document.getElementById('convertSheetName').value.trim();
+
+            if (!sessionId || !sheetName) {
+                alert('Please enter session ID and sheet name!');
+                return;
+            }
+
+            await callMcpTool('excel_convert_to_csv', {
+                token: token,
+                session_id: sessionId,
+                sheet_name: sheetName
+            }, 'convertResponse');
+        }
+
+        async function callMcpTool(toolName, args, responseElementId) {
+            const responseElement = document.getElementById(responseElementId);
+            responseElement.innerHTML = '<pre>⏳ Processing...</pre>';
+
+            try {
+                // Call MCP HTTP Gateway
+                const response = await fetch('/mcp/tool', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tool: toolName,
+                        arguments: args
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                // Check for errors
+                if (result.error) {
+                    throw new Error(result.error.message || result.error);
+                }
+
+                // Update response display
+                responseElement.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+
+                // Handle specific responses
+                if (toolName === 'excel_analyze' && result.session_id) {
+                    document.getElementById('sessionId').value = result.session_id;
+                    currentSessionId = result.session_id;
+
+                    // Show progress and start polling
+                    document.getElementById('analysisProgress').style.display = 'block';
+                    startPolling();
+                }
+
+                if (toolName === 'excel_get_status' && result.status === 'completed') {
+                    updateStats(result.result);
+                    stopPolling();
+                }
+
+                return result;
+            } catch (error) {
+                responseElement.innerHTML = `<pre style="color: #dc2626;">❌ Error: ${error.message}</pre>`;
+                return null;
+            }
+        }
+
+
+        function updateStats(result) {
+            if (!result || !result.file_info) return;
+
+            const stats = result.statistics || {};
+            const taskBreakdown = stats.task_breakdown || {};
+
+            // 基本统计
+            document.getElementById('statSheets').textContent = result.file_info.sheet_count || 0;
+            document.getElementById('statCells').textContent = stats.total_cells || 0;
+            document.getElementById('statTasks').textContent = stats.estimated_tasks || 0;
+
+            // 任务类型明细
+            document.getElementById('statNormalTasks').textContent = taskBreakdown.normal_tasks || 0;
+            document.getElementById('statYellowTasks').textContent = taskBreakdown.yellow_tasks || 0;
+            document.getElementById('statBlueTasks').textContent = taskBreakdown.blue_tasks || 0;
+
+            document.getElementById('statsCards').style.display = 'block';
+        }
+
+        function startPolling() {
+            if (pollingInterval) return;
+
+            pollingInterval = setInterval(() => {
+                if (currentSessionId || document.getElementById('sessionId').value) {
+                    getStatus();
+                }
+            }, 2000);
+        }
+
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        }
+
+        window.addEventListener('beforeunload', () => {
+            stopPolling();
+        });
+
+        // ========== Task Splitting Functions ==========
+        let splitPollingInterval = null;
+
+        async function splitTasks() {
+            const sessionId = currentSessionId || document.getElementById('sessionId').value;
+            if (!sessionId) {
+                alert('Please analyze an Excel file first to get a session ID');
+                return;
+            }
+
+            const sourceLang = document.getElementById('splitSourceLang').value || null;
+            const extractContext = document.getElementById('extractContext').checked;
+
+            // Get selected target languages
+            const targetLangs = [];
+            ['lang_TR', 'lang_TH', 'lang_PT', 'lang_VN', 'lang_IND', 'lang_ES'].forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox && checkbox.checked) {
+                    targetLangs.push(checkbox.value);
+                }
+            });
+
+            if (targetLangs.length === 0) {
+                alert('Please select at least one target language');
+                return;
+            }
+
+            const args = {
+                token: 'test_token_123',
+                session_id: sessionId,
+                source_lang: sourceLang,
+                target_langs: targetLangs,
+                extract_context: extractContext
+            };
+
+            // Show progress
+            document.getElementById('splitProgress').style.display = 'block';
+            document.getElementById('splitProgressFill').style.width = '0%';
+            document.getElementById('splitProgressFill').textContent = '0%';
+
+            await callMcpTool('excel_split_tasks', args, 'splitResponse');
+
+            // Start polling for split status
+            if (splitPollingInterval) {
+                clearInterval(splitPollingInterval);
+            }
+            splitPollingInterval = setInterval(() => pollSplitStatus(sessionId), 1000);
+        }
+
+        async function pollSplitStatus(sessionId) {
+            try {
+                const result = await callMcpToolWithResult('excel_get_status', {
+                    token: 'test_token_123',
+                    session_id: sessionId
+                });
+
+                console.log('Poll result:', result.status, 'has_tasks:', result.has_tasks);
+
+                // Update progress based on status
+                if (result.status === 'splitting') {
+                    const progress = result.progress || 50;
+                    document.getElementById('splitProgressFill').style.width = `${progress}%`;
+                    document.getElementById('splitProgressFill').textContent = `${progress}%`;
+                } else if (result.status === 'failed') {
+                    // Stop polling
+                    if (splitPollingInterval) {
+                        clearInterval(splitPollingInterval);
+                        splitPollingInterval = null;
+                    }
+
+                    // Show error
+                    document.getElementById('splitProgressFill').style.width = '100%';
+                    document.getElementById('splitProgressFill').style.backgroundColor = '#dc2626';
+                    document.getElementById('splitProgressFill').textContent = 'Failed';
+
+                    document.getElementById('splitResponse').innerHTML =
+                        `<pre style="color: #dc2626;">❌ Task splitting failed: ${result.error?.message || 'Unknown error'}</pre>`;
+                } else if (result.status === 'completed') {
+                    // Stop polling regardless
+                    if (splitPollingInterval) {
+                        clearInterval(splitPollingInterval);
+                        splitPollingInterval = null;
+                    }
+
+                    if (result.has_tasks) {
+                        // Success: tasks created
+                        document.getElementById('splitProgressFill').style.width = '100%';
+                        document.getElementById('splitProgressFill').textContent = '100%';
+
+                        // Hide progress after 1 second
+                        setTimeout(() => {
+                            document.getElementById('splitProgress').style.display = 'none';
+                        }, 1000);
+
+                        // Get tasks and update response
+                        const tasksResult = await callMcpToolWithResult('excel_get_tasks', {
+                            token: 'test_token_123',
+                            session_id: sessionId
+                        });
+
+                        document.getElementById('splitResponse').innerHTML =
+                            `<pre>${JSON.stringify(tasksResult, null, 2)}</pre>`;
+
+                        // Show stats
+                        if (tasksResult.result) {
+                            showTaskStats(tasksResult.result);
+                        }
+                    } else {
+                        // Completed but no tasks - likely an error
+                        document.getElementById('splitProgressFill').style.width = '100%';
+                        document.getElementById('splitProgressFill').style.backgroundColor = '#dc2626';
+                        document.getElementById('splitProgressFill').textContent = 'No tasks';
+
+                        document.getElementById('splitResponse').innerHTML =
+                            `<pre style="color: #dc2626;">❌ No tasks created. Check the session error: ${JSON.stringify(result.error || 'Unknown reason', null, 2)}</pre>`;
+                    }
+                }
+            } catch (error) {
+                console.error('Poll error:', error);
+                // Stop polling on error
+                if (splitPollingInterval) {
+                    clearInterval(splitPollingInterval);
+                    splitPollingInterval = null;
+                }
+            }
+        }
+
+        async function getTasks() {
+            const sessionId = currentSessionId || document.getElementById('sessionId').value;
+            if (!sessionId) {
+                alert('Please split tasks first');
+                return;
+            }
+
+            await callMcpTool('excel_get_tasks', {
+                token: 'test_token_123',
+                session_id: sessionId,
+                preview_limit: 10
+            }, 'tasksResponse');
+        }
+
+        async function getBatches() {
+            const sessionId = currentSessionId || document.getElementById('sessionId').value;
+            if (!sessionId) {
+                alert('Please split tasks first');
+                return;
+            }
+
+            await callMcpTool('excel_get_batches', {
+                token: 'test_token_123',
+                session_id: sessionId
+            }, 'tasksResponse');
+        }
+
+        let exportPollingInterval = null;
+
+        async function exportTasks() {
+            const sessionId = currentSessionId || document.getElementById('sessionId').value;
+            if (!sessionId) {
+                alert('Please split tasks first');
+                return;
+            }
+
+            const format = document.getElementById('exportFormat').value;
+            const includeContext = document.getElementById('includeContext').checked;
+
+            document.getElementById('exportResponse').innerHTML =
+                `<pre>⏳ Exporting... Please wait...</pre>`;
+
+            const result = await callMcpToolWithResult('excel_export_tasks', {
+                token: 'test_token_123',
+                session_id: sessionId,
+                format: format,
+                include_context: includeContext
+            });
+
+            // Check if already completed
+            if (result.status === 'completed' && result.download_url) {
+                // Directly show the download link
+                showExportResult(result);
+            } else {
+                // Start polling for export completion
+                if (exportPollingInterval) {
+                    clearInterval(exportPollingInterval);
+                }
+                exportPollingInterval = setInterval(() => pollExportStatus(sessionId), 1000);
+            }
+        }
+
+        function showExportResult(result) {
+            // Build full download URL
+            const currentHost = window.location.origin;
+            const downloadUrl = result.download_url.startsWith('http')
+                ? result.download_url
+                : `${currentHost}${result.download_url}`;
+
+            const filename = result.download_url.split('/').pop();
+
+            // Show download link with button
+            document.getElementById('exportResponse').innerHTML = `
+                <div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px;">
+                    <h4 style="color: #155724; margin: 0 0 10px 0;">✅ Export Completed!</h4>
+                    <p style="margin: 5px 0;"><strong>Format:</strong> ${result.format.toUpperCase()}</p>
+                    <p style="margin: 5px 0;"><strong>File:</strong> ${filename}</p>
+                    <div style="margin-top: 15px;">
+                        <a href="${downloadUrl}" download="${filename}"
+                           style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                           📥 Download File
+                        </a>
+                        <button onclick="window.open('${downloadUrl}', '_blank')"
+                                style="margin-left: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                           🔗 Open in New Tab
+                        </button>
+                    </div>
+                    <details style="margin-top: 15px;">
+                        <summary style="cursor: pointer; color: #666;">Technical Details</summary>
+                        <pre style="background: #f8f9fa; padding: 10px; margin-top: 10px; border-radius: 3px;">${JSON.stringify(result, null, 2)}</pre>
+                    </details>
+                </div>
+            `;
+        }
+
+        async function pollExportStatus(sessionId) {
+            try {
+                const result = await callMcpToolWithResult('excel_export_tasks', {
+                    token: 'test_token_123',
+                    session_id: sessionId,
+                    format: 'excel',
+                    include_context: true
+                });
+
+                if (result.status === 'completed' && result.download_url) {
+                    // Stop polling
+                    if (exportPollingInterval) {
+                        clearInterval(exportPollingInterval);
+                        exportPollingInterval = null;
+                    }
+
+                    // Use the shared function to show result
+                    showExportResult(result);
+                }
+            } catch (error) {
+                console.error('Export poll error:', error);
+                if (exportPollingInterval) {
+                    clearInterval(exportPollingInterval);
+                    exportPollingInterval = null;
+                }
+                document.getElementById('exportResponse').innerHTML =
+                    `<pre style="color: #dc2626;">❌ Export error: ${error.message}</pre>`;
+            }
+        }
+
+        function showTaskStats(result) {
+            if (!result || !result.summary) return;
+
+            const statsDiv = document.getElementById('taskStats');
+            const summary = result.summary;
+
+            // Basic stats
+            let html = `
+                <div class="stat-card">
+                    <div class="stat-value">${summary.total_tasks || 0}</div>
+                    <div class="stat-label">Total Tasks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${summary.batch_count || 0}</div>
+                    <div class="stat-label">Total Batches</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${summary.total_chars || 0}</div>
+                    <div class="stat-label">Total Characters</div>
+                </div>
+            `;
+
+            // Task type breakdown
+            html += `
+                <div style="grid-column: 1 / -1; margin-top: 20px;">
+                    <h4 style="margin-bottom: 10px;">📊 Task Type Breakdown</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #28a745;">${summary.task_breakdown?.normal || 0}</div>
+                            <div class="stat-label">Normal Tasks (Empty)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #ffc107;">${summary.task_breakdown?.yellow || 0}</div>
+                            <div class="stat-label">Yellow Tasks (Re-translate)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #007bff;">${summary.task_breakdown?.blue || 0}</div>
+                            <div class="stat-label">Blue Tasks (Shorten)</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Task type batch distribution
+            if (summary.type_batch_distribution) {
+                html += `
+                    <div style="grid-column: 1 / -1; margin-top: 20px;">
+                        <h4 style="margin-bottom: 10px;">📦 Batch Distribution by Task Type</h4>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" style="color: #28a745;">${summary.type_batch_distribution.normal || 0}</div>
+                                <div class="stat-label">Normal Batches</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" style="color: #ffc107;">${summary.type_batch_distribution.yellow || 0}</div>
+                                <div class="stat-label">Yellow Batches</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" style="color: #007bff;">${summary.type_batch_distribution.blue || 0}</div>
+                                <div class="stat-label">Blue Batches</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Language batch distribution
+            if (summary.batch_distribution) {
+                html += `
+                    <div style="grid-column: 1 / -1; margin-top: 20px;">
+                        <h4 style="margin-bottom: 10px;">🌐 Batch Distribution by Language</h4>
+                        <div class="stats-grid">
+                `;
+
+                for (const [lang, count] of Object.entries(summary.batch_distribution)) {
+                    html += `
+                        <div class="stat-card">
+                            <div class="stat-value">${count}</div>
+                            <div class="stat-label">${lang} Batches</div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            statsDiv.innerHTML = html;
+            statsDiv.style.display = 'block';
+        }
+
+        async function callMcpToolWithResult(toolName, args) {
+            const response = await fetch('/mcp/tool', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tool: toolName, arguments: args })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (result.error) {
+                throw new Error(result.error.message || result.error);
+            }
+
+            return result;
+        }
+    </script>
+</body>
+</html>

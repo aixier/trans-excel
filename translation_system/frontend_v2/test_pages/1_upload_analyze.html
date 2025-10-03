@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上传分析测试 - Translation System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .config {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="file"] {
+            padding: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            width: auto;
+            padding: 10px 20px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .response {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📤 上传分析测试 (Upload & Analyze)</h1>
+
+    <div class="container">
+        <h2>配置</h2>
+        <div class="config">
+            <div class="form-group">
+                <label>后端地址：</label>
+                <input type="text" id="apiUrl" value="http://localhost:8013" />
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>1. 上传Excel文件</h2>
+        <form id="uploadForm">
+            <div class="form-group">
+                <label>选择Excel文件：</label>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" required />
+            </div>
+            <div class="form-group">
+                <label>游戏信息（可选）：</label>
+                <input type="text" id="gameInfo" placeholder='{"game_name": "MyGame", "version": "1.0"}' />
+            </div>
+            <button type="submit">上传并分析</button>
+        </form>
+
+        <div class="info-box" id="uploadInfo" style="display: none;">
+            <strong>Session ID:</strong> <span id="sessionId"></span>
+        </div>
+
+        <h3>上传响应：</h3>
+        <div class="response" id="uploadResponse">等待上传...</div>
+    </div>
+
+    <div class="container">
+        <h2>2. 获取分析状态</h2>
+        <form id="statusForm">
+            <div class="form-group">
+                <label>Session ID：</label>
+                <input type="text" id="statusSessionId" placeholder="输入Session ID或从上传结果自动填充" />
+            </div>
+            <button type="submit">获取状态</button>
+        </form>
+
+        <div id="analysisStats" style="display: none;">
+            <h3>分析统计：</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statSheets">0</div>
+                    <div class="stat-label">Sheet数量</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statCells">0</div>
+                    <div class="stat-label">总单元格</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statTasks">0</div>
+                    <div class="stat-label">总任务数</div>
+                </div>
+            </div>
+
+            <h3>任务类型明细：</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statNormalTasks">0</div>
+                    <div class="stat-label">普通翻译任务</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statYellowTasks">0</div>
+                    <div class="stat-label">黄色重翻任务</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statBlueTasks">0</div>
+                    <div class="stat-label">蓝色缩短任务</div>
+                </div>
+            </div>
+        </div>
+
+        <h3>状态响应：</h3>
+        <div class="response" id="statusResponse">等待查询...</div>
+    </div>
+
+    <script>
+        const apiUrl = () => document.getElementById('apiUrl').value;
+
+        // 上传表单
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('请选择文件');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const gameInfo = document.getElementById('gameInfo').value;
+            if (gameInfo) {
+                formData.append('game_info', gameInfo);
+            }
+
+            try {
+                const response = await fetch(`${apiUrl()}/api/analyze/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('uploadResponse').innerHTML =
+                        `<span class="status success">上传成功!</span>\n\n${JSON.stringify(data, null, 2)}`;
+
+                    // 显示Session ID
+                    document.getElementById('sessionId').textContent = data.session_id;
+                    document.getElementById('uploadInfo').style.display = 'block';
+
+                    // 自动填充到状态查询
+                    document.getElementById('statusSessionId').value = data.session_id;
+
+                    // 显示基本统计
+                    if (data.analysis && data.analysis.statistics) {
+                        const stats = data.analysis.statistics;
+                        document.getElementById('statSheets').textContent = stats.sheet_count || 0;
+                        document.getElementById('statCells').textContent = stats.total_cells || 0;
+                        document.getElementById('statTasks').textContent = stats.estimated_tasks || 0;
+
+                        // 显示任务类型明细
+                        if (stats.task_breakdown) {
+                            document.getElementById('statNormalTasks').textContent = stats.task_breakdown.normal_tasks || 0;
+                            document.getElementById('statYellowTasks').textContent = stats.task_breakdown.yellow_tasks || 0;
+                            document.getElementById('statBlueTasks').textContent = stats.task_breakdown.blue_tasks || 0;
+                        }
+
+                        document.getElementById('analysisStats').style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('uploadResponse').innerHTML =
+                        `<span class="status error">上传失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                document.getElementById('uploadResponse').innerHTML =
+                    `<span class="status error">请求错误!</span>\n\n${error.message}`;
+            }
+        });
+
+        // 状态查询表单
+        document.getElementById('statusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const sessionId = document.getElementById('statusSessionId').value;
+            if (!sessionId) {
+                alert('请输入Session ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiUrl()}/api/analyze/status/${sessionId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('statusResponse').innerHTML =
+                        `<span class="status success">查询成功!</span>\n\n${JSON.stringify(data, null, 2)}`;
+
+                    // 更新统计
+                    if (data.analysis && data.analysis.statistics) {
+                        const stats = data.analysis.statistics;
+                        document.getElementById('statSheets').textContent = stats.sheet_count || 0;
+                        document.getElementById('statCells').textContent = stats.total_cells || 0;
+                        document.getElementById('statTasks').textContent = stats.estimated_tasks || 0;
+
+                        // 显示任务类型明细
+                        if (stats.task_breakdown) {
+                            document.getElementById('statNormalTasks').textContent = stats.task_breakdown.normal_tasks || 0;
+                            document.getElementById('statYellowTasks').textContent = stats.task_breakdown.yellow_tasks || 0;
+                            document.getElementById('statBlueTasks').textContent = stats.task_breakdown.blue_tasks || 0;
+                        }
+
+                        document.getElementById('analysisStats').style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('statusResponse').innerHTML =
+                        `<span class="status error">查询失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                document.getElementById('statusResponse').innerHTML =
+                    `<span class="status error">请求错误!</span>\n\n${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

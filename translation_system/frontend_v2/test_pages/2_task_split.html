@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务拆解测试 - Translation System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 10px;
+        }
+        .config {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background: #28a745;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            width: auto;
+            padding: 10px 20px;
+        }
+        button:hover {
+            background: #218838;
+        }
+        .response {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+        }
+        .checkbox-item input {
+            width: auto;
+            margin-right: 5px;
+        }
+        .info-box {
+            background: #e8f5e9;
+            border-left: 4px solid #28a745;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .task-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .task-table th, .task-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .task-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .task-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .progress-message {
+            padding: 10px;
+            margin: 10px 0;
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>✂️ 任务拆解测试 (Task Split)</h1>
+
+    <div class="container">
+        <h2>配置</h2>
+        <div class="config">
+            <div class="form-group">
+                <label>后端地址：</label>
+                <input type="text" id="apiUrl" value="http://localhost:8013" />
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>1. 拆解翻译任务</h2>
+        <form id="splitForm">
+            <div class="form-group">
+                <label>Session ID：</label>
+                <input type="text" id="sessionId" placeholder="从上传页面获取的Session ID" required />
+            </div>
+
+            <div class="form-group">
+                <label>源语言：</label>
+                <select id="sourceLang">
+                    <option value="">自动检测</option>
+                    <option value="CH">中文 (CH)</option>
+                    <option value="EN" selected>英文 (EN)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>上下文提取选项：</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="extractContext" checked>
+                        <label for="extractContext"><strong>启用上下文提取</strong>（更准确但较慢）</label>
+                    </div>
+                </div>
+                <small style="color: #666;">💡 大文件时可关闭以提升5-10倍速度</small>
+            </div>
+
+            <div class="form-group" id="contextOptionsGroup" style="margin-left: 20px;">
+                <label>选择要提取的上下文类型：</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ctx_game_info" checked>
+                        <label for="ctx_game_info">游戏信息（Game、类型、平台等）</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ctx_comments" checked>
+                        <label for="ctx_comments">单元格注释（人工标注说明）</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ctx_neighbors" checked>
+                        <label for="ctx_neighbors">相邻单元格（上一行分类、行标签）</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ctx_content_analysis" checked>
+                        <label for="ctx_content_analysis">内容特征（长度、格式、变量等）</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ctx_sheet_type" checked>
+                        <label for="ctx_sheet_type">表格类型（UI、对话、物品等）</label>
+                    </div>
+                </div>
+                <small style="color: #999;">
+                    ℹ️ 列标题（目标语言列名）始终提取，无法关闭<br>
+                    💡 提示：关闭不需要的项可提升速度，游戏信息和内容特征最常用
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label>目标语言（可多选）：</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_CH" value="CH">
+                        <label for="lang_CH">中文 (CH)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_EN" value="EN">
+                        <label for="lang_EN">英文 (EN)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_TR" value="TR" checked>
+                        <label for="lang_TR">土耳其语 (TR)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_TH" value="TH">
+                        <label for="lang_TH">泰语 (TH)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_PT" value="PT">
+                        <label for="lang_PT">葡萄牙语 (PT)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_VN" value="VN">
+                        <label for="lang_VN">越南语 (VN)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_IND" value="IND">
+                        <label for="lang_IND">印尼语 (IND)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="lang_ES" value="ES">
+                        <label for="lang_ES">西班牙语 (ES)</label>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit">拆解任务</button>
+        </form>
+
+        <div class="progress-message" id="progressMessage" style="display: none;">
+            正在拆分任务...
+        </div>
+
+        <div class="progress-bar" id="progressBar" style="display: none;">
+            <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+        </div>
+
+        <div class="info-box" id="splitInfo" style="display: none;">
+            <strong>任务拆解成功!</strong>
+            <div class="stats-grid" id="taskStats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTasks">0</div>
+                    <div class="stat-label">总任务数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalBatches">0</div>
+                    <div class="stat-label">批次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalChars">0</div>
+                    <div class="stat-label">总字符数</div>
+                </div>
+            </div>
+
+            <!-- 任务类型批次分布 -->
+            <h4 style="margin-top: 20px; margin-bottom: 10px;">📊 任务类型批次分布</h4>
+            <div class="stats-grid" id="typeStats" style="display: none;">
+                <!-- 动态生成 -->
+            </div>
+
+            <!-- 语言批次分布 -->
+            <h4 style="margin-top: 20px; margin-bottom: 10px;">🌐 语言批次分布</h4>
+            <div class="stats-grid" id="langStats" style="display: none;">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+
+        <h3>拆解响应：</h3>
+        <div class="response" id="splitResponse">等待拆解...</div>
+    </div>
+
+    <div class="container">
+        <h2>2. 查看任务状态</h2>
+        <form id="taskStatusForm">
+            <div class="form-group">
+                <label>Session ID：</label>
+                <input type="text" id="taskSessionId" placeholder="输入Session ID" />
+            </div>
+            <button type="submit">查看任务</button>
+        </form>
+
+        <div id="taskDetails" style="display: none;">
+            <h3>任务详情：</h3>
+            <table class="task-table" id="taskTable">
+                <thead>
+                    <tr>
+                        <th>任务ID</th>
+                        <th>批次ID</th>
+                        <th>源语言</th>
+                        <th>目标语言</th>
+                        <th>源文本</th>
+                        <th>状态</th>
+                        <th>字符数</th>
+                    </tr>
+                </thead>
+                <tbody id="taskTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <h3>任务响应：</h3>
+        <div class="response" id="taskResponse">等待查询...</div>
+    </div>
+
+    <div class="container">
+        <h2>3. 导出任务DataFrame</h2>
+        <form id="exportForm">
+            <div class="form-group">
+                <label>Session ID：</label>
+                <input type="text" id="exportSessionId" placeholder="输入Session ID" />
+            </div>
+            <button type="submit">导出任务</button>
+        </form>
+
+        <h3>导出响应：</h3>
+        <div class="response" id="exportResponse">等待导出...</div>
+    </div>
+
+    <script>
+        const apiUrl = () => document.getElementById('apiUrl').value;
+        let splitPollingInterval = null;
+
+        // 控制上下文选项的显示/隐藏
+        document.getElementById('extractContext').addEventListener('change', (e) => {
+            const contextOptionsGroup = document.getElementById('contextOptionsGroup');
+            if (e.target.checked) {
+                contextOptionsGroup.style.display = 'block';
+            } else {
+                contextOptionsGroup.style.display = 'none';
+            }
+        });
+
+        // 轮询拆分状态
+        async function pollSplitStatus(sessionId) {
+            try {
+                const response = await fetch(`${apiUrl()}/api/tasks/split/status/${sessionId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    const status = data.status;
+                    const progress = data.progress || 0;
+                    const message = data.message || '';
+
+                    // 更新进度条
+                    document.getElementById('progressFill').style.width = `${progress}%`;
+                    document.getElementById('progressFill').textContent = `${Math.round(progress)}%`;
+
+                    // 更新消息
+                    document.getElementById('progressMessage').textContent = message;
+                    document.getElementById('progressMessage').style.display = 'block';
+
+                    // 如果完成或失败，停止轮询
+                    if (status === 'completed') {
+                        clearInterval(splitPollingInterval);
+                        splitPollingInterval = null;
+
+                        document.getElementById('progressBar').style.display = 'none';
+                        document.getElementById('progressMessage').style.display = 'none';
+
+                        // 显示统计信息
+                        displaySplitResults(data);
+
+                        document.getElementById('splitResponse').innerHTML =
+                            `<span class="status success">拆解完成!</span>\n\n${JSON.stringify(data, null, 2)}`;
+
+                    } else if (status === 'failed') {
+                        clearInterval(splitPollingInterval);
+                        splitPollingInterval = null;
+
+                        document.getElementById('progressBar').style.display = 'none';
+                        document.getElementById('progressMessage').innerHTML =
+                            `<span class="status error">拆分失败: ${message}</span>`;
+
+                        document.getElementById('splitResponse').innerHTML =
+                            `<span class="status error">拆解失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                    }
+                }
+            } catch (error) {
+                console.error('Poll error:', error);
+            }
+        }
+
+        // 显示拆分结果
+        function displaySplitResults(data) {
+            if (data.task_count !== undefined) {
+                // 使用正确的字段名
+                document.getElementById('totalTasks').textContent = data.task_count || 0;
+                document.getElementById('totalBatches').textContent = data.batch_count || 0;
+                document.getElementById('totalChars').textContent = data.statistics?.total_chars || 0;
+                document.getElementById('splitInfo').style.display = 'block';
+
+                // 显示任务类型批次分布
+                const typeStatsDiv = document.getElementById('typeStats');
+                typeStatsDiv.innerHTML = '';
+
+                // 定义类型显示名称和颜色
+                const typeConfig = {
+                    'normal': { name: '常规翻译(空白)', color: '#28a745' },
+                    'yellow': { name: '黄色重翻译', color: '#ffc107' },
+                    'blue': { name: '蓝色缩短', color: '#007bff' }
+                };
+
+                // 获取批次分布数据，如果不存在则使用空对象
+                const typeBatchData = data.type_batch_distribution || {};
+
+                // 确保所有三种类型都显示，即使数量为0
+                for (const [type, config] of Object.entries(typeConfig)) {
+                    const count = typeBatchData[type] || 0;
+                    const card = document.createElement('div');
+                    card.className = 'stat-card';
+                    card.innerHTML = `
+                        <div class="stat-value" style="color: ${config.color};">${count}</div>
+                        <div class="stat-label">${config.name}批次</div>
+                    `;
+                    typeStatsDiv.appendChild(card);
+                }
+                typeStatsDiv.style.display = 'grid';
+
+                // 显示语言批次分布
+                if (data.batch_distribution) {
+                    const langStatsDiv = document.getElementById('langStats');
+                    langStatsDiv.innerHTML = '';
+
+                    for (const [lang, count] of Object.entries(data.batch_distribution)) {
+                        const card = document.createElement('div');
+                        card.className = 'stat-card';
+                        card.innerHTML = `
+                            <div class="stat-value">${count}</div>
+                            <div class="stat-label">${lang} 批次</div>
+                        `;
+                        langStatsDiv.appendChild(card);
+                    }
+                    langStatsDiv.style.display = 'grid';
+                }
+            }
+        }
+
+        // 拆解任务表单
+        document.getElementById('splitForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const sessionId = document.getElementById('sessionId').value;
+            const sourceLang = document.getElementById('sourceLang').value;
+            const extractContext = document.getElementById('extractContext').checked;
+
+            // 收集选中的目标语言（排除其他复选框）
+            const targetLangs = [];
+            const contextCheckboxIds = ['extractContext', 'ctx_game_info', 'ctx_comments', 'ctx_neighbors', 'ctx_content_analysis', 'ctx_sheet_type'];
+            document.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                if (!contextCheckboxIds.includes(checkbox.id)) {
+                    targetLangs.push(checkbox.value);
+                }
+            });
+
+            if (targetLangs.length === 0) {
+                alert('请至少选择一个目标语言');
+                return;
+            }
+
+            // 构建请求体
+            const requestBody = {
+                session_id: sessionId,
+                source_lang: sourceLang || null,
+                target_langs: targetLangs,
+                extract_context: extractContext
+            };
+
+            // 如果启用了上下文提取，添加具体选项
+            if (extractContext) {
+                requestBody.context_options = {
+                    game_info: document.getElementById('ctx_game_info').checked,
+                    comments: document.getElementById('ctx_comments').checked,
+                    neighbors: document.getElementById('ctx_neighbors').checked,
+                    content_analysis: document.getElementById('ctx_content_analysis').checked,
+                    sheet_type: document.getElementById('ctx_sheet_type').checked
+                };
+            }
+
+            try {
+                // 显示进度条
+                document.getElementById('progressBar').style.display = 'block';
+                document.getElementById('progressMessage').style.display = 'block';
+                document.getElementById('progressMessage').textContent = '提交拆分任务...';
+                document.getElementById('splitInfo').style.display = 'none';
+
+                const response = await fetch(`${apiUrl()}/api/tasks/split`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.status === 'processing' || data.status === 'already_processing') {
+                        // 开始轮询状态
+                        document.getElementById('splitResponse').innerHTML =
+                            `<span class="status success">任务已提交!</span>\n\n${JSON.stringify(data, null, 2)}`;
+
+                        // 清除旧的轮询
+                        if (splitPollingInterval) {
+                            clearInterval(splitPollingInterval);
+                        }
+
+                        // 立即轮询一次
+                        pollSplitStatus(sessionId);
+
+                        // 每秒轮询一次
+                        splitPollingInterval = setInterval(() => {
+                            pollSplitStatus(sessionId);
+                        }, 1000);
+
+                        // 自动填充到其他表单
+                        document.getElementById('taskSessionId').value = sessionId;
+                        document.getElementById('exportSessionId').value = sessionId;
+                    } else {
+                        // 同步完成（小文件）
+                        document.getElementById('progressBar').style.display = 'none';
+                        document.getElementById('progressMessage').style.display = 'none';
+
+                        displaySplitResults(data);
+
+                        document.getElementById('splitResponse').innerHTML =
+                            `<span class="status success">拆解成功!</span>\n\n${JSON.stringify(data, null, 2)}`;
+
+                        // 自动填充到其他表单
+                        document.getElementById('taskSessionId').value = sessionId;
+                        document.getElementById('exportSessionId').value = sessionId;
+                    }
+                } else {
+                    document.getElementById('progressBar').style.display = 'none';
+                    document.getElementById('progressMessage').style.display = 'none';
+                    document.getElementById('splitResponse').innerHTML =
+                        `<span class="status error">拆解失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                document.getElementById('progressBar').style.display = 'none';
+                document.getElementById('progressMessage').style.display = 'none';
+                document.getElementById('splitResponse').innerHTML =
+                    `<span class="status error">请求错误!</span>\n\n${error.message}`;
+            }
+        });
+
+        // 查看任务状态
+        document.getElementById('taskStatusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const sessionId = document.getElementById('taskSessionId').value;
+            if (!sessionId) {
+                alert('请输入Session ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiUrl()}/api/tasks/status/${sessionId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Check if splitting is in progress
+                    if (data.status === 'splitting_in_progress') {
+                        document.getElementById('taskResponse').innerHTML =
+                            `<span class="status" style="background: #fff3cd; color: #856404;">拆分进行中</span>\n\n` +
+                            `拆分进度: ${data.split_progress}%\n` +
+                            `状态: ${data.split_message}\n\n` +
+                            `请使用 /api/tasks/split/status/${sessionId} 查询详细进度`;
+                        return;
+                    }
+
+                    // Check if split failed
+                    if (data.status === 'split_failed') {
+                        document.getElementById('taskResponse').innerHTML =
+                            `<span class="status error">拆分失败</span>\n\n${data.message}\n\n${JSON.stringify(data, null, 2)}`;
+                        return;
+                    }
+
+                    // Tasks are ready
+                    document.getElementById('taskResponse').innerHTML =
+                        `<span class="status success">查询成功!</span>\n\n${JSON.stringify(data, null, 2)}`;
+
+                    // Try to fetch task dataframe for display
+                    if (data.status === 'ready' && data.has_tasks) {
+                        try {
+                            const dfResponse = await fetch(`${apiUrl()}/api/tasks/dataframe/${sessionId}?limit=10`);
+                            const dfData = await dfResponse.json();
+
+                            if (dfResponse.ok && dfData.tasks && dfData.tasks.length > 0) {
+                                const tbody = document.getElementById('taskTableBody');
+                                tbody.innerHTML = '';
+
+                                dfData.tasks.forEach(task => {
+                                    const row = tbody.insertRow();
+                                    row.innerHTML = `
+                                        <td>${task.task_id}</td>
+                                        <td>${task.batch_id}</td>
+                                        <td>${task.source_lang}</td>
+                                        <td>${task.target_lang}</td>
+                                        <td>${task.source_text ? task.source_text.substring(0, 50) + '...' : ''}</td>
+                                        <td>${task.status}</td>
+                                        <td>${task.char_count}</td>
+                                    `;
+                                });
+
+                                document.getElementById('taskDetails').style.display = 'block';
+                            }
+                        } catch (dfError) {
+                            console.error('Failed to fetch dataframe:', dfError);
+                        }
+                    }
+                } else {
+                    document.getElementById('taskResponse').innerHTML =
+                        `<span class="status error">查询失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                document.getElementById('taskResponse').innerHTML =
+                    `<span class="status error">请求错误!</span>\n\n${error.message}`;
+            }
+        });
+
+        // 导出任务
+        document.getElementById('exportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const sessionId = document.getElementById('exportSessionId').value;
+            if (!sessionId) {
+                alert('请输入Session ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiUrl()}/api/tasks/export/${sessionId}`);
+
+                // 检查响应类型
+                const contentType = response.headers.get('content-type');
+
+                if (response.ok) {
+                    if (contentType && contentType.includes('application/json')) {
+                        // 如果是JSON响应（可能是错误）
+                        const data = await response.json();
+                        document.getElementById('exportResponse').innerHTML =
+                            `<span class="status success">导出信息:</span>\n\n${JSON.stringify(data, null, 2)}`;
+                    } else {
+                        // 如果是Excel文件，下载它
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `tasks_${sessionId}.xlsx`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+
+                        document.getElementById('exportResponse').innerHTML =
+                            `<span class="status success">导出成功!</span>\n\n文件已下载: tasks_${sessionId}.xlsx`;
+                    }
+                } else {
+                    // 错误响应
+                    let errorMessage;
+                    if (contentType && contentType.includes('application/json')) {
+                        const data = await response.json();
+                        errorMessage = JSON.stringify(data, null, 2);
+                    } else {
+                        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    }
+                    document.getElementById('exportResponse').innerHTML =
+                        `<span class="status error">导出失败!</span>\n\n${errorMessage}`;
+                }
+            } catch (error) {
+                document.getElementById('exportResponse').innerHTML =
+                    `<span class="status error">请求错误!</span>\n\n${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

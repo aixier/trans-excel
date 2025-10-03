@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日志持久化模块测试 - LogPersister</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .panel h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .log-viewer {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            background: white;
+            border-left: 4px solid #ddd;
+        }
+
+        .log-entry.info {
+            border-left-color: #17a2b8;
+        }
+
+        .log-entry.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+
+        .log-entry.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-indicator.active {
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.inactive {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .timestamp {
+            color: #999;
+            font-size: 11px;
+        }
+
+        .message {
+            color: #333;
+            margin: 5px 0;
+        }
+
+        .component-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #e9ecef;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #495057;
+        }
+
+        #statusMessage {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        #statusMessage.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        #statusMessage.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 日志持久化模块测试 - LogPersister</h1>
+            <p>测试日志查询、统计、刷新和清理功能</p>
+            <div style="background: #fff3cd; color: #856404; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ffeaa7;">
+                <strong>⚠️ 重要提示:</strong> 日志现已优化为仅写入文件，不再写入数据库。如果数据库中没有日志数据，请检查日志文件目录。
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 日志查询面板 -->
+            <div class="panel">
+                <h2>📋 日志查询</h2>
+                <div class="filter-group">
+                    <div class="form-group">
+                        <label>Session ID</label>
+                        <input type="text" id="sessionId" placeholder="留空查询所有">
+                    </div>
+                    <div class="form-group">
+                        <label>日志级别</label>
+                        <select id="logLevel">
+                            <option value="">全部</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>组件</label>
+                        <input type="text" id="component" placeholder="如: HTTP, BatchExecutor">
+                    </div>
+                    <div class="form-group">
+                        <label>时间范围(小时)</label>
+                        <input type="number" id="hours" value="1" min="1" max="168">
+                    </div>
+                    <div class="form-group">
+                        <label>数量限制</label>
+                        <input type="number" id="limit" value="100" min="10" max="1000">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="queryLogs()">查询日志</button>
+                    <button class="btn-secondary" onclick="clearFilters()">清除筛选</button>
+                    <button class="btn-info" onclick="autoRefresh()">自动刷新</button>
+                </div>
+            </div>
+
+            <!-- 日志统计面板 -->
+            <div class="panel">
+                <h2>📊 日志统计</h2>
+                <div class="form-group">
+                    <label>Session ID (可选)</label>
+                    <input type="text" id="statsSessionId" placeholder="留空统计所有">
+                </div>
+                <button class="btn-primary" onclick="getLogStats()">获取统计</button>
+
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="value">-</div>
+                        <div class="label">总日志数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">-</div>
+                        <div class="label">INFO</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">-</div>
+                        <div class="label">WARNING</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">-</div>
+                        <div class="label">ERROR</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">-</div>
+                        <div class="label">最近1小时</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日志管理面板 -->
+            <div class="panel">
+                <h2>⚙️ 日志管理</h2>
+
+                <div class="form-group">
+                    <h3>刷新缓冲区</h3>
+                    <p style="color: #666; font-size: 13px; margin: 5px 0;">
+                        强制将缓冲区中的日志写入数据库
+                    </p>
+                    <button class="btn-success" onclick="flushLogs()">
+                        刷新日志缓冲区
+                    </button>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <h3>清理旧日志</h3>
+                    <label>保留天数</label>
+                    <input type="number" id="cleanupDays" value="7" min="1" max="365">
+                    <button class="btn-danger" onclick="cleanupLogs()" style="margin-top: 10px;">
+                        清理旧日志
+                    </button>
+                </div>
+
+                <div id="statusMessage"></div>
+            </div>
+
+            <!-- 系统状态面板 -->
+            <div class="panel">
+                <h2>💻 系统状态</h2>
+                <div id="systemStatus">
+                    <p><span class="status-indicator inactive"></span>日志服务状态: <span id="serviceStatus">未知</span></p>
+                    <p>自动刷新: <span id="autoRefreshStatus">关闭</span></p>
+                    <p>刷新间隔: <span id="refreshInterval">-</span></p>
+                    <p>最后查询: <span id="lastQuery">-</span></p>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button class="btn-info" onclick="testConnection()">测试连接</button>
+                    <button class="btn-secondary" onclick="getSystemInfo()">获取系统信息</button>
+                </div>
+            </div>
+
+            <!-- 日志查看器 -->
+            <div class="panel full-width">
+                <h2>📜 日志查看器</h2>
+                <div class="log-viewer" id="logViewer">
+                    <div style="color: #999; text-align: center; padding: 50px;">
+                        暂无日志数据，请先执行查询
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8013';
+        let autoRefreshTimer = null;
+
+        // 查询日志
+        async function queryLogs() {
+            const params = new URLSearchParams();
+
+            const sessionId = document.getElementById('sessionId').value;
+            const level = document.getElementById('logLevel').value;
+            const component = document.getElementById('component').value;
+            const hours = document.getElementById('hours').value;
+            const limit = document.getElementById('limit').value;
+
+            if (sessionId) params.append('session_id', sessionId);
+            if (level) params.append('level', level);
+            if (component) params.append('component', component);
+            params.append('hours', hours);
+            params.append('limit', limit);
+
+            const queryUrl = `${API_BASE}/api/logs/query?${params}`;
+            console.log('查询日志 URL:', queryUrl);
+            showStatus('info', '正在查询日志...');
+
+            try {
+                const response = await fetch(queryUrl);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch {
+                        errorMessage = errorText || errorMessage;
+                    }
+
+                    showStatus('error', `查询失败: ${errorMessage}`);
+                    console.error('日志查询失败:', errorMessage);
+
+                    // 如果是404错误，提示API可能不存在
+                    if (response.status === 404) {
+                        showStatus('error', 'API端点不存在，请检查后端服务是否正确启动');
+                    }
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('查询到的日志数据:', data);
+
+                if (data.logs && data.logs.length > 0) {
+                    displayLogs(data.logs);
+                    updateLastQuery();
+                    showStatus('success', `查询成功，共 ${data.logs.length} 条日志`);
+                } else {
+                    displayLogs([]);
+                    showStatus('info', '没有找到符合条件的日志（日志现仅写入文件，不写入数据库）');
+                }
+            } catch (error) {
+                console.error('网络请求错误:', error);
+                showStatus('error', `网络错误: ${error.message}。请确保后端服务运行在 ${API_BASE}`);
+            }
+        }
+
+        // 显示日志
+        function displayLogs(logs) {
+            const viewer = document.getElementById('logViewer');
+
+            if (logs.length === 0) {
+                viewer.innerHTML = '<div style="color: #999; text-align: center; padding: 50px;">没有找到符合条件的日志</div>';
+                return;
+            }
+
+            viewer.innerHTML = logs.map(log => {
+                const levelClass = log.level ? log.level.toLowerCase() : 'info';
+                return `
+                    <div class="log-entry ${levelClass}">
+                        <div>
+                            <span class="timestamp">${formatTimestamp(log.timestamp)}</span>
+                            <span class="component-tag">${log.component || 'Unknown'}</span>
+                            <span class="component-tag">${log.level || 'INFO'}</span>
+                        </div>
+                        <div class="message">${log.message}</div>
+                        ${log.details ? `<div style="color: #666; font-size: 11px; margin-top: 5px;">Details: ${JSON.stringify(log.details)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 获取日志统计
+        async function getLogStats() {
+            const sessionId = document.getElementById('statsSessionId').value;
+            const url = sessionId ?
+                `${API_BASE}/api/logs/stats?session_id=${sessionId}` :
+                `${API_BASE}/api/logs/stats`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateStats(data);
+                } else {
+                    showStatus('error', `获取统计失败: ${data.detail}`);
+                }
+            } catch (error) {
+                showStatus('error', `请求错误: ${error.message}`);
+            }
+        }
+
+        // 更新统计显示
+        function updateStats(stats) {
+            const grid = document.getElementById('statsGrid');
+            grid.innerHTML = `
+                <div class="stat-card">
+                    <div class="value">${stats.total_logs || 0}</div>
+                    <div class="label">总日志数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${stats.by_level?.INFO || 0}</div>
+                    <div class="label">INFO</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${stats.by_level?.WARNING || 0}</div>
+                    <div class="label">WARNING</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${stats.by_level?.ERROR || 0}</div>
+                    <div class="label">ERROR</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${stats.recent_activity || 0}</div>
+                    <div class="label">最近1小时</div>
+                </div>
+            `;
+
+            // 显示组件统计
+            if (stats.by_component && Object.keys(stats.by_component).length > 0) {
+                const componentStats = Object.entries(stats.by_component)
+                    .slice(0, 5)
+                    .map(([component, count]) => `
+                        <div class="stat-card">
+                            <div class="value">${count}</div>
+                            <div class="label">${component}</div>
+                        </div>
+                    `).join('');
+                grid.innerHTML += componentStats;
+            }
+        }
+
+        // 刷新日志缓冲区
+        async function flushLogs() {
+            try {
+                const response = await fetch(`${API_BASE}/api/logs/flush`, { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus('success', `成功刷新 ${data.flushed_count} 条日志到数据库`);
+                } else {
+                    showStatus('error', `刷新失败: ${data.detail}`);
+                }
+            } catch (error) {
+                showStatus('error', `请求错误: ${error.message}`);
+            }
+        }
+
+        // 清理旧日志
+        async function cleanupLogs() {
+            const days = document.getElementById('cleanupDays').value;
+
+            if (!confirm(`确定要清理 ${days} 天前的日志吗？此操作不可恢复。`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/logs/cleanup?days=${days}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus('success', `成功删除 ${data.deleted_count} 条旧日志`);
+                    queryLogs(); // 刷新显示
+                } else {
+                    showStatus('error', `清理失败: ${data.detail}`);
+                }
+            } catch (error) {
+                showStatus('error', `请求错误: ${error.message}`);
+            }
+        }
+
+        // 自动刷新
+        function autoRefresh() {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+                document.getElementById('autoRefreshStatus').textContent = '关闭';
+                showStatus('success', '自动刷新已关闭');
+            } else {
+                autoRefreshTimer = setInterval(() => {
+                    queryLogs();
+                }, 5000);
+                document.getElementById('autoRefreshStatus').textContent = '开启';
+                document.getElementById('refreshInterval').textContent = '5秒';
+                showStatus('success', '自动刷新已开启');
+            }
+        }
+
+        // 清除筛选条件
+        function clearFilters() {
+            document.getElementById('sessionId').value = '';
+            document.getElementById('logLevel').value = '';
+            document.getElementById('component').value = '';
+            document.getElementById('hours').value = '1';
+            document.getElementById('limit').value = '100';
+        }
+
+        // 测试连接
+        async function testConnection() {
+            console.log('测试连接到:', `${API_BASE}/health`);
+
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('健康检查失败:', response.status, errorText);
+                    showStatus('error', `连接异常 (HTTP ${response.status})`);
+                    document.getElementById('serviceStatus').textContent = `异常 (${response.status})`;
+                    document.querySelector('.status-indicator').classList.remove('active');
+                    document.querySelector('.status-indicator').classList.add('inactive');
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('健康检查响应:', data);
+
+                showStatus('success', '后端服务连接正常');
+                document.getElementById('serviceStatus').textContent = '运行中';
+                document.querySelector('.status-indicator').classList.remove('inactive');
+                document.querySelector('.status-indicator').classList.add('active');
+
+                // 显示配置信息（如果有）
+                if (data.config) {
+                    console.log('后端配置:', data.config);
+                }
+            } catch (error) {
+                console.error('连接测试失败:', error);
+                showStatus('error', `连接失败: ${error.message}。请确保后端服务正在运行`);
+                document.getElementById('serviceStatus').textContent = '离线';
+                document.querySelector('.status-indicator').classList.remove('active');
+                document.querySelector('.status-indicator').classList.add('inactive');
+
+                // 提供更多帮助信息
+                console.error(`
+请检查：
+1. 后端服务是否在运行 (python3 main.py)
+2. 服务地址是否正确: ${API_BASE}
+3. 防火墙或端口是否开放
+                `);
+            }
+        }
+
+        // 获取系统信息
+        async function getSystemInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`系统信息:\n\n名称: ${data.name}\n版本: ${data.version}\n状态: ${data.status}`);
+                }
+            } catch (error) {
+                showStatus('error', `获取失败: ${error.message}`);
+            }
+        }
+
+        // 格式化时间戳
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp);
+            return date.toLocaleString('zh-CN');
+        }
+
+        // 更新最后查询时间
+        function updateLastQuery() {
+            document.getElementById('lastQuery').textContent = new Date().toLocaleString('zh-CN');
+        }
+
+        // 显示状态消息
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // 页面加载时初始化
+        window.onload = () => {
+            testConnection();
+            getLogStats();
+        };
+    </script>
+</body>
+</html>

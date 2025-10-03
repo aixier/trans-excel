@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Translation System V2 - API快速测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .test-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .test-card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .test-group {
+            margin-bottom: 15px;
+        }
+
+        .test-group h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .test-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #f7f7f7;
+            border-radius: 5px;
+        }
+
+        .test-item button {
+            padding: 5px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 12px;
+        }
+
+        .test-item button:hover {
+            background: #5a67d8;
+        }
+
+        .test-item button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .test-status {
+            flex-grow: 1;
+            font-size: 12px;
+        }
+
+        .status-pending { color: #999; }
+        .status-testing { color: #f39c12; }
+        .status-success { color: #27ae60; }
+        .status-error { color: #e74c3c; }
+
+        .config-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .config-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .config-row label {
+            min-width: 100px;
+            color: #666;
+        }
+
+        .config-row input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .file-upload {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload:hover {
+            background: #f0f0f0;
+        }
+
+        .file-upload.dragover {
+            background: #e8eaf6;
+            border-color: #5a67d8;
+        }
+
+        .results-panel {
+            background: #2c3e50;
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid transparent;
+        }
+
+        .log-entry.success { border-left-color: #27ae60; }
+        .log-entry.error { border-left-color: #e74c3c; }
+        .log-entry.info { border-left-color: #3498db; }
+        .log-entry.warning { border-left-color: #f39c12; }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #ecf0f1;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .websocket-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ws-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e74c3c;
+        }
+
+        .ws-indicator.connected {
+            background: #27ae60;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(39, 174, 96, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="websocket-status">
+        <div class="ws-indicator" id="wsIndicator"></div>
+        <span id="wsStatus">未连接</span>
+    </div>
+
+    <div class="container">
+        <h1>🚀 Translation System V2 - API快速测试工具</h1>
+
+        <!-- 配置面板 -->
+        <div class="config-panel">
+            <h2>⚙️ 基础配置</h2>
+            <div class="config-row">
+                <label>API地址:</label>
+                <input type="text" id="apiBase" value="http://localhost:8013" />
+            </div>
+            <div class="config-row">
+                <label>Session ID:</label>
+                <input type="text" id="sessionId" placeholder="将在上传后自动填充" />
+            </div>
+            <div class="config-row">
+                <label>测试文件:</label>
+                <input type="file" id="testFile" accept=".xlsx,.xls" />
+            </div>
+        </div>
+
+        <!-- 测试网格 -->
+        <div class="test-grid">
+            <!-- 上传与会话测试 -->
+            <div class="test-card">
+                <h2>📁 上传与会话管理</h2>
+
+                <div class="test-group">
+                    <h3>文件上传</h3>
+                    <div class="test-item">
+                        <button onclick="testUpload()">测试上传</button>
+                        <span class="test-status status-pending" id="status-upload">待测试</span>
+                    </div>
+                </div>
+
+                <div class="test-group">
+                    <h3>会话管理</h3>
+                    <div class="test-item">
+                        <button onclick="testGetSessions()">获取会话列表</button>
+                        <span class="test-status status-pending" id="status-sessions">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testGetSession()">获取会话详情</button>
+                        <span class="test-status status-pending" id="status-session">待测试</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分析与拆分测试 -->
+            <div class="test-card">
+                <h2>📊 分析与任务拆分</h2>
+
+                <div class="test-group">
+                    <h3>文件分析</h3>
+                    <div class="test-item">
+                        <button onclick="testAnalyze()">分析文件</button>
+                        <span class="test-status status-pending" id="status-analyze">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testPreview()">预览内容</button>
+                        <span class="test-status status-pending" id="status-preview">待测试</span>
+                    </div>
+                </div>
+
+                <div class="test-group">
+                    <h3>任务拆分</h3>
+                    <div class="test-item">
+                        <button onclick="testSplit()">执行拆分</button>
+                        <span class="test-status status-pending" id="status-split">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testGetTasks()">获取任务列表</button>
+                        <span class="test-status status-pending" id="status-tasks">待测试</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 执行与监控测试 -->
+            <div class="test-card">
+                <h2>⚡ 执行与监控</h2>
+
+                <div class="test-group">
+                    <h3>翻译执行</h3>
+                    <div class="test-item">
+                        <button onclick="testExecute()">开始执行</button>
+                        <span class="test-status status-pending" id="status-execute">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testPause()">暂停执行</button>
+                        <span class="test-status status-pending" id="status-pause">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testResume()">恢复执行</button>
+                        <span class="test-status status-pending" id="status-resume">待测试</span>
+                    </div>
+                </div>
+
+                <div class="test-group">
+                    <h3>进度监控</h3>
+                    <div class="test-item">
+                        <button onclick="testProgress()">获取进度</button>
+                        <span class="test-status status-pending" id="status-progress">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testWebSocket()">WebSocket连接</button>
+                        <span class="test-status status-pending" id="status-websocket">待测试</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 结果与导出测试 -->
+            <div class="test-card">
+                <h2>📥 结果与导出</h2>
+
+                <div class="test-group">
+                    <h3>结果管理</h3>
+                    <div class="test-item">
+                        <button onclick="testGetResults()">获取结果</button>
+                        <span class="test-status status-pending" id="status-results">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testStatistics()">结果统计</button>
+                        <span class="test-status status-pending" id="status-statistics">待测试</span>
+                    </div>
+                </div>
+
+                <div class="test-group">
+                    <h3>文件导出</h3>
+                    <div class="test-item">
+                        <button onclick="testExport()">生成导出</button>
+                        <span class="test-status status-pending" id="status-export">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testDownload()">下载文件</button>
+                        <span class="test-status status-pending" id="status-download">待测试</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 高级功能测试 -->
+            <div class="test-card">
+                <h2>🔧 高级功能</h2>
+
+                <div class="test-group">
+                    <h3>LLM配置</h3>
+                    <div class="test-item">
+                        <button onclick="testProviders()">获取提供商</button>
+                        <span class="test-status status-pending" id="status-providers">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testLLMConfig()">配置LLM</button>
+                        <span class="test-status status-pending" id="status-llm-config">待测试</span>
+                    </div>
+                </div>
+
+                <div class="test-group">
+                    <h3>系统监控</h3>
+                    <div class="test-item">
+                        <button onclick="testMonitor()">系统监控</button>
+                        <span class="test-status status-pending" id="status-monitor">待测试</span>
+                    </div>
+                    <div class="test-item">
+                        <button onclick="testCosts()">成本统计</button>
+                        <span class="test-status status-pending" id="status-costs">待测试</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 完整流程测试 -->
+            <div class="test-card">
+                <h2>🔄 端到端测试</h2>
+
+                <div class="test-group">
+                    <h3>完整流程</h3>
+                    <div class="test-item">
+                        <button onclick="testFullFlow()" style="background: #e74c3c;">完整翻译流程</button>
+                        <span class="test-status status-pending" id="status-full-flow">待测试</span>
+                    </div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar" style="width: 0%">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果面板 -->
+        <div class="results-panel" id="resultsPanel">
+            <div class="log-entry info">🎯 测试工具已就绪，请选择测试项目开始验证...</div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let ws = null;
+        let currentSessionId = null;
+
+        // 工具函数
+        function getApiBase() {
+            return document.getElementById('apiBase').value;
+        }
+
+        function getSessionId() {
+            return document.getElementById('sessionId').value || currentSessionId;
+        }
+
+        function updateStatus(id, status, message) {
+            const element = document.getElementById(`status-${id}`);
+            element.className = `test-status status-${status}`;
+            element.textContent = message;
+        }
+
+        function log(message, type = 'info') {
+            const panel = document.getElementById('resultsPanel');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            panel.appendChild(entry);
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        function updateProgress(percent) {
+            const bar = document.getElementById('progressBar');
+            bar.style.width = `${percent}%`;
+            bar.textContent = `${percent}%`;
+        }
+
+        // API测试函数
+        async function testUpload() {
+            const fileInput = document.getElementById('testFile');
+            if (!fileInput.files[0]) {
+                log('请先选择测试文件', 'error');
+                return;
+            }
+
+            updateStatus('upload', 'testing', '测试中...');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                const response = await axios.post(`${getApiBase()}/api/analyze/upload`, formData);
+
+                currentSessionId = response.data.session_id;
+                document.getElementById('sessionId').value = currentSessionId;
+
+                updateStatus('upload', 'success', '✅ 成功');
+                log(`上传成功! Session ID: ${currentSessionId}`, 'success');
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus('upload', 'error', '❌ 失败');
+                log(`上传失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetSessions() {
+            updateStatus('sessions', 'testing', '测试中...');
+
+            try {
+                const response = await axios.get(`${getApiBase()}/api/sessions`);
+                updateStatus('sessions', 'success', '✅ 成功');
+                log(`获取到 ${response.data.length} 个会话`, 'success');
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus('sessions', 'error', '❌ 失败');
+                log(`获取会话列表失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetSession() {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                log('请先上传文件或输入Session ID', 'error');
+                return;
+            }
+
+            updateStatus('session', 'testing', '测试中...');
+
+            try {
+                const response = await axios.get(`${getApiBase()}/api/sessions/${sessionId}`);
+                updateStatus('session', 'success', '✅ 成功');
+                log(`获取会话详情成功`, 'success');
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus('session', 'error', '❌ 失败');
+                log(`获取会话详情失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAnalyze() {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                log('请先上传文件', 'error');
+                return;
+            }
+
+            updateStatus('analyze', 'testing', '测试中...');
+
+            try {
+                const response = await axios.post(`${getApiBase()}/api/analyze/${sessionId}`, {
+                    colors: ['yellow', 'blue'],
+                    detect_language: true
+                });
+                updateStatus('analyze', 'success', '✅ 成功');
+                log(`分析完成: ${response.data.total_cells} 个单元格`, 'success');
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus('analyze', 'error', '❌ 失败');
+                log(`分析失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSplit() {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                log('请先上传并分析文件', 'error');
+                return;
+            }
+
+            updateStatus('split', 'testing', '测试中...');
+
+            try {
+                const response = await axios.post(`${getApiBase()}/api/split/${sessionId}`, {
+                    colors: ['yellow', 'blue'],
+                    source_lang: 'CH',
+                    target_lang: 'PT',
+                    strategy: 'default'
+                });
+                updateStatus('split', 'success', '✅ 成功');
+                log(`拆分完成: ${response.data.task_count} 个任务`, 'success');
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus('split', 'error', '❌ 失败');
+                log(`拆分失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testExecute() {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                log('请先完成任务拆分', 'error');
+                return;
+            }
+
+            updateStatus('execute', 'testing', '测试中...');
+
+            try {
+                const response = await axios.post(`${getApiBase()}/api/execute/${sessionId}`, {
+                    batch_size: 5,
+                    max_workers: 3,
+                    use_batch_optimization: true
+                });
+                updateStatus('execute', 'success', '✅ 成功');
+                log(`执行开始: ${response.data.execution_id}`, 'success');
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus('execute', 'error', '❌ 失败');
+                log(`执行失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testProgress() {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                log('请先开始执行', 'error');
+                return;
+            }
+
+            updateStatus('progress', 'testing', '测试中...');
+
+            try {
+                const response = await axios.get(`${getApiBase()}/api/progress/${sessionId}`);
+                updateStatus('progress', 'success', '✅ 成功');
+                const progress = response.data;
+                log(`进度: ${progress.completed}/${progress.total} (${progress.rate}%)`, 'success');
+                updateProgress(Math.round(progress.rate));
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus('progress', 'error', '❌ 失败');
+                log(`获取进度失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testWebSocket() {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                log('请先上传文件', 'error');
+                return;
+            }
+
+            updateStatus('websocket', 'testing', '连接中...');
+
+            const wsUrl = `${getApiBase().replace('http', 'ws')}/ws/progress/${sessionId}`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    updateStatus('websocket', 'success', '✅ 已连接');
+                    log(`WebSocket连接成功: ${wsUrl}`, 'success');
+                    document.getElementById('wsIndicator').classList.add('connected');
+                    document.getElementById('wsStatus').textContent = '已连接';
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    log(`WS消息: ${data.type}`, 'info');
+
+                    if (data.type === 'progress_update') {
+                        const progress = data.progress;
+                        const rate = Math.round((progress.completed / progress.total) * 100);
+                        updateProgress(rate);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    updateStatus('websocket', 'error', '❌ 连接失败');
+                    log(`WebSocket错误: ${error}`, 'error');
+                };
+
+                ws.onclose = () => {
+                    log('WebSocket连接已关闭', 'warning');
+                    document.getElementById('wsIndicator').classList.remove('connected');
+                    document.getElementById('wsStatus').textContent = '未连接';
+                };
+
+            } catch (error) {
+                updateStatus('websocket', 'error', '❌ 失败');
+                log(`WebSocket连接失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetResults() {
+            const sessionId = getSessionId();
+            updateStatus('results', 'testing', '测试中...');
+
+            try {
+                const response = await axios.get(`${getApiBase()}/api/results/${sessionId}`);
+                updateStatus('results', 'success', '✅ 成功');
+                log(`获取到 ${response.data.results.length} 个结果`, 'success');
+            } catch (error) {
+                updateStatus('results', 'error', '❌ 失败');
+                log(`获取结果失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDownload() {
+            const sessionId = getSessionId();
+            updateStatus('download', 'testing', '测试中...');
+
+            try {
+                const response = await axios.get(`${getApiBase()}/api/download/${sessionId}`, {
+                    responseType: 'blob'
+                });
+
+                // 创建下载链接
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `translated_${sessionId}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+
+                updateStatus('download', 'success', '✅ 成功');
+                log('文件下载成功', 'success');
+            } catch (error) {
+                updateStatus('download', 'error', '❌ 失败');
+                log(`下载失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 完整流程测试
+        async function testFullFlow() {
+            log('===== 开始完整流程测试 =====', 'warning');
+            updateStatus('full-flow', 'testing', '执行中...');
+
+            try {
+                // 1. 上传
+                log('步骤1: 上传文件', 'info');
+                await testUpload();
+                await sleep(1000);
+                updateProgress(15);
+
+                // 2. 分析
+                log('步骤2: 分析文件', 'info');
+                await testAnalyze();
+                await sleep(1000);
+                updateProgress(30);
+
+                // 3. 拆分
+                log('步骤3: 拆分任务', 'info');
+                await testSplit();
+                await sleep(1000);
+                updateProgress(45);
+
+                // 4. 执行
+                log('步骤4: 执行翻译', 'info');
+                await testExecute();
+                await sleep(1000);
+                updateProgress(60);
+
+                // 5. WebSocket
+                log('步骤5: 建立WebSocket连接', 'info');
+                testWebSocket();
+                await sleep(2000);
+                updateProgress(75);
+
+                // 6. 进度
+                log('步骤6: 检查进度', 'info');
+                await testProgress();
+                await sleep(1000);
+                updateProgress(90);
+
+                // 7. 结果
+                log('步骤7: 获取结果', 'info');
+                await testGetResults();
+                updateProgress(100);
+
+                updateStatus('full-flow', 'success', '✅ 完成');
+                log('===== 完整流程测试完成 =====', 'success');
+
+            } catch (error) {
+                updateStatus('full-flow', 'error', '❌ 失败');
+                log(`完整流程测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 其他测试函数的简单实现
+        async function testPreview() { await makeTestCall('preview', 'GET', `/api/analyze/${getSessionId()}/preview`); }
+        async function testGetTasks() { await makeTestCall('tasks', 'GET', `/api/split/${getSessionId()}/tasks`); }
+        async function testPause() { await makeTestCall('pause', 'POST', `/api/execute/${getSessionId()}/pause`); }
+        async function testResume() { await makeTestCall('resume', 'POST', `/api/execute/${getSessionId()}/resume`); }
+        async function testStatistics() { await makeTestCall('statistics', 'GET', `/api/results/${getSessionId()}/statistics`); }
+        async function testExport() { await makeTestCall('export', 'POST', `/api/export/${getSessionId()}`); }
+        async function testProviders() { await makeTestCall('providers', 'GET', `/api/llm/providers`); }
+        async function testLLMConfig() { await makeTestCall('llm-config', 'GET', `/api/llm/config`); }
+        async function testMonitor() { await makeTestCall('monitor', 'GET', `/api/monitor/system`); }
+        async function testCosts() { await makeTestCall('costs', 'GET', `/api/monitor/costs`); }
+
+        async function makeTestCall(id, method, url, data = null) {
+            updateStatus(id, 'testing', '测试中...');
+            try {
+                const config = { method, url: getApiBase() + url };
+                if (data) config.data = data;
+                const response = await axios(config);
+                updateStatus(id, 'success', '✅ 成功');
+                log(`${id} 测试成功`, 'success');
+                log(JSON.stringify(response.data, null, 2), 'info');
+            } catch (error) {
+                updateStatus(id, 'error', '❌ 失败');
+                log(`${id} 测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载完成
+        window.onload = () => {
+            log('测试工具加载完成', 'success');
+            log(`API基础地址: ${getApiBase()}`, 'info');
+        };
+    </script>
+</body>
+</html>
