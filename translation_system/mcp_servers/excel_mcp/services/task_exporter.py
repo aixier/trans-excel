@@ -3,6 +3,7 @@
 import pandas as pd
 import json
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -13,14 +14,21 @@ logger = logging.getLogger(__name__)
 class TaskExporter:
     """Export tasks to various formats."""
 
-    def __init__(self, output_dir: str = "/tmp/task_mcp"):
+    def __init__(self, output_dir: Optional[str] = None):
         """
         Initialize task exporter.
 
         Args:
             output_dir: Directory to save exported files
         """
-        self.output_dir = Path(output_dir)
+        if output_dir is None:
+            # Use the exports directory relative to the server location
+            import os
+            server_dir = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            self.output_dir = server_dir / "exports"
+        else:
+            self.output_dir = Path(output_dir)
+
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def export_to_excel(

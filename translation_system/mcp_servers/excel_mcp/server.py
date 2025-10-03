@@ -144,10 +144,10 @@ async def run_http_server(port: int = 8889):
     static_dir = Path(__file__).parent / 'static'
     http_app.router.add_static('/static', static_dir, name='static')
 
-    # Serve exported files
+    # Serve exported files (独立路由，避免路径冲突)
     exports_dir = Path(__file__).parent / 'exports'
     exports_dir.mkdir(exist_ok=True)
-    http_app.router.add_static('/static/exports', exports_dir, name='exports')
+    http_app.router.add_static('/exports', exports_dir, name='exports')
 
     # Setup CORS
     cors = aiohttp_cors.setup(http_app, defaults={

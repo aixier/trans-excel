@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM MCP Translation Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            min-height: 120px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        .file-input-label {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            display: inline-block;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .file-input-label:hover {
+            background: #5a67d8;
+        }
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.warning {
+            background: #ffc107;
+            color: #333;
+        }
+        button.danger {
+            background: #dc3545;
+        }
+        button.success {
+            background: #28a745;
+        }
+        .response-box {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .status-badge.translating {
+            background: #cfe2ff;
+            color: #084298;
+        }
+        .status-badge.completed {
+            background: #d1f2eb;
+            color: #0f5132;
+        }
+        .status-badge.failed {
+            background: #f8d7da;
+            color: #842029;
+        }
+        .status-badge.paused {
+            background: #fff3cd;
+            color: #664d03;
+        }
+        .progress-container {
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 5px 0;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tab:hover {
+            color: #667eea;
+        }
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 LLM MCP Translation Engine</h1>
+        <p>Powered by MCP Protocol | Multiple LLM Providers</p>
+    </div>
+
+    <div class="container">
+        <h2>📋 Upload Translation Tasks</h2>
+
+        <div class="form-group">
+            <label>Authentication Token:</label>
+            <input type="text" id="token" value="test_token_123" placeholder="Enter your token">
+        </div>
+
+        <div class="form-group">
+            <label>Tasks File (Excel/JSON):</label>
+            <div class="file-input-wrapper">
+                <label class="file-input-label">
+                    Choose File
+                    <input type="file" id="taskFile" accept=".xlsx,.xls,.json">
+                </label>
+                <span id="fileName" style="margin-left: 15px; color: #666;">No file selected</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Or provide file URL:</label>
+            <input type="text" id="fileUrl" placeholder="https://example.com/tasks.xlsx">
+        </div>
+
+        <div class="info-box">
+            <strong>💡 Tip:</strong> Upload the tasks file exported from Excel MCP, or provide a URL to download it.
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>⚙️ Translation Configuration</h2>
+
+        <div class="info-box">
+            <strong>🐉 LLM Provider:</strong> Qwen Plus (阿里云通义千问Plus - 平衡性能和成本)
+        </div>
+
+        <div class="form-group">
+            <label>Max Concurrent Workers:</label>
+            <input type="number" id="maxWorkers" value="5" min="1" max="20">
+        </div>
+
+        <div class="form-group">
+            <label>Temperature:</label>
+            <input type="number" id="temperature" value="0.3" min="0" max="2" step="0.1">
+        </div>
+
+        <button onclick="startTranslation()" id="startBtn">
+            🚀 Start Translation
+        </button>
+    </div>
+
+    <div class="container" id="progressContainer" style="display: none;">
+        <h2>📊 Translation Progress</h2>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total</div>
+                <div class="stat-value" id="statTotal">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Completed</div>
+                <div class="stat-value" id="statCompleted">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Failed</div>
+                <div class="stat-value" id="statFailed">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Speed</div>
+                <div class="stat-value" id="statSpeed">0/s</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Cost</div>
+                <div class="stat-value" id="statCost">$0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Time</div>
+                <div class="stat-value" id="statTime">00:00</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button onclick="pauseTranslation()" class="warning">⏸️ Pause</button>
+            <button onclick="resumeTranslation()" class="success">▶️ Resume</button>
+            <button onclick="stopTranslation()" class="danger">⏹️ Stop</button>
+            <button onclick="getStatus()">🔄 Refresh Status</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📝 Results</h2>
+
+        <div class="tab-container">
+            <button class="tab active" onclick="switchTab('preview')">Preview</button>
+            <button class="tab" onclick="switchTab('statistics')">Statistics</button>
+            <button class="tab" onclick="switchTab('export')">Export</button>
+        </div>
+
+        <div class="tab-content active" id="previewTab">
+            <button onclick="getResults('all')">Show All</button>
+            <button onclick="getResults('completed')" class="success">Show Completed</button>
+            <button onclick="getResults('failed')" class="danger">Show Failed</button>
+
+            <div class="response-box" id="resultsBox">
+                Results will appear here...
+            </div>
+        </div>
+
+        <div class="tab-content" id="statisticsTab">
+            <button onclick="getStatistics()">📊 Get Statistics</button>
+
+            <div class="response-box" id="statsBox">
+                Statistics will appear here...
+            </div>
+        </div>
+
+        <div class="tab-content" id="exportTab">
+            <div class="form-group">
+                <label>Export Format:</label>
+                <select id="exportFormat">
+                    <option value="excel">Excel (.xlsx)</option>
+                    <option value="json">JSON (.json)</option>
+                    <option value="csv">CSV (.csv)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="mergeSource" checked>
+                    Include source text in export
+                </label>
+            </div>
+
+            <button onclick="exportResults()" class="success">📥 Export Results</button>
+
+            <div class="response-box" id="exportBox">
+                Export info will appear here...
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔧 Session Management</h2>
+
+        <button onclick="listSessions()">📋 List All Sessions</button>
+        <button onclick="retryFailed()" class="warning">🔄 Retry Failed Tasks</button>
+
+        <div class="response-box" id="sessionBox">
+            Session info will appear here...
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let selectedProvider = 'qwen-plus';  // Default provider
+        let statusInterval = null;
+
+        // File input handler
+        document.getElementById('taskFile').addEventListener('change', (e) => {
+            const fileName = e.target.files[0]?.name || 'No file selected';
+            document.getElementById('fileName').textContent = fileName;
+        });
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // Start translation
+        async function startTranslation() {
+            const token = document.getElementById('token').value;
+            const file = document.getElementById('taskFile').files[0];
+            const fileUrl = document.getElementById('fileUrl').value;
+            const maxWorkers = parseInt(document.getElementById('maxWorkers').value);
+            const temperature = parseFloat(document.getElementById('temperature').value);
+
+            if (!file && !fileUrl) {
+                alert('Please select a file or provide a URL');
+                return;
+            }
+
+            const payload = {
+                tool: 'llm_translate_tasks',
+                arguments: {
+                    token: token,
+                    provider: selectedProvider,  // Always qwen-plus
+                    max_workers: maxWorkers,
+                    temperature: temperature
+                }
+            };
+
+            // Handle file upload
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const base64 = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+                    payload.arguments.file = base64;
+                    await sendTranslationRequest(payload);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                payload.arguments.file_url = fileUrl;
+                await sendTranslationRequest(payload);
+            }
+        }
+
+        async function sendTranslationRequest(payload) {
+            try {
+                document.getElementById('startBtn').disabled = true;
+
+                const response = await fetch('http://localhost:8023/mcp/tool', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    alert('Error: ' + result.error.message);
+                    document.getElementById('startBtn').disabled = false;
+                    return;
+                }
+
+                currentSessionId = result.session_id;
+                document.getElementById('progressContainer').style.display = 'block';
+
+                // Start status polling
+                startStatusPolling();
+
+            } catch (error) {
+                alert('Failed to start translation: ' + error.message);
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+
+        // Status polling
+        function startStatusPolling() {
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
+
+            getStatus();
+            statusInterval = setInterval(getStatus, 2000);
+        }
+
+        async function getStatus() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch('http://localhost:8023/mcp/tool', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tool: 'llm_get_status',
+                        arguments: {
+                            token: document.getElementById('token').value,
+                            session_id: currentSessionId
+                        }
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.error) {
+                    updateProgress(result);
+                }
+
+                // Stop polling if completed
+                if (result.status === 'completed' || result.status === 'failed' || result.status === 'stopped') {
+                    clearInterval(statusInterval);
+                    document.getElementById('startBtn').disabled = false;
+                }
+
+            } catch (error) {
+                console.error('Status check failed:', error);
+            }
+        }
+
+        function updateProgress(data) {
+            const progress = data.progress || 0;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressFill').textContent = Math.round(progress) + '%';
+
+            document.getElementById('statTotal').textContent = data.total_tasks || 0;
+            document.getElementById('statCompleted').textContent = data.completed_tasks || 0;
+            document.getElementById('statFailed').textContent = data.failed_tasks || 0;
+
+            if (data.elapsed_time) {
+                const minutes = Math.floor(data.elapsed_time / 60);
+                const seconds = data.elapsed_time % 60;
+                document.getElementById('statTime').textContent =
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+            if (data.current_cost) {
+                document.getElementById('statCost').textContent = '$' + data.current_cost.toFixed(4);
+            }
+
+            // Calculate speed
+            if (data.completed_tasks && data.elapsed_time) {
+                const speed = (data.completed_tasks / data.elapsed_time).toFixed(2);
+                document.getElementById('statSpeed').textContent = speed + '/s';
+            }
+        }
+
+        // Control functions
+        async function pauseTranslation() {
+            if (!currentSessionId) return;
+
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_pause_resume',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        session_id: currentSessionId,
+                        action: 'pause'
+                    }
+                })
+            });
+
+            const result = await response.json();
+            alert(result.message || 'Translation paused');
+        }
+
+        async function resumeTranslation() {
+            if (!currentSessionId) return;
+
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_pause_resume',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        session_id: currentSessionId,
+                        action: 'resume'
+                    }
+                })
+            });
+
+            const result = await response.json();
+            alert(result.message || 'Translation resumed');
+            startStatusPolling();
+        }
+
+        async function stopTranslation() {
+            if (!currentSessionId) return;
+
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_stop_translation',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        session_id: currentSessionId
+                    }
+                })
+            });
+
+            const result = await response.json();
+            alert(result.message || 'Translation stopped');
+            clearInterval(statusInterval);
+        }
+
+        // Results functions
+        async function getResults(filter = 'all') {
+            if (!currentSessionId) return;
+
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_get_results',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        session_id: currentSessionId,
+                        filter: filter,
+                        preview_limit: 20
+                    }
+                })
+            });
+
+            const result = await response.json();
+            document.getElementById('resultsBox').textContent = JSON.stringify(result, null, 2);
+        }
+
+        async function getStatistics() {
+            if (!currentSessionId) return;
+
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_get_statistics',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        session_id: currentSessionId
+                    }
+                })
+            });
+
+            const result = await response.json();
+            document.getElementById('statsBox').textContent = JSON.stringify(result, null, 2);
+        }
+
+        async function exportResults() {
+            if (!currentSessionId) return;
+
+            const format = document.getElementById('exportFormat').value;
+            const mergeSource = document.getElementById('mergeSource').checked;
+
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_export_results',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        session_id: currentSessionId,
+                        format: format,
+                        merge_source: mergeSource
+                    }
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.download_url) {
+                document.getElementById('exportBox').innerHTML = `
+                    Export successful!<br>
+                    <a href="http://localhost:8023${result.download_url}" download>
+                        📥 Download ${format.toUpperCase()} File
+                    </a>
+                `;
+            } else {
+                document.getElementById('exportBox').textContent = JSON.stringify(result, null, 2);
+            }
+        }
+
+        async function listSessions() {
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_list_sessions',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        status: 'all'
+                    }
+                })
+            });
+
+            const result = await response.json();
+            document.getElementById('sessionBox').textContent = JSON.stringify(result, null, 2);
+        }
+
+        async function retryFailed() {
+            if (!currentSessionId) return;
+
+            const response = await fetch('http://localhost:8023/mcp/tool', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    tool: 'llm_retry_failed',
+                    arguments: {
+                        token: document.getElementById('token').value,
+                        session_id: currentSessionId,
+                        max_retries: 3
+                    }
+                })
+            });
+
+            const result = await response.json();
+            alert(result.message || 'Retrying failed tasks');
+            if (result.status === 'retrying') {
+                startStatusPolling();
+            }
+        }
+
+    </script>
+</body>
+</html>

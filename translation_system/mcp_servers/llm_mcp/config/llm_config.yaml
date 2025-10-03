@@ -1,0 +1,54 @@
+# LLM MCP Server Configuration
+
+# Default provider for translation
+default_provider: qwen-plus
+
+# Provider configurations
+providers:
+  qwen-plus:
+    enabled: true
+    api_key: "sk-4c89a24b73d24731b86bf26337398cef"
+    base_url: "https://dashscope.aliyuncs.com/api/v1"
+    model: "qwen-plus"
+    temperature: 0.3
+    max_tokens: 8000
+    timeout: 90
+    max_retries: 3
+    retry_delay: 3.0
+    description: "阿里云通义千问Plus - 平衡性能和成本"
+
+  openai:
+    enabled: true
+    api_key: "${OPENAI_API_KEY}"  # Set via environment variable
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-4-turbo-preview"
+    temperature: 0.3
+    max_tokens: 8000
+    timeout: 90
+    max_retries: 3
+    retry_delay: 3.0
+    description: "OpenAI GPT-4 Turbo"
+
+  qwen:
+    enabled: true
+    api_key: "sk-4c89a24b73d24731b86bf26337398cef"
+    base_url: "https://dashscope.aliyuncs.com/api/v1"
+    model: "qwen-max"
+    temperature: 0.3
+    max_tokens: 8000
+    timeout: 90
+    max_retries: 3
+    retry_delay: 3.0
+    description: "阿里云通义千问Max - 最强能力"
+
+# Retry configuration
+retry:
+  max_attempts: 3
+  delay_seconds: 5.0
+  exponential_backoff: true
+  max_delay_seconds: 60.0
+
+# Execution settings
+execution:
+  max_workers: 5  # Maximum concurrent workers per session
+  batch_size: 10  # Default batch size for task processing

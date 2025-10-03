@@ -242,9 +242,9 @@ class TaskQueue:
 
             session.progress = 90
 
-            # Generate download URL (relative to static folder)
+            # Generate download URL (独立的 exports 路由)
             filename = Path(export_path).name
-            download_url = f"/static/exports/{filename}"
+            download_url = f"/exports/{filename}"
 
             # Store export info in metadata
             session.metadata['export_path'] = export_path
