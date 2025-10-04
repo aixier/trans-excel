@@ -18,125 +18,161 @@ class ConfigPage {
         this.pollInterval = null;
     }
 
+    // 获取源语言选项（只显示实际检测到的语言）
+    getSourceLanguageOptions(session) {
+        const detected = session.analysis?.language_detection?.detected?.source_languages || [];
+
+        return detected.map(lang =>
+            `<option value="${lang.code}">${lang.name} (${lang.abbr})</option>`
+        ).join('');
+    }
+
+    // 获取目标语言选项（只显示实际检测到的语言）
+    getTargetLanguageOptions(session) {
+        const detected = session.analysis?.language_detection?.detected?.target_languages || [];
+
+        if (detected.length === 0) {
+            return '<p class="text-warning">Excel中未检测到目标语言列</p>';
+        }
+
+        return detected.map(lang => {
+            const displayName = `${lang.name} (${lang.abbr})`;
+
+            return `
+                <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" class="checkbox checkbox-primary"
+                           value="${lang.code}"
+                           onchange="configPage.onTargetLangChange(this)"
+                           data-detected="true">
+                    <span class="label-text">${displayName}</span>
+                    <span class="badge badge-xs badge-success">已有</span>
+                </label>
+            `;
+        }).join('');
+    }
+
+    // 获取语言显示名称（从后端数据）
+    getLanguageDisplayName(session, code) {
+        // 尝试从available列表中查找
+        const allLangs = [
+            ...(session.analysis?.language_detection?.available?.source_languages || []),
+            ...(session.analysis?.language_detection?.available?.target_languages || [])
+        ];
+
+        const lang = allLangs.find(l => l.code === code);
+        if (lang) {
+            return lang.abbr || lang.name;
+        }
+
+        return code;
+    }
+
     render() {
         const session = sessionManager.session;
-        if (!session) {
+        if (!session || !session.sessionId) {
+            UIHelper.showToast('会话不存在，请重新上传文件', 'warning');
             router.navigate('/create');
             return;
         }
 
         const html = `
-            <div class="max-w-6xl mx-auto">
+            <div class="h-full flex flex-col">
                 <!-- 页面标题 -->
-                <div class="text-center mb-6">
-                    <h1 class="text-3xl font-bold mb-2">配置翻译任务</h1>
-                    <p class="text-base-content/70">Session: ${session.sessionId}</p>
-                    <p class="text-sm text-base-content/50">${session.filename}</p>
+                <div class="text-center mb-4">
+                    <h1 class="text-2xl font-bold mb-1">配置翻译任务</h1>
+                    <p class="text-sm text-base-content/70">Session: ${session.sessionId}</p>
+                    <p class="text-xs text-base-content/50">${session.filename}</p>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- 左侧配置区 -->
-                    <div class="lg:col-span-2">
+                <!-- 主内容区域 - 单栏布局 -->
+                <div class="flex-1 overflow-y-auto">
+                    <div class="max-w-6xl mx-auto">
                         <div class="card bg-base-100 shadow-xl">
                             <div class="card-body">
-                                <!-- 语言设置 -->
-                                <h2 class="card-title mb-4">
-                                    <i class="bi bi-translate"></i>
-                                    语言设置
-                                </h2>
+                                <!-- 语言设置和上下文提取 - 左右两栏 -->
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <!-- 左栏：语言设置 -->
+                                    <div>
+                                        <h2 class="card-title mb-4">
+                                            <i class="bi bi-translate"></i>
+                                            语言设置
+                                        </h2>
 
-                                <!-- 源语言 -->
-                                <div class="form-control mb-4">
-                                    <label class="label">
-                                        <span class="label-text font-semibold">源语言</span>
-                                    </label>
-                                    <select id="sourceLang" class="select select-bordered" onchange="configPage.updatePreview()">
-                                        <option value="">自动检测</option>
-                                        <option value="CH">中文</option>
-                                        <option value="EN">英文</option>
-                                    </select>
-                                </div>
-
-                                <!-- 目标语言 -->
-                                <div class="form-control mb-4">
-                                    <label class="label">
-                                        <span class="label-text font-semibold">目标语言（至少选择1个）</span>
-                                    </label>
-                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                        ${Object.entries(APP_CONFIG.LANGUAGES.target).map(([code, name]) => `
-                                            <label class="label cursor-pointer justify-start gap-2">
-                                                <input type="checkbox" class="checkbox checkbox-primary"
-                                                       value="${code}"
-                                                       onchange="configPage.onTargetLangChange(this)">
-                                                <span class="label-text">${name}</span>
+                                        <!-- 源语言 -->
+                                        <div class="form-control mb-4">
+                                            <label class="label">
+                                                <span class="label-text font-semibold">源语言</span>
                                             </label>
-                                        `).join('')}
+                                            <select id="sourceLang" class="select select-bordered" onchange="configPage.updatePreview()">
+                                                <option value="auto">自动检测</option>
+                                                ${this.getSourceLanguageOptions(session)}
+                                            </select>
+                                            <p class="text-xs text-base-content/50 mt-1">
+                                                检测到 ${session.analysis?.language_detection?.detected?.source_languages?.length || 0} 种源语言
+                                            </p>
+                                        </div>
+
+                                        <!-- 目标语言 -->
+                                        <div class="form-control">
+                                            <label class="label">
+                                                <span class="label-text font-semibold">目标语言（至少选择1个）</span>
+                                            </label>
+                                            <div class="grid grid-cols-2 gap-2">
+                                                ${this.getTargetLanguageOptions(session)}
+                                            </div>
+                                            <p class="text-xs text-base-content/50 mt-2">
+                                                检测到 ${session.analysis?.language_detection?.detected?.target_languages?.length || 0} 种目标语言（建议全选）
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div class="divider"></div>
+                                    <!-- 右栏：上下文提取 -->
+                                    <div>
+                                        <h2 class="card-title mb-4">
+                                            <i class="bi bi-gear"></i>
+                                            上下文提取
+                                        </h2>
 
-                                <!-- 上下文提取设置 -->
-                                <h2 class="card-title mb-4">
-                                    <i class="bi bi-gear"></i>
-                                    上下文提取
-                                </h2>
+                                        <!-- 总开关 -->
+                                        <div class="form-control mb-4">
+                                            <label class="label cursor-pointer justify-start gap-3">
+                                                <input type="checkbox" class="toggle toggle-primary"
+                                                       id="extractContext"
+                                                       checked
+                                                       onchange="configPage.onContextToggle(this)">
+                                                <span class="label-text">启用上下文提取（提高翻译质量）</span>
+                                            </label>
+                                        </div>
 
-                                <!-- 总开关 -->
-                                <div class="form-control mb-4">
-                                    <label class="label cursor-pointer justify-start gap-4">
-                                        <input type="checkbox" class="toggle toggle-primary toggle-lg"
-                                               id="extractContext"
-                                               checked
-                                               onchange="configPage.onContextToggle(this)">
-                                        <span class="label-text font-semibold">启用上下文提取</span>
-                                    </label>
-                                    <p class="text-sm text-base-content/70 ml-16">
-                                        开启后翻译质量更高，但速度会降低
-                                    </p>
-                                </div>
-
-                                <!-- 细粒度选项 -->
-                                <div id="contextOptions" class="space-y-2 ml-4">
-                                    <label class="label cursor-pointer justify-start gap-2">
-                                        <input type="checkbox" class="checkbox checkbox-sm"
-                                               id="ctxGameInfo" checked>
-                                        <span class="label-text">游戏信息</span>
-                                        <span class="text-xs text-base-content/50">使用游戏背景信息</span>
-                                    </label>
-
-                                    <label class="label cursor-pointer justify-start gap-2">
-                                        <input type="checkbox" class="checkbox checkbox-sm"
-                                               id="ctxComments" checked>
-                                        <span class="label-text">单元格注释</span>
-                                        <span class="text-xs text-base-content/50">提取Excel注释</span>
-                                    </label>
-
-                                    <label class="label cursor-pointer justify-start gap-2">
-                                        <input type="checkbox" class="checkbox checkbox-sm"
-                                               id="ctxNeighbors" checked>
-                                        <span class="label-text">相邻单元格</span>
-                                        <span class="text-xs text-base-content/50">参考周围内容</span>
-                                    </label>
-
-                                    <label class="label cursor-pointer justify-start gap-2">
-                                        <input type="checkbox" class="checkbox checkbox-sm"
-                                               id="ctxAnalysis" checked>
-                                        <span class="label-text">内容特征</span>
-                                        <span class="text-xs text-base-content/50">分析文本类型</span>
-                                    </label>
-
-                                    <label class="label cursor-pointer justify-start gap-2">
-                                        <input type="checkbox" class="checkbox checkbox-sm"
-                                               id="ctxSheetType" checked>
-                                        <span class="label-text">表格类型</span>
-                                        <span class="text-xs text-base-content/50">识别表格用途</span>
-                                    </label>
+                                        <!-- 细粒度选项 -->
+                                        <div id="contextOptions" class="space-y-2">
+                                            <label class="label cursor-pointer justify-start gap-2">
+                                                <input type="checkbox" class="checkbox checkbox-sm" id="ctxGameInfo" checked>
+                                                <span class="label-text">游戏信息</span>
+                                            </label>
+                                            <label class="label cursor-pointer justify-start gap-2">
+                                                <input type="checkbox" class="checkbox checkbox-sm" id="ctxComments" checked>
+                                                <span class="label-text">单元格注释</span>
+                                            </label>
+                                            <label class="label cursor-pointer justify-start gap-2">
+                                                <input type="checkbox" class="checkbox checkbox-sm" id="ctxNeighbors" checked>
+                                                <span class="label-text">相邻单元格</span>
+                                            </label>
+                                            <label class="label cursor-pointer justify-start gap-2">
+                                                <input type="checkbox" class="checkbox checkbox-sm" id="ctxAnalysis" checked>
+                                                <span class="label-text">内容特征</span>
+                                            </label>
+                                            <label class="label cursor-pointer justify-start gap-2">
+                                                <input type="checkbox" class="checkbox checkbox-sm" id="ctxSheetType" checked>
+                                                <span class="label-text">表格类型</span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- 操作按钮 -->
                                 <div class="card-actions justify-end mt-6">
-                                    <button class="btn btn-ghost" onclick="configPage.resetConfig()">
+                                    <button class="btn btn-ghost btn-sm" onclick="configPage.resetConfig()">
                                         <i class="bi bi-arrow-clockwise"></i>
                                         重置
                                     </button>
@@ -205,60 +241,6 @@ class ConfigPage {
                             </div>
                         </div>
                     </div>
-
-                    <!-- 右侧预览区 -->
-                    <div class="lg:col-span-1">
-                        <div class="card bg-base-100 shadow-xl sticky top-24">
-                            <div class="card-body">
-                                <h3 class="card-title">
-                                    <i class="bi bi-eye"></i>
-                                    配置预览
-                                </h3>
-
-                                <div class="space-y-4">
-                                    <!-- 当前配置 -->
-                                    <div>
-                                        <h4 class="font-semibold mb-2">当前配置</h4>
-                                        <div class="text-sm space-y-1">
-                                            <p>• 源语言: <span id="previewSource" class="font-mono">自动检测</span></p>
-                                            <p>• 目标语言: <span id="previewTargets" class="font-mono">未选择</span></p>
-                                            <p>• 上下文: <span id="previewContext" class="font-mono">已启用</span></p>
-                                        </div>
-                                    </div>
-
-                                    <!-- 预估影响 -->
-                                    <div>
-                                        <h4 class="font-semibold mb-2">预估影响</h4>
-                                        <div class="text-sm space-y-1">
-                                            <p>• 任务数: <span id="estimateTasks" class="font-mono">--</span></p>
-                                            <p>• 批次数: <span id="estimateBatches" class="font-mono">--</span></p>
-                                        </div>
-                                    </div>
-
-                                    <!-- 性能提示 -->
-                                    <div>
-                                        <h4 class="font-semibold mb-2">性能提示</h4>
-                                        <div id="performanceHint">
-                                            <div class="alert alert-info">
-                                                <i class="bi bi-info-circle"></i>
-                                                <div>
-                                                    <p class="font-semibold">开启上下文</p>
-                                                    <p class="text-sm">质量 ⭐⭐⭐⭐⭐</p>
-                                                    <p class="text-sm">速度 ⭐⭐⭐</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 建议 -->
-                                    <div class="alert alert-warning">
-                                        <i class="bi bi-lightbulb"></i>
-                                        <p class="text-sm">小文件建议开启所有上下文选项以获得最佳质量</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         `;
@@ -266,6 +248,7 @@ class ConfigPage {
         document.getElementById('pageContent').innerHTML = html;
         this.loadLastConfig();
         this.updatePreview();
+        this.validateConfig();  // 验证配置，确保按钮状态正确
 
         // 更新全局进度
         UIHelper.updateGlobalProgress(2);
@@ -299,77 +282,25 @@ class ConfigPage {
         }
 
         this.updatePreview();
-        this.updatePerformanceHint();
     }
 
     updatePreview() {
+        const session = sessionManager.session;
+        if (!session) return;
+
         // 源语言
         const sourceLang = document.getElementById('sourceLang').value;
         this.config.source_lang = sourceLang || null;
-        document.getElementById('previewSource').textContent =
-            sourceLang ? APP_CONFIG.LANGUAGES.source[sourceLang] : '自动检测';
-
-        // 目标语言
-        const targetNames = this.config.target_langs.map(code =>
-            APP_CONFIG.LANGUAGES.target[code]
-        );
-        document.getElementById('previewTargets').textContent =
-            targetNames.length > 0 ? targetNames.join(', ') : '未选择';
-
-        // 上下文
-        document.getElementById('previewContext').textContent =
-            this.config.extract_context ? '已启用' : '已关闭';
-
-        // 预估
-        this.updateEstimation();
-        this.updatePerformanceHint();
-    }
-
-    updateEstimation() {
-        const session = sessionManager.session;
-        if (!session || !session.analysis) return;
-
-        const estimatedTasks = session.analysis.statistics.estimated_tasks || 0;
-        const langCount = this.config.target_langs.length || 1;
-        const totalTasks = estimatedTasks * langCount;
-        const batchSize = 35; // 估算值
-        const totalBatches = Math.ceil(totalTasks / batchSize);
-
-        document.getElementById('estimateTasks').textContent = totalTasks.toLocaleString();
-        document.getElementById('estimateBatches').textContent = `~${totalBatches}`;
-    }
-
-    updatePerformanceHint() {
-        const hint = document.getElementById('performanceHint');
-
-        if (this.config.extract_context) {
-            hint.innerHTML = `
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    <div>
-                        <p class="font-semibold">开启上下文</p>
-                        <p class="text-sm">质量 ⭐⭐⭐⭐⭐</p>
-                        <p class="text-sm">速度 ⭐⭐⭐</p>
-                    </div>
-                </div>
-            `;
-        } else {
-            hint.innerHTML = `
-                <div class="alert alert-warning">
-                    <i class="bi bi-speedometer2"></i>
-                    <div>
-                        <p class="font-semibold">关闭上下文</p>
-                        <p class="text-sm">质量 ⭐⭐⭐</p>
-                        <p class="text-sm">速度 ⭐⭐⭐⭐⭐</p>
-                    </div>
-                </div>
-            `;
-        }
     }
 
     validateConfig() {
         const splitBtn = document.getElementById('splitBtn');
-        if (this.config.target_langs.length > 0) {
+
+        // 必须同时满足：1) 有sessionId  2) 至少选择1个目标语言
+        const hasSession = sessionManager.session && sessionManager.session.sessionId;
+        const hasTargetLangs = this.config.target_langs.length > 0;
+
+        if (hasSession && hasTargetLangs) {
             splitBtn.disabled = false;
         } else {
             splitBtn.disabled = true;
@@ -378,6 +309,13 @@ class ConfigPage {
 
     async startSplit() {
         if (this.splitting || this.config.target_langs.length === 0) return;
+
+        // 验证 session 是否存在
+        if (!sessionManager.session || !sessionManager.session.sessionId) {
+            UIHelper.showToast('会话已失效，请重新上传文件', 'error');
+            router.navigate('/create');
+            return;
+        }
 
         // 收集上下文选项
         if (this.config.extract_context) {
@@ -390,6 +328,13 @@ class ConfigPage {
             };
         }
 
+        // 🔍 诊断日志：检查session数据
+        console.log('=== Split Debug Info ===');
+        console.log('sessionManager.session:', sessionManager.session);
+        console.log('sessionId:', sessionManager.session?.sessionId);
+        console.log('Config:', this.config);
+        console.log('localStorage session:', localStorage.getItem('currentSession'));
+
         this.splitting = true;
         document.getElementById('splitBtn').disabled = true;
         document.getElementById('splitProgress').classList.remove('hidden');
@@ -399,13 +344,19 @@ class ConfigPage {
             // 保存配置
             Storage.saveTaskConfig(this.config);
 
+            // 🔍 拆分请求前再次确认sessionId
+            console.log('Sending Split Request with SessionID:', sessionManager.session.sessionId);
+
             // 开始拆分
             await API.splitTasks(sessionManager.session.sessionId, this.config);
+
+            console.log('Split Request Success!');
 
             // 轮询进度
             this.startPolling();
 
         } catch (error) {
+            console.error('Split Request Failed:', error);
             UIHelper.showToast(`拆分失败：${error.message}`, 'error');
             this.splitting = false;
             document.getElementById('splitBtn').disabled = false;
@@ -469,6 +420,11 @@ class ConfigPage {
 
         UIHelper.showToast('任务拆分完成！', 'success');
         sessionManager.updateStage('configured');
+
+        // 自动跳转到执行页面
+        setTimeout(() => {
+            this.startTranslation();
+        }, 1500);
     }
 
     async exportTasks() {

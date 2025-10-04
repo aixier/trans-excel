@@ -8,6 +8,7 @@ class WebSocketManager {
         this.isPolling = false;
         this.pollingInterval = null;
         this.messageHandler = null;
+        this.messageCount = 0; // 🔍 消息计数器
     }
 
     // 连接WebSocket
@@ -16,18 +17,28 @@ class WebSocketManager {
 
         try {
             const wsUrl = `${APP_CONFIG.WS_BASE_URL}/ws/progress/${this.sessionId}`;
+            console.log('🔌 [WebSocket] Connecting to:', wsUrl);
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
+                console.log('✅ [WebSocket] Connected successfully');
+                console.log('✅ [WebSocket] Ready state:', this.ws.readyState, '(1=OPEN)');
                 logger.log('WebSocket connected');
                 this.reconnectAttempts = 0;
+                this.messageCount = 0; // 重置计数器
                 this.stopPolling();
                 this.updateConnectionStatus('connected');
+
+                // 🔍 定期检查WebSocket状态并发送心跳
+                this.startHeartbeat();
             };
 
             this.ws.onmessage = (event) => {
                 try {
+                    this.messageCount++;
                     const message = JSON.parse(event.data);
+                    console.log(`🔌 [WebSocket #${this.messageCount}] Raw message received:`, event.data);
+                    console.log(`🔌 [WebSocket #${this.messageCount}] Parsed message:`, message);
                     this.handleMessage(message);
                 } catch (error) {
                     logger.error('Failed to parse WebSocket message:', error);
@@ -35,11 +46,16 @@ class WebSocketManager {
             };
 
             this.ws.onerror = (error) => {
+                console.error('❌ [WebSocket] Error occurred:', error);
+                console.error('❌ [WebSocket] Ready state:', this.ws?.readyState);
                 logger.error('WebSocket error:', error);
                 this.handleDisconnect();
             };
 
-            this.ws.onclose = () => {
+            this.ws.onclose = (event) => {
+                console.warn('⚠️ [WebSocket] Connection closed');
+                console.warn('⚠️ [WebSocket] Code:', event.code, 'Reason:', event.reason);
+                console.warn('⚠️ [WebSocket] Total messages received:', this.messageCount);
                 logger.log('WebSocket closed');
                 this.handleDisconnect();
             };
@@ -188,6 +204,7 @@ class WebSocketManager {
             this.ws.close();
         }
         this.stopPolling();
+        this.stopHeartbeat();
         this.updateConnectionStatus('disconnected');
 
         const indicator = document.getElementById('connectionStatus');
@@ -203,5 +220,50 @@ class WebSocketManager {
             return true;
         }
         return false;
+    }
+
+    // 🔍 启动心跳检测
+    startHeartbeat() {
+        // 清除旧的心跳定时器
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+        }
+
+        let lastMessageCount = 0;
+        let noMessageCount = 0;
+
+        this.heartbeatInterval = setInterval(() => {
+            console.log(`💓 [Heartbeat] State: ${this.ws?.readyState}, Messages: ${this.messageCount}, Last: ${lastMessageCount}`);
+
+            // 检查是否有新消息
+            if (this.messageCount === lastMessageCount) {
+                noMessageCount++;
+                console.warn(`⚠️ [Heartbeat] No new messages for ${noMessageCount * 5}s`);
+
+                // 超过15秒没有新消息且执行中，切换到轮询
+                if (noMessageCount >= 3) {
+                    console.error('❌ [Heartbeat] WebSocket appears stuck, switching to polling');
+                    this.stopHeartbeat();
+                    this.switchToPolling();
+                }
+            } else {
+                noMessageCount = 0;
+            }
+
+            lastMessageCount = this.messageCount;
+
+            // 发送ping保持连接
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.send({ type: 'ping' });
+            }
+        }, 5000); // 每5秒检查一次
+    }
+
+    // 停止心跳检测
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 }

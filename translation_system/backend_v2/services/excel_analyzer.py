@@ -5,6 +5,7 @@ from typing import Dict, Any, List
 from models.excel_dataframe import ExcelDataFrame
 from models.game_info import GameInfo
 from services.language_detector import LanguageDetector
+from services.language_metadata import LanguageMetadata
 from utils.color_detector import is_yellow_color, is_blue_color
 
 
@@ -37,7 +38,7 @@ class ExcelAnalyzer:
         }
 
     def _analyze_languages(self, excel_df: ExcelDataFrame) -> Dict[str, Any]:
-        """Analyze language distribution."""
+        """Analyze language distribution with complete metadata."""
         all_source_langs = set()
         all_target_langs = set()
         sheet_analyses = []
@@ -54,7 +55,42 @@ class ExcelAnalyzer:
                 **sheet_analysis
             })
 
+        # 丰富检测到的语言信息
+        detected_source_langs = LanguageMetadata.enrich_language_list(list(all_source_langs))
+        detected_target_langs = LanguageMetadata.enrich_language_list(list(all_target_langs))
+
+        # 获取所有可用的语言选项
+        available_source_langs = LanguageMetadata.get_available_source_languages()
+        available_target_langs = LanguageMetadata.get_available_target_languages()
+
+        # 智能推荐配置
+        suggested_source = list(all_source_langs)[0] if all_source_langs else None
+        suggested_targets = list(all_target_langs) if all_target_langs else []
+
         return {
+            # 检测到的语言（带完整元数据）
+            'detected': {
+                'source_languages': detected_source_langs,
+                'target_languages': detected_target_langs
+            },
+
+            # 系统支持的所有语言（用于选择器）
+            'available': {
+                'source_languages': [
+                    {'code': 'auto', 'name': '自动检测', 'abbr': 'AUTO'},
+                    *available_source_langs
+                ],
+                'target_languages': available_target_langs
+            },
+
+            # 智能推荐配置
+            'suggested_config': {
+                'source_lang': suggested_source,
+                'target_langs': suggested_targets,
+                'confidence': 0.95 if suggested_source and suggested_targets else 0.0
+            },
+
+            # 保留原始数据（兼容性）
             'source_langs': list(all_source_langs),
             'target_langs': list(all_target_langs),
             'sheet_details': sheet_analyses

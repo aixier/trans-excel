@@ -1,7 +1,7 @@
 // 应用配置
 const APP_CONFIG = {
     // API基础路径
-    API_BASE_URL: window.location.origin,
+    API_BASE_URL: '',  // 使用相对路径，避免跨域问题
 
     // WebSocket路径
     WS_BASE_URL: `ws://${window.location.host}`,

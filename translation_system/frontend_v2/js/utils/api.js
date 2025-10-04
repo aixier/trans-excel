@@ -1,8 +1,11 @@
 // API工具类
 class API {
     static async request(url, options = {}) {
+        // 检查是否是FormData，如果是则不设置Content-Type
+        const isFormData = options.body instanceof FormData;
+
         const defaultOptions = {
-            headers: {
+            headers: isFormData ? {} : {
                 'Content-Type': 'application/json'
             }
         };
@@ -16,12 +19,30 @@ class API {
             }
         };
 
+        // 如果headers为空对象且是FormData，完全移除headers让浏览器自动设置
+        if (isFormData && Object.keys(config.headers).length === 0) {
+            delete config.headers;
+        }
+
         try {
             const response = await fetch(`${APP_CONFIG.API_BASE_URL}${url}`, config);
 
             if (!response.ok) {
-                const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-                throw new Error(error.detail || `HTTP ${response.status}`);
+                let errorMessage = `HTTP ${response.status}`;
+                try {
+                    const error = await response.json();
+                    if (error.detail) {
+                        // 处理FastAPI的验证错误
+                        if (Array.isArray(error.detail)) {
+                            errorMessage = error.detail.map(e => e.msg).join(', ');
+                        } else {
+                            errorMessage = error.detail;
+                        }
+                    }
+                } catch (e) {
+                    // 如果不能解析为JSON，使用默认错误消息
+                }
+                throw new Error(errorMessage);
             }
 
             // 如果是下载文件，返回blob
@@ -48,8 +69,8 @@ class API {
 
         return this.request('/api/analyze/upload', {
             method: 'POST',
-            headers: {}, // FormData不需要Content-Type
             body: formData
+            // 不设置headers，让request方法自动处理
         });
     }
 

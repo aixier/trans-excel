@@ -115,21 +115,30 @@ class ConnectionManager:
             message: Message to broadcast
         """
         if session_id not in self.active_connections:
+            self.logger.debug(f"No active connections for session {session_id}, skipping broadcast")
             return
-        
+
+        connection_count = len(self.active_connections[session_id])
+        self.logger.debug(f"Broadcasting to {connection_count} connection(s) for session {session_id}")
+
         # Add timestamp if not present
         if 'timestamp' not in message:
             message['timestamp'] = datetime.now().isoformat()
-        
+
         # Send to all connections for this session
         disconnected = []
+        sent_count = 0
         for websocket in self.active_connections[session_id]:
             try:
                 await websocket.send_json(message)
+                sent_count += 1
+                self.logger.debug(f"Sent message type={message.get('type')} to WebSocket {id(websocket)}")
             except Exception as e:
-                self.logger.warning(f"Failed to send to WebSocket: {e}")
+                self.logger.warning(f"Failed to send to WebSocket {id(websocket)}: {e}")
                 disconnected.append(websocket)
-        
+
+        self.logger.debug(f"Broadcast complete: {sent_count} sent, {len(disconnected)} failed")
+
         # Clean up disconnected sockets
         for websocket in disconnected:
             await self.disconnect(websocket)
@@ -151,6 +160,13 @@ class ConnectionManager:
             'session_id': session_id,
             'data': progress  # Changed from 'progress' to 'data' to match frontend
         }
+
+        # 🔍 添加日志：记录进度广播
+        self.logger.info(
+            f"Broadcasting progress to session {session_id}: "
+            f"{progress.get('completion_rate', 0):.1f}% "
+            f"({progress.get('completed', 0)}/{progress.get('total', 0)})"
+        )
 
         await self.broadcast_to_session(session_id, message)
 

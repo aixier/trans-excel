@@ -1,5 +1,67 @@
 /* 自定义样式 */
 
+/* 全屏布局优化 */
+html, body {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+#app {
+    height: calc(100vh - 64px); /* 减去navbar高度 */
+    overflow: hidden;
+}
+
+#pageContent {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* 紧凑布局 - 减少间距 */
+.container {
+    padding: 0.5rem !important;
+}
+
+.card {
+    padding: 1rem !important;
+}
+
+.card-body {
+    padding: 0.75rem !important;
+}
+
+/* 小屏幕优化 */
+@media (max-height: 800px) {
+    .text-2xl { font-size: 1.25rem !important; }
+    .text-xl { font-size: 1rem !important; }
+    .text-lg { font-size: 0.875rem !important; }
+    .btn-lg {
+        height: 2.5rem !important;
+        min-height: 2.5rem !important;
+        font-size: 0.875rem !important;
+    }
+    .stats { padding: 0.5rem !important; }
+    .stat { padding: 0.5rem !important; }
+    .gap-4 { gap: 0.5rem !important; }
+    .gap-6 { gap: 0.75rem !important; }
+    .p-4 { padding: 0.5rem !important; }
+    .p-6 { padding: 0.75rem !important; }
+}
+
+/* 超小屏幕优化 */
+@media (max-height: 600px) {
+    .navbar {
+        min-height: 48px !important;
+        height: 48px !important;
+    }
+    #app { height: calc(100vh - 48px); }
+    .hidden-sm { display: none !important; }
+    .card { padding: 0.5rem !important; }
+    .form-control { margin-bottom: 0.25rem !important; }
+}
+
 /* 会话超时警告样式 */
 .session-warning {
     animation: pulse 2s infinite;

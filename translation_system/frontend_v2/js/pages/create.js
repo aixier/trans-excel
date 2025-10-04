@@ -8,39 +8,35 @@ class CreatePage {
 
     render() {
         const html = `
-            <div class="max-w-4xl mx-auto">
+            <div class="h-full flex flex-col">
                 <!-- 页面标题 -->
-                <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold mb-2">开始新的Excel翻译项目</h1>
-                    <p class="text-base-content/70">上传您的Excel文件，我们将自动分析并准备翻译</p>
+                <div class="mb-3">
+                    <h1 class="text-lg font-bold">
+                        <i class="bi bi-cloud-upload text-primary"></i>
+                        开始新的翻译项目
+                    </h1>
                 </div>
 
-                <!-- 检查未完成会话 -->
-                <div id="unfinishedAlert" class="hidden mb-6">
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>您有未完成的翻译任务</span>
-                        <div>
-                            <button class="btn btn-sm" onclick="createPage.resumeSession()">继续</button>
-                            <button class="btn btn-sm btn-ghost" onclick="createPage.dismissAlert()">忽略</button>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- 文件上传卡片 -->
-                <div class="card bg-base-100 shadow-xl">
-                    <div class="card-body">
+                <!-- 主内容区域 - 左右分栏 -->
+                <div class="flex-1 flex gap-4 overflow-hidden">
+                    <!-- 左侧：文件上传 -->
+                    <div class="flex-1">
+                        <div class="card bg-base-100 shadow-xl h-full">
+                            <div class="card-body">
                         <!-- 拖拽上传区域 -->
-                        <div id="dropZone" class="border-2 border-dashed border-base-300 rounded-lg p-12 text-center drop-zone hover:border-primary transition-all">
-                            <i class="bi bi-cloud-upload text-6xl text-base-content/30 mb-4"></i>
-                            <p class="text-lg mb-2">拖拽Excel文件到这里</p>
-                            <p class="text-base-content/70 mb-4">或</p>
-                            <button class="btn btn-primary" onclick="createPage.selectFile()">
-                                <i class="bi bi-folder2-open"></i>
-                                选择文件
-                            </button>
-                            <p class="text-sm text-base-content/50 mt-4">
-                                支持格式：.xlsx, .xls | 最大大小：100MB
+                        <div id="dropZone" class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center drop-zone hover:border-primary transition-all">
+                            <i class="bi bi-cloud-upload text-3xl text-base-content/30 mb-2"></i>
+                            <p class="mb-2">拖拽Excel文件到这里</p>
+                            <div class="flex items-center justify-center gap-2">
+                                <span class="text-sm text-base-content/70">或</span>
+                                <button class="btn btn-primary btn-sm" onclick="createPage.selectFile()">
+                                    <i class="bi bi-folder2-open"></i>
+                                    选择文件
+                                </button>
+                            </div>
+                            <p class="text-xs text-base-content/50 mt-2">
+                                支持格式：.xlsx, .xls | 最大：100MB
                             </p>
                         </div>
 
@@ -63,54 +59,44 @@ class CreatePage {
                         </div>
 
                         <!-- 游戏信息（可选） -->
-                        <div class="divider">游戏信息（可选）</div>
+                        <div class="divider my-2 text-sm">游戏信息（可选）</div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                             <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">游戏名称</span>
-                                </label>
-                                <input type="text" id="gameName" placeholder="例：原神" class="input input-bordered" />
+                                <input type="text" id="gameName" placeholder="游戏名称" class="input input-bordered input-sm" />
                             </div>
-
                             <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">版本号</span>
-                                </label>
-                                <input type="text" id="gameVersion" placeholder="例：1.0.0" class="input input-bordered" />
+                                <input type="text" id="gameVersion" placeholder="版本号" class="input input-bordered input-sm" />
                             </div>
-
                             <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">备注</span>
-                                </label>
-                                <input type="text" id="gameNotes" placeholder="可选" class="input input-bordered" />
+                                <input type="text" id="gameNotes" placeholder="备注" class="input input-bordered input-sm" />
                             </div>
                         </div>
 
                         <!-- 上传按钮 -->
-                        <div class="card-actions justify-end mt-6">
+                        <div class="card-actions justify-end mt-3">
                             <button id="uploadBtn" class="btn btn-primary btn-lg" onclick="createPage.uploadFile()" disabled>
                                 <i class="bi bi-upload"></i>
                                 上传并分析
                             </button>
                         </div>
 
-                        <!-- 上传进度 -->
-                        <div id="uploadProgress" class="hidden mt-6">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm">上传中...</span>
-                                <span class="text-sm" id="uploadPercent">0%</span>
+                                <!-- 上传进度 -->
+                                <div id="uploadProgress" class="hidden mt-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm">上传中...</span>
+                                        <span class="text-sm" id="uploadPercent">0%</span>
+                                    </div>
+                                    <progress class="progress progress-primary w-full" id="progressBar" value="0" max="100"></progress>
+                                </div>
                             </div>
-                            <progress class="progress progress-primary w-full" id="progressBar" value="0" max="100"></progress>
                         </div>
                     </div>
-                </div>
 
-                <!-- 分析结果卡片 -->
-                <div id="analysisResult" class="hidden mt-6">
-                    <div class="card bg-base-100 shadow-xl">
-                        <div class="card-body">
+                    <!-- 右侧：分析结果 -->
+                    <div id="analysisResult" class="hidden flex-1">
+                        <div class="card bg-base-100 shadow-xl h-full">
+                            <div class="card-body">
                             <h2 class="card-title">
                                 <i class="bi bi-check-circle-fill text-success"></i>
                                 分析完成
@@ -127,22 +113,22 @@ class CreatePage {
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                                <div class="stat bg-base-200 rounded-lg p-4">
-                                    <div class="stat-title">Sheets</div>
-                                    <div class="stat-value text-2xl" id="sheetCount">--</div>
+                            <div class="grid grid-cols-2 gap-2 mt-3">
+                                <div class="stat bg-base-200 rounded-lg p-2">
+                                    <div class="stat-title text-xs">Sheets</div>
+                                    <div class="stat-value text-lg" id="sheetCount">--</div>
                                 </div>
-                                <div class="stat bg-base-200 rounded-lg p-4">
-                                    <div class="stat-title">单元格</div>
-                                    <div class="stat-value text-2xl" id="cellCount">--</div>
+                                <div class="stat bg-base-200 rounded-lg p-2">
+                                    <div class="stat-title text-xs">单元格</div>
+                                    <div class="stat-value text-lg" id="cellCount">--</div>
                                 </div>
-                                <div class="stat bg-base-200 rounded-lg p-4">
-                                    <div class="stat-title">预估任务</div>
-                                    <div class="stat-value text-2xl" id="taskCount">--</div>
+                                <div class="stat bg-base-200 rounded-lg p-2">
+                                    <div class="stat-title text-xs">预估任务</div>
+                                    <div class="stat-value text-lg" id="taskCount">--</div>
                                 </div>
-                                <div class="stat bg-base-200 rounded-lg p-4">
-                                    <div class="stat-title">成功率</div>
-                                    <div class="stat-value text-2xl text-success">98%</div>
+                                <div class="stat bg-base-200 rounded-lg p-2">
+                                    <div class="stat-title text-xs">成功率</div>
+                                    <div class="stat-value text-lg text-success">98%</div>
                                 </div>
                             </div>
 
@@ -174,12 +160,12 @@ class CreatePage {
                         </div>
                     </div>
                 </div>
+                <!-- 结束主内容区域 -->
             </div>
         `;
 
         document.getElementById('pageContent').innerHTML = html;
         this.initEventListeners();
-        this.checkUnfinishedSessions();
         this.loadUserPreferences();
 
         // 更新全局进度
@@ -320,8 +306,18 @@ class CreatePage {
                 progress = 95;
                 clearInterval(interval);
             }
-            UIHelper.updateProgress('progressBar', progress);
-            document.getElementById('uploadPercent').textContent = `${Math.round(progress)}%`;
+
+            // 检查元素是否存在（页面可能已跳转）
+            const progressBar = document.getElementById('progressBar');
+            const uploadPercent = document.getElementById('uploadPercent');
+
+            if (progressBar && uploadPercent) {
+                UIHelper.updateProgress('progressBar', progress);
+                uploadPercent.textContent = `${Math.round(progress)}%`;
+            } else {
+                // 元素不存在，停止定时器
+                clearInterval(interval);
+            }
         }, 500);
     }
 
@@ -343,7 +339,11 @@ class CreatePage {
 
     displayAnalysisResult(result) {
         document.getElementById('uploadProgress').classList.add('hidden');
-        document.getElementById('analysisResult').classList.remove('hidden');
+
+        // 显示右侧分析结果面板
+        const resultPanel = document.getElementById('analysisResult');
+        resultPanel.classList.remove('hidden');
+        resultPanel.style.display = 'block';
 
         // 基本信息
         document.getElementById('sessionId').textContent = result.session_id;
@@ -356,6 +356,43 @@ class CreatePage {
         document.getElementById('normalTasks').textContent = breakdown.normal_tasks || 0;
         document.getElementById('yellowTasks').textContent = breakdown.yellow_tasks || 0;
         document.getElementById('blueTasks').textContent = breakdown.blue_tasks || 0;
+
+        // 显示成功提示
+        UIHelper.showToast('分析完成！', 'success');
+
+        // 添加倒计时提示（可取消）
+        let countdown = 10;
+        const countdownElement = document.createElement('div');
+        countdownElement.className = 'alert alert-info mt-3';
+        countdownElement.innerHTML = `
+            <i class="bi bi-info-circle"></i>
+            <span><span id="countdown">${countdown}</span>秒后自动跳转到配置页</span>
+            <button class="btn btn-sm btn-ghost" onclick="createPage.cancelAutoRedirect()">留在此页</button>
+        `;
+        document.querySelector('#analysisResult .card-body').appendChild(countdownElement);
+
+        this.redirectTimer = setInterval(() => {
+            countdown--;
+            const elem = document.getElementById('countdown');
+            if (elem) elem.textContent = countdown;
+
+            if (countdown <= 0) {
+                clearInterval(this.redirectTimer);
+                this.continueToConfig();
+            }
+        }, 1000);
+    }
+
+    cancelAutoRedirect() {
+        if (this.redirectTimer) {
+            clearInterval(this.redirectTimer);
+            this.redirectTimer = null;
+            const countdownElement = document.querySelector('.alert-info');
+            if (countdownElement) {
+                countdownElement.remove();
+            }
+            UIHelper.showToast('已取消自动跳转', 'info');
+        }
     }
 
     copySessionId() {
@@ -365,43 +402,14 @@ class CreatePage {
     }
 
     continueToConfig() {
+        // 清理定时器
+        if (this.redirectTimer) {
+            clearInterval(this.redirectTimer);
+            this.redirectTimer = null;
+        }
         window.location.hash = '#/config';
     }
 
-    checkUnfinishedSessions() {
-        const unfinished = SessionManager.checkUnfinishedSessions();
-        if (unfinished && unfinished.length > 0) {
-            this.showUnfinishedAlert(unfinished[0]);
-        }
-    }
-
-    showUnfinishedAlert(session) {
-        const alert = document.getElementById('unfinishedAlert');
-        alert.classList.remove('hidden');
-        alert.querySelector('span').textContent =
-            `您有未完成的翻译任务：${session.filename}`;
-        this.unfinishedSession = session;
-    }
-
-    resumeSession() {
-        if (this.unfinishedSession) {
-            sessionManager.loadSession(this.unfinishedSession.sessionId);
-
-            // 根据阶段跳转
-            const stageRoutes = {
-                'created': '#/config',
-                'configured': '#/execute',
-                'executing': '#/execute',
-                'completed': '#/complete'
-            };
-
-            window.location.hash = stageRoutes[this.unfinishedSession.stage] || '#/config';
-        }
-    }
-
-    dismissAlert() {
-        document.getElementById('unfinishedAlert').classList.add('hidden');
-    }
 
     loadUserPreferences() {
         const prefs = Storage.getPreferences();

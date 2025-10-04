@@ -23,6 +23,13 @@ class ExecutePage {
     }
 
     render(sessionId) {
+        // 验证 sessionId 参数
+        if (!sessionId) {
+            UIHelper.showToast('缺少会话ID，请重新上传文件', 'error');
+            router.navigate('/create');
+            return;
+        }
+
         this.sessionId = sessionId;
 
         if (!sessionManager.loadSession(sessionId)) {
@@ -113,15 +120,6 @@ class ExecutePage {
                                 </select>
                             </div>
 
-                            <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">LLM提供商</span>
-                                </label>
-                                <select id="provider" class="select select-bordered select-sm">
-                                    <option value="openai">OpenAI</option>
-                                    <option value="qwen">通义千问</option>
-                                </select>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -260,7 +258,22 @@ class ExecutePage {
     async checkExecutionStatus() {
         try {
             // 检查全局执行状态
-            const globalStatus = await API.getGlobalExecutionStatus();
+            let globalStatus;
+            try {
+                globalStatus = await API.getGlobalExecutionStatus();
+            } catch (globalError) {
+                // 404 表示没有任何执行记录，这是正常的（第一次使用系统）
+                if (globalError.message.includes('Not Found') || globalError.message.includes('404')) {
+                    console.log('ℹ️ [checkExecutionStatus] No global execution history - first time use');
+                    // 只有在有 sessionId 时才启用开始按钮
+                    if (this.sessionId) {
+                        document.getElementById('startBtn').disabled = false;
+                    }
+                    return;
+                } else {
+                    throw globalError;
+                }
+            }
 
             if (globalStatus.is_executing) {
                 if (globalStatus.current_session_id === this.sessionId) {
@@ -271,16 +284,48 @@ class ExecutePage {
                     this.showExecutionConflict(globalStatus.current_session_id);
                 }
             } else {
-                // 无任务执行，可以开始
-                document.getElementById('startBtn').disabled = false;
+                // 无任务执行，且有 sessionId，可以开始
+                if (this.sessionId) {
+                    document.getElementById('startBtn').disabled = false;
+                }
             }
 
-            // 获取当前会话状态
-            const sessionStatus = await API.getExecutionProgress(this.sessionId);
-            this.updateUIFromStatus(sessionStatus);
+            // 获取当前会话状态（可能不存在，这是正常的）
+            // 如果刚从拆分页面跳转过来，task_manager可能还在后台保存中，需要重试
+            let retryCount = 0;
+            const maxRetries = 3;
+
+            while (retryCount < maxRetries) {
+                try {
+                    const sessionStatus = await API.getExecutionProgress(this.sessionId);
+                    this.updateUIFromStatus(sessionStatus);
+                    console.log('✅ [checkExecutionStatus] Session status retrieved successfully');
+                    break; // 成功获取，退出循环
+                } catch (statusError) {
+                    // 404 表示还没有执行记录，这是正常的（任务还未开始执行）
+                    if (statusError.message.includes('Not Found') || statusError.message.includes('404')) {
+                        retryCount++;
+                        if (retryCount < maxRetries) {
+                            console.log(`ℹ️ [checkExecutionStatus] Session not ready, retrying... (${retryCount}/${maxRetries})`);
+                            await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒后重试
+                        } else {
+                            console.log('ℹ️ [checkExecutionStatus] No execution history for this session - not started yet');
+                        }
+                    } else {
+                        throw statusError;  // 其他错误继续抛出
+                    }
+                }
+            }
 
         } catch (error) {
-            logger.error('Failed to check execution status:', error);
+            console.warn('⚠️ [checkExecutionStatus] Check failed:', error.message);
+            // 即使检查失败，也允许用户启动翻译（前提是有 sessionId）
+            if (this.sessionId) {
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) {
+                    startBtn.disabled = false;
+                }
+            }
         }
     }
 
@@ -327,6 +372,13 @@ class ExecutePage {
     async startExecution() {
         if (this.isExecuting) return;
 
+        // 验证 sessionId 是否存在
+        if (!this.sessionId) {
+            UIHelper.showToast('会话ID不存在，请重新上传文件', 'error');
+            router.navigate('/create');
+            return;
+        }
+
         try {
             // 检查全局状态
             const globalStatus = await API.getGlobalExecutionStatus();
@@ -338,7 +390,7 @@ class ExecutePage {
             // 获取配置
             const options = {
                 max_workers: parseInt(document.getElementById('maxWorkers').value),
-                provider: document.getElementById('provider').value
+                provider: 'qwen-plus'  // 固定使用通义千问 qwen-plus
             };
 
             // 开始执行
@@ -353,7 +405,11 @@ class ExecutePage {
                 // 更新UI
                 this.updateControlButtons('running');
 
-                // 建立WebSocket连接
+                // 🔄 像测试页面一样：先启动HTTP轮询，确保进度更新
+                console.log('🔄 [startExecution] Starting HTTP polling first');
+                this.startPolling();
+
+                // 然后尝试WebSocket连接（成功后会停止轮询）
                 this.connectWebSocket();
 
                 // 开始定时更新
@@ -369,45 +425,145 @@ class ExecutePage {
         }
     }
 
+    // 🔄 启动HTTP轮询（参考测试页面实现）
+    startPolling() {
+        // 清除旧的轮询
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+
+        console.log('🔄 [startPolling] Starting HTTP polling every 2 seconds');
+
+        // 立即执行一次
+        this.pollExecutionStatus();
+
+        // 每2秒轮询一次
+        this.pollingInterval = setInterval(() => {
+            this.pollExecutionStatus();
+        }, 2000);
+    }
+
+    // 轮询执行状态
+    async pollExecutionStatus() {
+        try {
+            const data = await API.getExecutionProgress(this.sessionId);
+            console.log('🔄 [pollExecutionStatus] Received data:', data);
+
+            if (data && data.progress) {
+                // 模拟WebSocket消息格式
+                this.handleProgressUpdate({
+                    type: 'progress',
+                    data: data.progress
+                });
+
+                // 如果完成，停止轮询
+                if (data.progress.completed >= data.progress.total && data.progress.total > 0) {
+                    console.log('🔄 [pollExecutionStatus] Task completed, stopping polling');
+                    this.stopPolling();
+                }
+            }
+        } catch (error) {
+            console.error('🔄 [pollExecutionStatus] Error:', error);
+        }
+    }
+
+    // 停止轮询
+    stopPolling() {
+        if (this.pollingInterval) {
+            console.log('🔄 [stopPolling] Stopping HTTP polling');
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+        }
+    }
+
     connectWebSocket() {
+        console.log('🔌 [connectWebSocket] Connecting for session:', this.sessionId);
+
         if (this.wsManager) {
             this.wsManager.disconnect();
         }
 
         this.wsManager = new WebSocketManager(this.sessionId);
         this.wsManager.connect((message) => {
+            console.log('🔌 [connectWebSocket] Message callback triggered');
+
+            // WebSocket成功接收消息，可以停止HTTP轮询
+            if (message.type === 'progress') {
+                console.log('🔌 [connectWebSocket] WebSocket is working, stopping HTTP polling');
+                this.stopPolling();
+            }
+
             this.handleProgressUpdate(message);
         });
     }
 
     handleProgressUpdate(message) {
+        // 🔍 添加调试日志
+        console.log('🔍 [handleProgressUpdate] Received message:', {
+            type: message.type,
+            hasData: !!message.data,
+            data: message.data,
+            hasProgress: !!message.progress,
+            progress: message.progress,
+            fullMessage: message
+        });
+
+        // 处理不同类型的消息
+        let progressData = null;
+
         if (message.type === 'progress' && message.data) {
-            const data = message.data;
+            // 标准进度更新消息
+            progressData = message.data;
+        } else if (message.type === 'initial_status' && message.progress) {
+            // 初始状态消息
+            progressData = message.progress;
+            console.log('📥 [handleProgressUpdate] Received initial_status');
+        }
+
+        if (progressData) {
+            console.log('✅ [handleProgressUpdate] Progress data:', {
+                completed: progressData.completed,
+                total: progressData.total,
+                completion_rate: progressData.completion_rate,
+                processing: progressData.processing,
+                pending: progressData.pending,
+                failed: progressData.failed
+            });
 
             // 更新进度数据
             this.progress = {
-                total: data.total || this.progress.total,
-                completed: data.completed || 0,
-                processing: data.processing || 0,
-                pending: data.pending || 0,
-                failed: data.failed || 0
+                total: progressData.total || this.progress.total,
+                completed: progressData.completed || 0,
+                processing: progressData.processing || 0,
+                pending: progressData.pending || 0,
+                failed: progressData.failed || 0
             };
 
+            console.log('📊 [handleProgressUpdate] Updated this.progress:', this.progress);
+
             // 更新性能数据
-            if (data.rate) {
-                this.performance.currentSpeed = data.rate;
+            if (progressData.rate) {
+                this.performance.currentSpeed = progressData.rate;
             }
-            if (data.eta_seconds) {
-                this.performance.estimatedTime = data.eta_seconds;
+            if (progressData.eta_seconds) {
+                this.performance.estimatedTime = progressData.eta_seconds;
             }
 
             // 更新UI
             this.updateProgressUI();
 
             // 检查是否完成
-            if (this.progress.completed + this.progress.failed >= this.progress.total) {
+            if (this.progress.completed + this.progress.failed >= this.progress.total && this.progress.total > 0) {
+                console.log('🎉 [handleProgressUpdate] Execution complete!');
                 this.handleExecutionComplete();
             }
+        } else {
+            console.warn('⚠️ [handleProgressUpdate] Message ignored:', {
+                type: message.type,
+                hasData: !!message.data,
+                hasProgress: !!message.progress,
+                reason: 'No progress data found'
+            });
         }
     }
 
@@ -417,11 +573,30 @@ class ExecutePage {
             ? Math.round((this.progress.completed / this.progress.total) * 100)
             : 0;
 
+        console.log('🎨 [updateProgressUI] Updating UI:', {
+            percentage,
+            completed: this.progress.completed,
+            total: this.progress.total,
+            progress: this.progress
+        });
+
         // 更新主进度
-        document.getElementById('progressPercent').textContent = `${percentage}%`;
-        document.getElementById('mainProgress').value = percentage;
-        document.getElementById('completedCount').textContent = this.progress.completed;
-        document.getElementById('totalCount').textContent = this.progress.total;
+        const progressPercentEl = document.getElementById('progressPercent');
+        const mainProgressEl = document.getElementById('mainProgress');
+        const completedCountEl = document.getElementById('completedCount');
+        const totalCountEl = document.getElementById('totalCount');
+
+        if (progressPercentEl) progressPercentEl.textContent = `${percentage}%`;
+        if (mainProgressEl) mainProgressEl.value = percentage;
+        if (completedCountEl) completedCountEl.textContent = this.progress.completed;
+        if (totalCountEl) totalCountEl.textContent = this.progress.total;
+
+        console.log('🎨 [updateProgressUI] DOM elements:', {
+            progressPercent: progressPercentEl?.textContent,
+            mainProgress: mainProgressEl?.value,
+            completedCount: completedCountEl?.textContent,
+            totalCount: totalCountEl?.textContent
+        });
 
         // 更新状态
         document.getElementById('statusCompleted').textContent = this.progress.completed;
@@ -714,6 +889,8 @@ class ExecutePage {
         if (this.updateInterval) {
             clearInterval(this.updateInterval);
         }
+        // 停止HTTP轮询
+        this.stopPolling();
     }
 }
 

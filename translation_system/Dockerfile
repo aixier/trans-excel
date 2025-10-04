@@ -30,23 +30,29 @@ RUN mkdir -p /app/uploads /app/exports /app/logs && \
 # 创建Supervisor配置
 RUN echo '[supervisord]\n\
 nodaemon=true\n\
-logfile=/app/logs/supervisord.log\n\
+logfile=/dev/null\n\
+logfile_maxbytes=0\n\
+loglevel=info\n\
 \n\
 [program:nginx]\n\
 command=nginx -g "daemon off;"\n\
 autostart=true\n\
 autorestart=true\n\
-stdout_logfile=/app/logs/nginx_stdout.log\n\
-stderr_logfile=/app/logs/nginx_stderr.log\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/fd/2\n\
+stderr_logfile_maxbytes=0\n\
 \n\
 [program:backend]\n\
-command=python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4\n\
+command=python -m uvicorn main:app --host 0.0.0.0 --port 8013 --workers 4 --log-level info\n\
 directory=/app/backend_v2\n\
 autostart=true\n\
 autorestart=true\n\
 environment=PYTHONPATH="/app"\n\
-stdout_logfile=/app/logs/backend_stdout.log\n\
-stderr_logfile=/app/logs/backend_stderr.log\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/fd/2\n\
+stderr_logfile_maxbytes=0\n\
 ' > /etc/supervisor/conf.d/app.conf
 
 # 设置环境变量
