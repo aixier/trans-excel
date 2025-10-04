@@ -1,13 +1,103 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Translation System</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel翻译系统</title>
+
+    <!-- DaisyUI + Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="css/main.css">
+
+    <!-- 图标 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <div class="navbar bg-base-100 shadow-lg sticky top-0 z-50">
+        <div class="navbar-start">
+            <div class="flex items-center gap-4">
+                <h1 class="text-xl font-bold">
+                    <i class="bi bi-translate"></i>
+                    Excel翻译系统
+                </h1>
+                <!-- 进度指示器 -->
+                <div id="globalProgress" class="hidden lg:flex">
+                    <ul class="steps steps-horizontal">
+                        <li class="step" data-step="1">上传文件</li>
+                        <li class="step" data-step="2">配置任务</li>
+                        <li class="step" data-step="3">执行翻译</li>
+                        <li class="step" data-step="4">下载结果</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="navbar-end">
+            <div class="flex items-center gap-4">
+                <!-- 会话倒计时 -->
+                <div id="sessionTimer" class="hidden">
+                    <div class="badge badge-lg" id="sessionTimerBadge">
+                        <i class="bi bi-clock mr-1"></i>
+                        <span id="sessionTimerText">--:--</span>
+                    </div>
+                </div>
+
+                <!-- 连接状态 -->
+                <div id="connectionStatus" class="hidden">
+                    <div class="badge badge-success badge-lg" id="connectionBadge">
+                        <i class="bi bi-wifi mr-1"></i>
+                        <span id="connectionText">未连接</span>
+                    </div>
+                </div>
+
+                <!-- 主题切换 -->
+                <label class="swap swap-rotate">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="bi bi-sun-fill swap-on text-xl"></i>
+                    <i class="bi bi-moon-fill swap-off text-xl"></i>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div id="app" class="min-h-screen bg-base-200">
+        <!-- 页面内容将通过JavaScript动态加载 -->
+        <div class="container mx-auto p-4">
+            <div id="pageContent">
+                <!-- 动态页面内容 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast提示容器 -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- 全局Loading -->
+    <div id="globalLoading" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="loading loading-spinner loading-lg"></div>
+    </div>
+
+    <!-- 核心JavaScript -->
+    <script src="js/config.js"></script>
+    <script src="js/utils/api.js"></script>
+    <script src="js/utils/storage.js"></script>
+    <script src="js/utils/session-manager.js"></script>
+    <script src="js/utils/websocket-manager.js"></script>
+    <script src="js/utils/ui-helper.js"></script>
+    <script src="js/router.js"></script>
+
+    <!-- 页面组件 -->
+    <script src="js/pages/create.js"></script>
+    <script src="js/pages/config.js"></script>
+    <script src="js/pages/execute.js"></script>
+    <script src="js/pages/complete.js"></script>
+
+    <!-- 应用初始化 -->
+    <script src="js/app.js"></script>
+</body>
 </html>
