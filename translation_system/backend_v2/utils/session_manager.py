@@ -78,6 +78,8 @@ class SessionData:
             'split_progress': self.split_progress.to_dict() if self.split_progress else None,
             'execution_progress': self.execution_progress.to_dict() if self.execution_progress else None,
             # ❌ Not including: excel_df, task_manager, game_info (heavy data)
+            # But we include file paths for lazy loading
+            'task_file_path': self.metadata.get('task_file_path'),
         }
 
     @classmethod
@@ -228,9 +230,41 @@ class SessionManager:
         return False
 
     def get_task_manager(self, session_id: str) -> Optional[TaskDataFrameManager]:
-        """Get task manager from session."""
+        """Get task manager from session.
+
+        Supports lazy loading from file if not in memory (for cross-worker access).
+        """
         session = self.get_session(session_id)
-        return session.task_manager if session else None
+        if not session:
+            return None
+
+        # Fast path: task_manager already in memory
+        if session.task_manager:
+            return session.task_manager
+
+        # Slow path: try to load from file (cross-worker scenario)
+        task_file_path = session.metadata.get('task_file_path')
+        if task_file_path:
+            try:
+                import os
+                from pathlib import Path
+                import pandas as pd
+                from models.task_dataframe import TaskDataFrameManager
+
+                if os.path.exists(task_file_path):
+                    logger.info(f"Loading task_manager from file for session {session_id} (cross-worker)")
+                    task_manager = TaskDataFrameManager()
+                    task_manager.df = pd.read_parquet(task_file_path)
+                    # Cache in memory for future requests
+                    session.task_manager = task_manager
+                    logger.info(f"Loaded {len(task_manager.df)} tasks from {task_file_path}")
+                    return task_manager
+                else:
+                    logger.warning(f"Task file not found: {task_file_path}")
+            except Exception as e:
+                logger.error(f"Failed to load task_manager from file: {e}")
+
+        return None
 
     def set_game_info(self, session_id: str, game_info: GameInfo) -> bool:
         """Set game info for a session."""
@@ -265,6 +299,8 @@ class SessionManager:
         session = self.get_session(session_id)
         if session:
             session.metadata[key] = value
+            # Sync to cache for cross-worker visibility
+            self._sync_to_cache(session)
             return True
         return False
 

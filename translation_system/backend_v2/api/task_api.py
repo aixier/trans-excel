@@ -168,6 +168,32 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
 
         logger.info(f"Task manager已保存到session: {session_id}")
 
+        # ✅ Save task_manager to file for cross-worker access
+        try:
+            from pathlib import Path
+            import os
+
+            # Create data/sessions directory if it doesn't exist
+            data_dir = Path(__file__).parent.parent / 'data' / 'sessions'
+            data_dir.mkdir(parents=True, exist_ok=True)
+
+            # Save to parquet file
+            task_file_path = str(data_dir / f'{session_id}_tasks.parquet')
+            splitter.task_manager.df.to_parquet(task_file_path, index=False)
+
+            # Store file path in session metadata for cross-worker loading
+            session_manager.set_metadata(session_id, 'task_file_path', task_file_path)
+
+            # Sync to cache so other workers can see the file path
+            session = session_manager.get_session(session_id)
+            if session:
+                session_manager._sync_to_cache(session)
+
+            logger.info(f"Task manager已保存到文件: {task_file_path} ({len(splitter.task_manager.df)} tasks)")
+        except Exception as e:
+            logger.error(f"Failed to save task_manager to file: {e}")
+            # Don't fail the whole operation if file save fails
+
         # Verification stage
         split_progress.update(
             stage=SplitStage.VERIFYING,
