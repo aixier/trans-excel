@@ -19,6 +19,15 @@ class API {
             }
         };
 
+        // 🔧 添加认证token（如果存在）
+        // 跳过登录和验证API（避免循环依赖）
+        if (typeof authManager !== 'undefined' && !url.includes('/api/auth/login') && !url.includes('/api/auth/verify')) {
+            const token = authManager.getToken();
+            if (token) {
+                config.headers['Authorization'] = `Bearer ${token}`;
+            }
+        }
+
         // 如果headers为空对象且是FormData，完全移除headers让浏览器自动设置
         if (isFormData && Object.keys(config.headers).length === 0) {
             delete config.headers;
@@ -138,15 +147,6 @@ class API {
         });
     }
 
-    static async getGlobalExecutionStatus() {
-        try {
-            return await this.request('/api/execute/status');
-        } catch (error) {
-            // 如果API不存在，返回默认值
-            return { is_executing: false };
-        }
-    }
-
     // 监控相关API
     static async getExecutionProgress(sessionId) {
         return this.request(`/api/monitor/status/${sessionId}`);
@@ -163,6 +163,10 @@ class API {
                 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             }
         });
+    }
+
+    static async getDownloadInfo(sessionId) {
+        return this.request(`/api/download/${sessionId}/info`);
     }
 
     static async getExportStatus(sessionId) {

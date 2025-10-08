@@ -16,21 +16,32 @@ router = APIRouter(prefix="/api/monitor", tags=["monitor"])
 @router.get("/status/{session_id}")
 async def get_execution_progress(session_id: str):
     """
-    Get detailed execution progress.
+    Get detailed execution progress with execution_progress state support.
 
     Args:
         session_id: Session ID
 
     Returns:
-        Detailed progress information
+        Detailed progress information including execution state
     """
+    # Check if session exists
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    task_manager = session.task_manager
+    if not task_manager:
+        raise HTTPException(status_code=404, detail="Task manager not found")
+
     # Check if this session is currently executing
-    if worker_pool.current_session_id == session_id:
+    is_executing = worker_pool.current_session_id == session_id
+
+    if is_executing:
+        # Executing: Return real-time status
         status = worker_pool.get_status()
 
         # Add recent completions
-        task_manager = session_manager.get_task_manager(session_id)
-        if task_manager and task_manager.df is not None:
+        if task_manager.df is not None:
             # Get recently completed tasks
             completed_df = task_manager.df[
                 task_manager.df['status'] == TaskStatus.COMPLETED
@@ -57,16 +68,91 @@ async def get_execution_progress(session_id: str):
             ]
             status['current_tasks'] = list(processing_df['task_id'].values)
 
+        # Merge with execution_progress if available
+        if session.execution_progress:
+            exec_progress_dict = session.execution_progress.to_dict()
+            return convert_numpy_types({
+                **exec_progress_dict,
+                **status
+            })
+
         return convert_numpy_types(status)
 
-    # Check if session exists
-    task_manager = session_manager.get_task_manager(session_id)
-    if not task_manager:
-        raise HTTPException(status_code=404, detail="Session not found")
+    # Not currently executing - check execution_progress for historical status
+    if session.execution_progress:
+        from services.execution_state import ExecutionStatus
+        from models.session_state import SessionStage
 
-    # Get task statistics
+        exec_progress = session.execution_progress
+        progress_dict = exec_progress.to_dict()
+
+        # Provide helpful status based on execution state
+        if exec_progress.status == ExecutionStatus.INITIALIZING:
+            return convert_numpy_types({
+                **progress_dict,
+                'message': '执行初始化中，请稍候...'
+            })
+        elif exec_progress.status == ExecutionStatus.RUNNING:
+            # May have completed or stopped
+            stats = task_manager.get_statistics()
+            total = stats.get('total', 0)
+            completed = stats.get('completed', 0)
+
+            if total > 0 and completed >= total:
+                # All tasks completed
+                exec_progress.mark_completed()
+                session.session_status.update_stage(SessionStage.COMPLETED)
+                return convert_numpy_types({
+                    **exec_progress.to_dict(),
+                    'statistics': stats,
+                    'progress': {
+                        'total': total,
+                        'completed': completed,
+                        'processing': stats.get('processing', 0),
+                        'pending': stats.get('pending', 0),
+                        'failed': stats.get('failed', 0)
+                    },
+                    'completion_rate': 100.0,
+                    'message': '翻译已完成'
+                })
+
+            return convert_numpy_types({
+                **progress_dict,
+                'progress': {
+                    'total': total,
+                    'completed': completed,
+                    'processing': stats.get('processing', 0),
+                    'pending': stats.get('pending', 0),
+                    'failed': stats.get('failed', 0)
+                },
+                'completion_rate': (completed / total * 100) if total > 0 else 0,
+                'message': '执行状态未更新，可能已停止'
+            })
+        elif exec_progress.status == ExecutionStatus.COMPLETED:
+            stats = task_manager.get_statistics()
+            return convert_numpy_types({
+                **progress_dict,
+                'statistics': stats,
+                'progress': {
+                    'total': stats.get('total', 0),
+                    'completed': stats.get('completed', 0),
+                    'processing': stats.get('processing', 0),
+                    'pending': stats.get('pending', 0),
+                    'failed': stats.get('failed', 0)
+                },
+                'completion_rate': 100.0,
+                'message': '翻译已完成'
+            })
+        elif exec_progress.status == ExecutionStatus.FAILED:
+            return convert_numpy_types({
+                **progress_dict,
+                'message': f'翻译失败: {exec_progress.error or "未知错误"}'
+            })
+        else:
+            return convert_numpy_types(progress_dict)
+
+    # No execution_progress - execution never started
     stats = task_manager.get_statistics()
-
     return convert_numpy_types({
         'status': 'idle',
         'session_id': session_id,
@@ -81,7 +167,9 @@ async def get_execution_progress(session_id: str):
             (stats['by_status'].get('completed', 0) / stats['total'] * 100)
             if stats['total'] > 0 else 0
         ),
-        'message': 'No active execution for this session'
+        'message': 'No execution started for this session',
+        'ready_for_monitoring': False,
+        'ready_for_download': False
     })
 
 
