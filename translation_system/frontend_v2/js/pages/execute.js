@@ -874,11 +874,18 @@ class ExecutePage {
             UIHelper.showLoading(true, '正在生成下载文件...');
 
             // 调用下载API
+            const headers = {};
+            // 添加认证token（如果存在）
+            if (typeof authManager !== 'undefined') {
+                const token = authManager.getToken();
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+            }
+
             const response = await fetch(`/api/download/${this.sessionId}`, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${sessionManager.getToken()}`
-                }
+                headers: headers
             });
 
             if (!response.ok) {
