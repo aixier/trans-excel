@@ -151,3 +151,29 @@ class ExecutionProgress:
         if self.error:
             data["error"] = self.error
         return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ExecutionProgress':
+        """Deserialize from dictionary.
+
+        Args:
+            data: Dictionary containing execution progress fields
+
+        Returns:
+            ExecutionProgress instance
+        """
+        from datetime import datetime
+
+        session_id = data["session_id"]
+        progress = cls(session_id)
+
+        progress.status = ExecutionStatus(data["status"])
+        progress.ready_for_monitoring = data["ready_for_monitoring"]
+        progress.ready_for_download = data["ready_for_download"]
+        progress.statistics = data.get("statistics", {})
+        progress.updated_at = datetime.fromisoformat(data["updated_at"])
+
+        if "error" in data:
+            progress.error = data["error"]
+
+        return progress

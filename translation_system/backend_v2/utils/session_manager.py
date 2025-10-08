@@ -3,6 +3,7 @@
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 import uuid
+import logging
 
 from models.excel_dataframe import ExcelDataFrame
 from models.task_dataframe import TaskDataFrameManager
@@ -10,6 +11,8 @@ from models.game_info import GameInfo
 from models.session_state import SessionStage, SessionStatus
 from services.split_state import SplitProgress
 from services.execution_state import ExecutionProgress
+
+logger = logging.getLogger(__name__)
 
 
 class SessionData:
@@ -56,9 +59,63 @@ class SessionData:
             self.execution_progress = ExecutionProgress(self.session_id)
         return self.execution_progress
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize session to dictionary (excluding heavy DataFrames).
+
+        Used for multi-worker session sharing via diskcache.
+        Only serializes lightweight metadata and state information.
+
+        Returns:
+            Dictionary containing session metadata (without DataFrames)
+        """
+        return {
+            'session_id': self.session_id,
+            'created_at': self.created_at.isoformat(),
+            'last_accessed': self.last_accessed.isoformat(),
+            'analysis': self.analysis,
+            'metadata': self.metadata,
+            'session_status': self.session_status.to_dict(),
+            'split_progress': self.split_progress.to_dict() if self.split_progress else None,
+            'execution_progress': self.execution_progress.to_dict() if self.execution_progress else None,
+            # ❌ Not including: excel_df, task_manager, game_info (heavy data)
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SessionData':
+        """Deserialize session from dictionary.
+
+        Args:
+            data: Dictionary containing session metadata
+
+        Returns:
+            SessionData instance (without DataFrames, need to load separately)
+        """
+        session = cls(data['session_id'])
+        session.created_at = datetime.fromisoformat(data['created_at'])
+        session.last_accessed = datetime.fromisoformat(data['last_accessed'])
+        session.analysis = data.get('analysis', {})
+        session.metadata = data.get('metadata', {})
+
+        # Restore state modules
+        if data.get('session_status'):
+            session.session_status = SessionStatus.from_dict(data['session_status'])
+        if data.get('split_progress'):
+            session.split_progress = SplitProgress.from_dict(data['split_progress'])
+        if data.get('execution_progress'):
+            session.execution_progress = ExecutionProgress.from_dict(data['execution_progress'])
+
+        # Note: excel_df, task_manager, game_info need to be loaded separately
+        return session
+
 
 class SessionManager:
-    """Manage sessions with DataFrame and game info."""
+    """Manage sessions with DataFrame and game info.
+
+    Architecture:
+        - Memory cache: Fast access for current worker
+        - diskcache: Shared storage across all workers
+        - DataFrames: Kept in memory only, loaded on demand
+    """
 
     _instance = None
     _sessions: Dict[str, SessionData] = {}
@@ -67,22 +124,83 @@ class SessionManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
+            # Initialize diskcache for multi-worker session sharing
+            cls._init_cache()
         return cls._instance
+
+    @classmethod
+    def _init_cache(cls):
+        """Initialize session cache (lazy loading to avoid circular import)."""
+        if not hasattr(cls, '_cache'):
+            try:
+                from utils.session_cache import session_cache
+                cls._cache = session_cache
+                logger.info("SessionManager initialized with diskcache support")
+            except Exception as e:
+                logger.warning(f"Failed to initialize session cache: {e}")
+                logger.warning("Multi-worker session sharing will not work")
+                cls._cache = None
 
     def create_session(self) -> str:
         """Create a new session and return session ID."""
         session_id = str(uuid.uuid4())
-        self._sessions[session_id] = SessionData(session_id)
+        session = SessionData(session_id)
+        self._sessions[session_id] = session
+
+        # Sync to cache for multi-worker visibility
+        self._sync_to_cache(session)
+
         self._cleanup_old_sessions()
+        logger.info(f"Created session {session_id} (synced to cache)")
         return session_id
 
     def get_session(self, session_id: str) -> Optional[SessionData]:
-        """Get session data by ID."""
+        """Get session data by ID (with multi-worker support).
+
+        Strategy:
+            1. Check memory cache (fast path)
+            2. Check diskcache (cross-worker)
+            3. Return None if not found
+
+        Note:
+            DataFrames (excel_df, task_manager) are not in cache,
+            they need to be loaded separately using get/set methods.
+        """
+        # Fast path: Check memory cache first
         if session_id in self._sessions:
             session = self._sessions[session_id]
             session.update_access_time()
+            # Update cache with latest access time
+            self._sync_to_cache(session)
             return session
+
+        # Slow path: Check diskcache (may be from another worker)
+        if hasattr(self, '_cache') and self._cache:
+            try:
+                cached_data = self._cache.get_session(session_id)
+                if cached_data:
+                    # Restore session from cache
+                    session = SessionData.from_dict(cached_data)
+                    # Add to memory cache
+                    self._sessions[session_id] = session
+                    logger.info(f"Restored session {session_id} from cache")
+                    return session
+            except Exception as e:
+                logger.error(f"Failed to restore session {session_id} from cache: {e}")
+
         return None
+
+    def _sync_to_cache(self, session: SessionData):
+        """Synchronize session metadata to cache.
+
+        Args:
+            session: SessionData instance to sync
+        """
+        if hasattr(self, '_cache') and self._cache:
+            try:
+                self._cache.set_session(session.session_id, session.to_dict())
+            except Exception as e:
+                logger.error(f"Failed to sync session {session.session_id} to cache: {e}")
 
     def set_excel_df(self, session_id: str, excel_df: ExcelDataFrame) -> bool:
         """Set Excel DataFrame for a session."""
@@ -132,6 +250,8 @@ class SessionManager:
         session = self.get_session(session_id)
         if session:
             session.analysis = analysis
+            # Sync to cache (analysis is part of session metadata)
+            self._sync_to_cache(session)
             return True
         return False
 

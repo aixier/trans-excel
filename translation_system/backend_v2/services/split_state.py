@@ -166,3 +166,32 @@ class SplitProgress:
         if self.metadata:
             data["metadata"] = self.metadata
         return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SplitProgress':
+        """Deserialize from dictionary.
+
+        Args:
+            data: Dictionary containing progress fields
+
+        Returns:
+            SplitProgress instance
+        """
+        from datetime import datetime
+
+        session_id = data["session_id"]
+        progress = cls(session_id)
+
+        progress.status = SplitStatus(data["status"])
+        progress.stage = SplitStage(data["stage"])
+        progress.progress = data["progress"]
+        progress.message = data["message"]
+        progress.ready_for_next_stage = data["ready_for_next_stage"]
+        progress.updated_at = datetime.fromisoformat(data["updated_at"])
+
+        if "error" in data:
+            progress.error = data["error"]
+        if "metadata" in data:
+            progress.metadata = data["metadata"]
+
+        return progress

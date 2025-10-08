@@ -86,3 +86,19 @@ class SessionStatus:
             "stage": self.stage.value,
             "updated_at": self.updated_at.isoformat()
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SessionStatus':
+        """Deserialize from dictionary.
+
+        Args:
+            data: Dictionary containing session status fields
+
+        Returns:
+            SessionStatus instance
+        """
+        session_id = data["session_id"]
+        status = cls(session_id)
+        status.stage = SessionStage(data["stage"])
+        status.updated_at = datetime.fromisoformat(data["updated_at"])
+        return status
