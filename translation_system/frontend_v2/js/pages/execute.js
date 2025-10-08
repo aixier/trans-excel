@@ -273,7 +273,8 @@ class ExecutePage {
                     this.isExecuting = true;
                     this.executionStatus = sessionStatus.status;
                     this.updateControlButtons(sessionStatus.status);
-                    this.startMonitoring();
+                    this.startPolling();  // ✅ 修复：调用startPolling而不是startMonitoring
+                    this.connectWebSocket();  // 同时连接WebSocket
                     console.log('🔄 [checkExecutionStatus] Resumed monitoring for running session');
                 } else if (sessionStatus.status === 'completed' || sessionStatus.status === 'stopped') {
                     // 已完成或已停止，启用开始按钮（可以重新开始）
@@ -336,10 +337,20 @@ class ExecutePage {
             UIHelper.showLoading(true);
             const result = await API.startExecution(this.sessionId, options);
 
-            if (result.status === 'started') {
+            // ✅ 支持两种状态：'started'（旧版）和'running'（新版）
+            if (result.status === 'started' || result.status === 'running') {
                 this.isExecuting = true;
                 this.executionStatus = 'running';
                 this.performance.startTime = Date.now();
+
+                // 如果响应包含progress，立即更新UI
+                if (result.progress) {
+                    this.handleProgressUpdate({
+                        type: 'progress',
+                        data: result.progress
+                    });
+                    console.log('✅ [startExecution] Initial progress:', result.progress);
+                }
 
                 // 更新UI
                 this.updateControlButtons('running');

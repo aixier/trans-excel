@@ -152,9 +152,17 @@ async def start_execution(request: ExecuteRequest):
         logger.info(f"✨ Execution started, ready_for_monitoring={exec_progress.ready_for_monitoring}")
 
         # ✨ T10: Return execution progress with ready_for_monitoring flag
+        # Include progress field for frontend compatibility
         response = {
             **result,
-            **exec_progress.to_dict()
+            **exec_progress.to_dict(),
+            'progress': {
+                'total': result.get('total_tasks', 0),
+                'completed': 0,
+                'processing': 0,
+                'pending': result.get('total_tasks', 0),
+                'failed': 0
+            }
         }
         logger.info(f"Started execution for session {session_id} (memory-only mode)")
         return response
