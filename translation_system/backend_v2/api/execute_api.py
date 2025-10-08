@@ -6,6 +6,9 @@ from typing import Optional
 import os
 import logging
 
+from models.session_state import SessionStage
+from services.split_state import SplitProgress, SplitStatus
+from services.execution_state import ExecutionProgress, ExecutionStatus
 from services.executor.worker_pool import worker_pool
 from services.llm.llm_factory import LLMFactory
 from utils.session_manager import session_manager
@@ -25,18 +28,55 @@ class ExecuteRequest(BaseModel):
 @router.post("/start")
 async def start_execution(request: ExecuteRequest):
     """
-    Start translation execution.
+    Start translation execution with strict validation.
 
     Args:
         request: Execution request with session_id
 
     Returns:
-        Execution status
+        Execution status with ready_for_monitoring flag
     """
-    # Check if session exists
-    task_manager = session_manager.get_task_manager(request.session_id)
-    if not task_manager:
+    session_id = request.session_id
+
+    # ✨ T10: Validation 1 - Session exists
+    session = session_manager.get_session(session_id)
+    if not session:
+        logger.error(f"Session {session_id} not found")
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # ✨ T10: Validation 2 - TaskManager exists
+    task_manager = session.task_manager
+    if not task_manager:
+        logger.error(f"Task manager not found for session {session_id}")
+        raise HTTPException(status_code=404, detail="Task manager not found. Please split tasks first.")
+
+    # ✨ T10: Validation 3 - Split is complete and ready (KEY!)
+    split_progress = session.split_progress
+    if not split_progress or not split_progress.is_ready():
+        # Provide detailed error message
+        if not split_progress:
+            detail = "Session not ready: split not started"
+            logger.error(f"Session {session_id}: {detail}")
+        elif split_progress.status != SplitStatus.COMPLETED:
+            detail = f"Session not ready: split status is {split_progress.status.value}"
+            logger.error(f"Session {session_id}: {detail}")
+        else:
+            detail = "Session not ready: split not verified (ready_for_next_stage=False)"
+            logger.error(f"Session {session_id}: {detail}")
+        raise HTTPException(status_code=400, detail=detail)
+
+    # ✨ T10: Validation 4 - Session stage correct
+    if not session.session_status.stage.can_execute():
+        detail = f"Cannot execute in stage: {session.session_status.stage.value}. Must be in SPLIT_COMPLETE stage."
+        logger.error(f"Session {session_id}: {detail}")
+        raise HTTPException(status_code=400, detail=detail)
+
+    logger.info(f"✨ All validations passed for session {session_id}")
+
+    # ✨ T10: Initialize execution progress
+    exec_progress = session.init_execution_progress()
+    exec_progress.mark_initializing()
+    logger.info(f"Initialized execution progress for session {session_id}")
 
     # Get configuration
     config = config_manager.get_config()
@@ -54,27 +94,42 @@ async def start_execution(request: ExecuteRequest):
         llm_provider = LLMFactory.create_from_config_file(config, provider_name)
 
         # Start execution
-        result = await worker_pool.start_execution(request.session_id, llm_provider)
+        result = await worker_pool.start_execution(session_id, llm_provider)
 
         if result['status'] == 'error':
+            exec_progress.mark_failed(result['message'])
             raise HTTPException(status_code=400, detail=result['message'])
 
         # Start progress monitoring for WebSocket updates
         try:
             from services.executor.progress_tracker import progress_tracker
-            await progress_tracker.start_progress_monitoring(request.session_id)
-            logger.info(f"Started progress monitoring for session {request.session_id}")
+            await progress_tracker.start_progress_monitoring(session_id)
+            # Wait for initialization to complete
+            await progress_tracker.wait_for_initialization(session_id, timeout=5.0)
+            logger.info(f"Progress monitoring initialized for session {session_id}")
         except Exception as e:
             logger.warning(f"Failed to start progress monitoring: {e}")
             # Don't fail the execution if monitoring fails
 
-        logger.info(f"Started execution for session {request.session_id} (memory-only mode)")
-        return result
+        # ✨ T10: Mark as running (monitoring ready)
+        exec_progress.mark_running()
+        session.session_status.update_stage(SessionStage.EXECUTING)
+        logger.info(f"✨ Execution started, ready_for_monitoring={exec_progress.ready_for_monitoring}")
+
+        # ✨ T10: Return execution progress with ready_for_monitoring flag
+        response = {
+            **result,
+            **exec_progress.to_dict()
+        }
+        logger.info(f"Started execution for session {session_id} (memory-only mode)")
+        return response
 
     except ValueError as e:
+        exec_progress.mark_failed(str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to start execution: {str(e)}")
+        exec_progress.mark_failed(str(e))
         raise HTTPException(status_code=500, detail=f"Execution start failed: {str(e)}")
 
 
@@ -165,21 +220,90 @@ async def get_execution_status(session_id: str):
         session_id: Session ID
 
     Returns:
-        Execution status
+        Execution status including execution_progress state
     """
-    # Check if this session is currently executing
-    if worker_pool.current_session_id == session_id:
-        return worker_pool.get_status()
-
     # Check if session exists
-    if not session_manager.get_task_manager(session_id):
+    session = session_manager.get_session(session_id)
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Session exists but not executing
+    # Check if this session is currently executing
+    if worker_pool.current_session_id == session_id:
+        # Get real-time status from worker_pool
+        worker_status = worker_pool.get_status()
+
+        # Merge with execution_progress if available
+        if session.execution_progress:
+            exec_progress_dict = session.execution_progress.to_dict()
+            # Worker status takes precedence for real-time stats
+            return {
+                **exec_progress_dict,
+                **worker_status
+            }
+
+        return worker_status
+
+    # Not currently executing - check execution_progress for historical status
+    if session.execution_progress:
+        exec_progress = session.execution_progress
+        progress_dict = exec_progress.to_dict()
+
+        # Provide helpful status based on execution state
+        if exec_progress.status == ExecutionStatus.INITIALIZING:
+            return {
+                **progress_dict,
+                'message': '执行初始化中，请稍候...'
+            }
+        elif exec_progress.status == ExecutionStatus.RUNNING:
+            # May have completed or stopped
+            task_manager = session.task_manager
+            if task_manager:
+                stats = task_manager.get_statistics()
+                total = stats.get('total', 0)
+                completed = stats.get('completed', 0)
+
+                if total > 0 and completed >= total:
+                    # All tasks completed
+                    exec_progress.mark_completed()
+                    session.session_status.update_stage(SessionStage.COMPLETED)
+                    return {
+                        **exec_progress.to_dict(),
+                        'statistics': stats,
+                        'message': '翻译已完成'
+                    }
+
+            return {
+                **progress_dict,
+                'message': '执行状态未更新，可能已停止'
+            }
+        elif exec_progress.status == ExecutionStatus.COMPLETED:
+            return {
+                **progress_dict,
+                'message': '翻译已完成'
+            }
+        elif exec_progress.status == ExecutionStatus.FAILED:
+            return {
+                **progress_dict,
+                'message': f'翻译失败: {exec_progress.error or "未知错误"}'
+            }
+        else:
+            return progress_dict
+
+    # No execution_progress - check if tasks exist
+    task_manager = session.task_manager
+    if not task_manager:
+        raise HTTPException(
+            status_code=404,
+            detail="Task manager not found. Please split tasks first before checking execution status."
+        )
+
+    # Tasks exist but execution never started
     return {
         'status': 'idle',
         'session_id': session_id,
-        'message': 'No active execution for this session'
+        'message': 'No execution started for this session',
+        'ready_for_monitoring': False,
+        'ready_for_download': False
     }
 
 

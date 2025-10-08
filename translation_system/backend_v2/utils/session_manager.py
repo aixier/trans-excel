@@ -7,24 +7,54 @@ import uuid
 from models.excel_dataframe import ExcelDataFrame
 from models.task_dataframe import TaskDataFrameManager
 from models.game_info import GameInfo
+from models.session_state import SessionStage, SessionStatus
+from services.split_state import SplitProgress
+from services.execution_state import ExecutionProgress
 
 
 class SessionData:
-    """Container for session data."""
+    """Container for session data with integrated state management."""
 
     def __init__(self, session_id: str):
         self.session_id = session_id
         self.created_at = datetime.now()
         self.last_accessed = datetime.now()
+
+        # Data storage
         self.excel_df: Optional[ExcelDataFrame] = None
         self.task_manager: Optional[TaskDataFrameManager] = None
         self.game_info: Optional[GameInfo] = None
         self.analysis: Dict[str, Any] = {}
         self.metadata: Dict[str, Any] = {}
 
+        # ✨ State management modules (Plan B integration)
+        self.session_status = SessionStatus(session_id)
+        self.split_progress: Optional[SplitProgress] = None
+        self.execution_progress: Optional[ExecutionProgress] = None
+
     def update_access_time(self):
         """Update last accessed time."""
         self.last_accessed = datetime.now()
+
+    def init_split_progress(self) -> SplitProgress:
+        """Initialize split progress tracking.
+
+        Returns:
+            SplitProgress instance for this session
+        """
+        if not self.split_progress:
+            self.split_progress = SplitProgress(self.session_id)
+        return self.split_progress
+
+    def init_execution_progress(self) -> ExecutionProgress:
+        """Initialize execution progress tracking.
+
+        Returns:
+            ExecutionProgress instance for this session
+        """
+        if not self.execution_progress:
+            self.execution_progress = ExecutionProgress(self.session_id)
+        return self.execution_progress
 
 
 class SessionManager:

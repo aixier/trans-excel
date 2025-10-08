@@ -168,7 +168,7 @@
         <div class="config">
             <div class="form-group">
                 <label>后端地址：</label>
-                <input type="text" id="apiUrl" value="http://localhost:8013" />
+                <input type="text" id="apiUrl" value="" placeholder="留空使用相对路径" />
             </div>
         </div>
     </div>
@@ -293,8 +293,18 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    document.getElementById('startResponse').innerHTML =
-                        `<span class="status success">翻译已开始!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                    // ✨ 检查 ready_for_monitoring 标志
+                    const readyForMonitoring = data.ready_for_monitoring;
+                    let statusMsg = '<span class="status success">翻译已开始!</span>\n\n';
+
+                    if (readyForMonitoring === true) {
+                        statusMsg += '<span style="color: #28a745;">✅ 执行状态: 可开始监控进度</span>\n\n';
+                    } else if (readyForMonitoring === false) {
+                        statusMsg += '<span style="color: #ffc107;">⚠️ 执行状态: 初始化中，尚不可监控</span>\n\n';
+                    }
+
+                    statusMsg += JSON.stringify(data, null, 2);
+                    document.getElementById('startResponse').innerHTML = statusMsg;
 
                     // 显示进度条
                     document.getElementById('progressBar').style.display = 'block';
@@ -306,8 +316,26 @@
                     // 开始定期更新状态
                     startStatusPolling(sessionId);
                 } else {
-                    document.getElementById('startResponse').innerHTML =
-                        `<span class="status error">启动失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                    // ✨ 显示详细的验证失败信息
+                    let errorMsg = '<span class="status error">启动失败!</span>\n\n';
+
+                    // 检查是否是验证失败
+                    if (data.detail) {
+                        const detail = data.detail;
+                        if (detail.includes('ready_for_next_stage=False')) {
+                            errorMsg += '<span style="color: #dc3545; font-weight: bold;">❌ 任务拆分尚未完成或验证失败</span>\n';
+                            errorMsg += '提示: 请等待任务拆分完全完成（ready_for_next_stage=true）后再执行\n\n';
+                        } else if (detail.includes('Cannot execute in stage')) {
+                            errorMsg += '<span style="color: #dc3545; font-weight: bold;">❌ Session阶段不正确</span>\n';
+                            errorMsg += '提示: 请确保已完成任务拆分\n\n';
+                        } else if (detail.includes('Task manager not found')) {
+                            errorMsg += '<span style="color: #dc3545; font-weight: bold;">❌ 任务管理器未找到</span>\n';
+                            errorMsg += '提示: 请先执行任务拆分\n\n';
+                        }
+                    }
+
+                    errorMsg += JSON.stringify(data, null, 2);
+                    document.getElementById('startResponse').innerHTML = errorMsg;
                 }
             } catch (error) {
                 document.getElementById('startResponse').innerHTML =
@@ -627,12 +655,57 @@
                 const response = await fetch(`${apiUrl()}/api/execute/status/${sessionId}`);
                 const data = await response.json();
 
-                document.getElementById('controlResponse').innerHTML = response.ok ?
-                    `<span class="status running">状态更新!</span>\n\n${JSON.stringify(data, null, 2)}` :
-                    `<span class="status error">查询失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
-
                 if (response.ok) {
-                    updateExecutionStatus(sessionId);
+                    // 根据状态显示不同的UI
+                    let statusMsg = '';
+                    const status = data.status;
+
+                    if (status === 'initializing') {
+                        statusMsg = '<span class="status" style="background: #fff3cd; color: #856404;">⏳ 初始化中</span>\n\n';
+                        statusMsg += `${data.message || '执行初始化中，请稍候...'}\n\n`;
+                    } else if (status === 'running') {
+                        statusMsg = '<span class="status running">⚡ 执行中</span>\n\n';
+                        if (data.ready_for_monitoring) {
+                            statusMsg += '✅ 可以监控进度\n\n';
+                        }
+                    } else if (status === 'completed') {
+                        statusMsg = '<span class="status success">✅ 已完成</span>\n\n';
+                        if (data.ready_for_download) {
+                            statusMsg += '✅ 可以下载结果\n\n';
+                        }
+                    } else if (status === 'failed') {
+                        statusMsg = '<span class="status error">❌ 失败</span>\n\n';
+                        statusMsg += `错误: ${data.error || data.message || '未知错误'}\n\n`;
+                    } else if (status === 'idle') {
+                        statusMsg = '<span class="status" style="background: #e9ecef; color: #495057;">⏸️ 空闲</span>\n\n';
+                        statusMsg += `${data.message || '未开始执行'}\n\n`;
+                    } else {
+                        statusMsg = `<span class="status running">状态: ${status}</span>\n\n`;
+                    }
+
+                    statusMsg += JSON.stringify(data, null, 2);
+                    document.getElementById('controlResponse').innerHTML = statusMsg;
+
+                    // 更新进度显示
+                    if (status === 'running' || status === 'completed') {
+                        updateExecutionStatus(sessionId);
+                    }
+                } else {
+                    // 错误处理
+                    let errorMsg = '<span class="status error">查询失败!</span>\n\n';
+
+                    if (response.status === 404) {
+                        if (data.detail && data.detail.includes('Session not found')) {
+                            errorMsg += '❌ Session 不存在\n';
+                            errorMsg += '提示: 请检查 Session ID 是否正确\n\n';
+                        } else if (data.detail && data.detail.includes('Task manager not found')) {
+                            errorMsg += '❌ 任务管理器未找到\n';
+                            errorMsg += '提示: 请先执行任务拆分\n\n';
+                        }
+                    }
+
+                    errorMsg += JSON.stringify(data, null, 2);
+                    document.getElementById('controlResponse').innerHTML = errorMsg;
                 }
             } catch (error) {
                 document.getElementById('controlResponse').innerHTML =

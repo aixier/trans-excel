@@ -10,6 +10,8 @@ import pandas as pd
 import asyncio
 import logging
 
+from models.session_state import SessionStage
+from services.split_state import SplitProgress, SplitStatus, SplitStage
 from services.task_splitter import TaskSplitter
 from services.batch_allocator import BatchAllocator
 from utils.session_manager import session_manager
@@ -53,6 +55,14 @@ class TaskPreview(BaseModel):
 
 async def _perform_split_async(session_id: str, source_lang: Optional[str], target_langs: List[str], extract_context: bool = True, context_options: Optional[Dict[str, bool]] = None):
     """Background task to perform the actual splitting."""
+    # ✨ T08: Get session and split_progress
+    session = session_manager.get_session(session_id)
+    if not session or not session.split_progress:
+        logger.error(f"Session or split_progress not found for {session_id}")
+        return
+
+    split_progress = session.split_progress
+
     try:
         logger.info(f"========== 开始任务拆分 ==========")
         logger.info(f"Session ID: {session_id}")
@@ -61,34 +71,34 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
         logger.info(f"上下文提取: {extract_context}")
 
         # Update progress
-        splitting_progress[session_id] = {
-            'status': 'processing',
-            'progress': 0,
-            'message': '开始拆分任务...',
-            'total_sheets': 0,
-            'processed_sheets': 0
-        }
-        logger.info(f"初始化进度: {splitting_progress[session_id]}")
+        split_progress.update(
+            status=SplitStatus.PROCESSING,
+            stage=SplitStage.ANALYZING,
+            progress=0,
+            message='开始拆分任务...'
+        )
+        splitting_progress[session_id] = split_progress.to_dict()
+        logger.info(f"初始化进度: {split_progress.to_dict()}")
 
         # Get session data
-        excel_df = session_manager.get_excel_df(session_id)
+        excel_df = session.excel_df
         if not excel_df:
-            splitting_progress[session_id] = {
-                'status': 'failed',
-                'message': 'Session not found or Excel not loaded'
-            }
+            split_progress.mark_failed('Session not found or Excel not loaded')
+            splitting_progress[session_id] = split_progress.to_dict()
             return
 
-        game_info = session_manager.get_game_info(session_id)
+        game_info = session.game_info
 
         # Update progress
         sheet_names = excel_df.get_sheet_names()
         total_sheets = len(sheet_names)
-        splitting_progress[session_id].update({
-            'total_sheets': total_sheets,
-            'progress': 10,
-            'message': f'共 {total_sheets} 个表格，开始拆分... (上下文提取: {"开启" if extract_context else "关闭"})'
-        })
+        split_progress.update(
+            progress=10,
+            message=f'共 {total_sheets} 个表格，开始拆分... (上下文提取: {"开启" if extract_context else "关闭"})'
+        )
+        split_progress.metadata['total_sheets'] = total_sheets
+        split_progress.metadata['processed_sheets'] = 0
+        splitting_progress[session_id] = split_progress.to_dict()
 
         # Create task splitter with optimization flag and context options
         splitter = TaskSplitter(excel_df, game_info, extract_context=extract_context, context_options=context_options)
@@ -99,11 +109,13 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
 
         for idx, sheet_name in enumerate(sheet_names, 1):
             progress_percent = 10 + (idx / total_sheets) * 70
-            splitting_progress[session_id].update({
-                'processed_sheets': idx,
-                'progress': progress_percent,
-                'message': f'正在处理表格: {sheet_name} ({idx}/{total_sheets})'
-            })
+            split_progress.update(
+                stage=SplitStage.ANALYZING,
+                progress=progress_percent,
+                message=f'正在处理表格: {sheet_name} ({idx}/{total_sheets})'
+            )
+            split_progress.metadata['processed_sheets'] = idx
+            splitting_progress[session_id] = split_progress.to_dict()
             logger.info(f"处理表格 {idx}/{total_sheets}: {sheet_name}, 进度: {progress_percent:.1f}%")
 
             sheet_tasks = splitter._process_sheet(
@@ -120,18 +132,22 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
 
         # Allocate batches
         logger.info(f"拆分完成，共生成 {len(all_tasks)} 个任务，开始分配批次...")
-        splitting_progress[session_id].update({
-            'progress': 85,
-            'message': f'分配批次... (共 {len(all_tasks)} 个任务)'
-        })
+        split_progress.update(
+            stage=SplitStage.ALLOCATING,
+            progress=85,
+            message=f'分配批次... (共 {len(all_tasks)} 个任务)'
+        )
+        splitting_progress[session_id] = split_progress.to_dict()
         all_tasks = splitter.batch_allocator.allocate_batches(all_tasks)
         logger.info(f"批次分配完成")
 
         # Create DataFrame (use batch method for performance)
-        splitting_progress[session_id].update({
-            'progress': 90,
-            'message': '创建任务数据表...'
-        })
+        split_progress.update(
+            stage=SplitStage.CREATING_DF,
+            progress=90,
+            message='创建任务数据表...'
+        )
+        splitting_progress[session_id] = split_progress.to_dict()
         logger.info("开始创建任务DataFrame...")
 
         # Use batch add for much better performance
@@ -139,9 +155,31 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
 
         logger.info(f"任务DataFrame创建完成，共 {len(all_tasks)} 个任务")
 
-        # Store task manager in session
-        session_manager.set_task_manager(session_id, splitter.task_manager)
+        # ✨ T08 KEY: Mark as SAVING before actual save (fixes 0-42s race condition)
+        split_progress.mark_saving()
+        split_progress.update(progress=93, message='保存任务管理器...')
+        splitting_progress[session_id] = split_progress.to_dict()
+        logger.info(f"✨ Marked as SAVING, ready_for_next_stage={split_progress.ready_for_next_stage}")
+
+        # Store task manager in session (this may take 0-42 seconds)
+        success = session_manager.set_task_manager(session_id, splitter.task_manager)
+        if not success:
+            raise Exception(f"Failed to save task_manager to session {session_id}")
+
         logger.info(f"Task manager已保存到session: {session_id}")
+
+        # Verification stage
+        split_progress.update(
+            stage=SplitStage.VERIFYING,
+            progress=98,
+            message='验证数据完整性...'
+        )
+        splitting_progress[session_id] = split_progress.to_dict()
+
+        verify_manager = session_manager.get_task_manager(session_id)
+        if not verify_manager:
+            raise Exception(f"Failed to verify task_manager in session {session_id}")
+        logger.info(f"Task manager验证成功")
 
         # Get statistics
         stats = splitter.task_manager.get_statistics()
@@ -170,31 +208,32 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
             for task_type, batch_ids in type_batch_distribution.items()
         }
 
-        # Success
-        splitting_progress[session_id] = {
-            'status': 'completed',
-            'progress': 100,
-            'message': '拆分完成!',
+        # ✨ T08 KEY: Mark as COMPLETED (ONLY here is ready_for_next_stage=True)
+        completion_metadata = {
             'task_count': stats['total'],
             'batch_count': batch_stats['total_batches'],
             'batch_distribution': batch_stats['batch_distribution'],
             'type_batch_distribution': type_batch_counts,
             'statistics': stats
         }
+        split_progress.mark_completed(completion_metadata)
+        splitting_progress[session_id] = split_progress.to_dict()
+
+        # ✨ Update session global stage to SPLIT_COMPLETE
+        session.session_status.update_stage(SessionStage.SPLIT_COMPLETE)
+
         logger.info(f"========== 任务拆分完成 ==========")
         logger.info(f"总任务数: {stats['total']}")
         logger.info(f"批次数: {batch_stats['total_batches']}")
         logger.info(f"任务类型分布: {type_batch_counts}")
-        logger.info(f"最终进度: {splitting_progress[session_id]}")
+        logger.info(f"✨ 状态: ready_for_next_stage = {split_progress.ready_for_next_stage}")
+        logger.info(f"✨ Session stage: {session.session_status.stage.value}")
 
     except Exception as e:
         logger.error(f"========== 任务拆分失败 ==========")
         logger.error(f"错误: {e}", exc_info=True)
-        splitting_progress[session_id] = {
-            'status': 'failed',
-            'progress': 0,
-            'message': f'拆分失败: {str(e)}'
-        }
+        split_progress.mark_failed(str(e))
+        splitting_progress[session_id] = split_progress.to_dict()
 
 
 @router.post("/split")
@@ -209,9 +248,26 @@ async def split_tasks(request: SplitRequest, background_tasks: BackgroundTasks):
         Immediate response with job status, use /split/status to check progress
     """
     # Get session data
-    excel_df = session_manager.get_excel_df(request.session_id)
-    if not excel_df:
-        raise HTTPException(status_code=404, detail="Session not found or Excel not loaded")
+    logger.info(f"Split request for session: {request.session_id}")
+
+    # ✨ T07: Validation 1 - Session exists
+    session = session_manager.get_session(request.session_id)
+    if not session:
+        logger.error(f"Session {request.session_id} not found")
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # ✨ T07: Validation 2 - Excel loaded
+    if not session.excel_df:
+        logger.error(f"Session {request.session_id} has no Excel data")
+        raise HTTPException(status_code=404, detail="Excel not loaded for this session")
+
+    # ✨ T07: Validation 3 - Session stage check
+    if not session.session_status.stage.can_split():
+        logger.error(f"Session {request.session_id} cannot split in stage: {session.session_status.stage.value}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot split in stage: {session.session_status.stage.value}. Must be in ANALYZED stage."
+        )
 
     # Check if already splitting
     if request.session_id in splitting_progress:
@@ -223,6 +279,18 @@ async def split_tasks(request: SplitRequest, background_tasks: BackgroundTasks):
                 "message": "任务拆分正在进行中，请稍候",
                 "progress": current.get('progress', 0)
             }
+
+    # ✨ T07: Initialize SplitProgress
+    split_progress = session.init_split_progress()
+    split_progress.update(
+        status=SplitStatus.PROCESSING,
+        stage=SplitStage.ANALYZING,
+        progress=0,
+        message="开始拆分任务..."
+    )
+
+    # Sync to legacy dict for backward compatibility
+    splitting_progress[request.session_id] = split_progress.to_dict()
 
     # Convert context_options to dict if provided
     context_opts = None
@@ -239,19 +307,7 @@ async def split_tasks(request: SplitRequest, background_tasks: BackgroundTasks):
         context_opts
     )
 
-    # Initialize progress
-    splitting_progress[request.session_id] = {
-        'status': 'processing',
-        'progress': 0,
-        'message': '任务已提交，开始拆分...'
-    }
-
-    return {
-        "session_id": request.session_id,
-        "status": "processing",
-        "message": "任务拆分已启动，请使用 /api/tasks/split/status/{session_id} 查询进度",
-        "status_url": f"/api/tasks/split/status/{request.session_id}"
-    }
+    return split_progress.to_dict()
 
 
 @router.get("/split/status/{session_id}")
@@ -265,51 +321,58 @@ async def get_split_status(session_id: str):
     Returns:
         Splitting progress and status
     """
-    if session_id not in splitting_progress:
-        # Check if tasks already exist
-        task_manager = session_manager.get_task_manager(session_id)
-        if task_manager and task_manager.df is not None:
-            stats = task_manager.get_statistics()
+    # ✨ T09: Priority 1 - Get from Session.split_progress
+    session = session_manager.get_session(session_id)
+    if session and session.split_progress:
+        progress_dict = session.split_progress.to_dict()
+
+        # Add preview and download URL if completed
+        if session.split_progress.status == SplitStatus.COMPLETED:
+            task_manager = session.task_manager
+            if task_manager and task_manager.df is not None:
+                # Get preview (first 10 tasks)
+                preview = []
+                for _, row in task_manager.df.head(10).iterrows():
+                    preview.append({
+                        'task_id': row['task_id'],
+                        'source_text': row['source_text'][:50] + '...' if len(row['source_text']) > 50 else row['source_text'],
+                        'target_lang': row['target_lang'],
+                        'batch_id': row['batch_id'],
+                        'group_id': row['group_id'],
+                        'char_count': row['char_count']
+                    })
+
+                progress_dict['preview'] = preview
+                progress_dict['download_url'] = f"/api/tasks/export/{session_id}"
+
+        return convert_numpy_types(progress_dict)
+
+    # ✨ T09: Fallback - Check legacy dict for backward compatibility
+    if session_id in splitting_progress:
+        return convert_numpy_types(splitting_progress[session_id])
+
+    # ✨ T09: Check if session exists but split not started
+    if session:
+        # Check if tasks already exist (from previous session)
+        if session.task_manager and session.task_manager.df is not None:
+            stats = session.task_manager.get_statistics()
             return {
                 "session_id": session_id,
                 "status": "completed",
+                "ready_for_next_stage": True,
                 "progress": 100,
                 "message": "任务已完成",
-                "task_count": stats['total'],
+                "metadata": {
+                    "task_count": stats['total']
+                },
                 "statistics": stats
             }
 
-        return {
-            "session_id": session_id,
-            "status": "not_found",
-            "message": "未找到拆分任务"
-        }
-
-    progress_info = splitting_progress[session_id]
-
-    # Add preview and download URL if completed
-    if progress_info.get('status') == 'completed':
-        task_manager = session_manager.get_task_manager(session_id)
-        if task_manager and task_manager.df is not None:
-            # Get preview (first 10 tasks)
-            preview = []
-            for _, row in task_manager.df.head(10).iterrows():
-                preview.append({
-                    'task_id': row['task_id'],
-                    'source_text': row['source_text'][:50] + '...' if len(row['source_text']) > 50 else row['source_text'],
-                    'target_lang': row['target_lang'],
-                    'batch_id': row['batch_id'],
-                    'group_id': row['group_id'],
-                    'char_count': row['char_count']
-                })
-
-            progress_info['preview'] = preview
-            progress_info['download_url'] = f"/api/tasks/export/{session_id}"
-
-    return convert_numpy_types({
+    return {
         "session_id": session_id,
-        **progress_info
-    })
+        "status": "not_found",
+        "message": "未找到拆分任务"
+    }
 
 
 @router.get("/export/{session_id}")
@@ -357,43 +420,62 @@ async def get_task_status(session_id: str):
     This endpoint returns the statistics of already split tasks.
     If tasks are not yet split, check /split/status/{session_id} first.
     """
-    # First check if splitting is in progress
+    # Check if tasks exist
+    task_manager = session_manager.get_task_manager(session_id)
+
+    if task_manager:
+        # Tasks exist, return statistics
+        stats = task_manager.get_statistics()
+        return convert_numpy_types({
+            "session_id": session_id,
+            "status": "ready",
+            "statistics": stats,
+            "has_tasks": task_manager.df is not None and len(task_manager.df) > 0
+        })
+
+    # No task_manager - check if splitting is in progress or attempted
     if session_id in splitting_progress:
-        split_status = splitting_progress[session_id]
-        if split_status.get('status') == 'processing':
+        split_info = splitting_progress[session_id]
+        split_status = split_info.get('status', 'unknown')
+
+        # Handle different split states
+        if split_status in ['processing', 'not_started']:
             return {
                 "session_id": session_id,
                 "status": "splitting_in_progress",
                 "message": "任务正在拆分中，请使用 /api/tasks/split/status/{session_id} 查询拆分进度",
-                "split_progress": split_status.get('progress', 0),
-                "split_message": split_status.get('message', '')
+                "split_progress": split_info.get('progress', 0),
+                "split_status": split_status,
+                "split_message": split_info.get('message', '')
+            }
+        elif split_status == 'saving':
+            return {
+                "session_id": session_id,
+                "status": "saving_in_progress",
+                "message": "任务正在保存中，请稍候...",
+                "split_progress": split_info.get('progress', 0),
+                "split_status": split_status,
+                "split_message": split_info.get('message', '正在保存任务数据...')
+            }
+        elif split_status == 'failed':
+            return {
+                "session_id": session_id,
+                "status": "split_failed",
+                "message": f"任务拆分失败: {split_info.get('error', split_info.get('message', '未知错误'))}",
+                "has_tasks": False
+            }
+        elif split_status == 'completed':
+            # Split completed but task_manager not found - unusual case
+            return {
+                "session_id": session_id,
+                "status": "split_completed_loading",
+                "message": "任务拆分已完成，正在加载任务管理器...",
+                "split_progress": 100,
+                "ready_for_next_stage": split_info.get('ready_for_next_stage', False)
             }
 
-    # Check if tasks exist
-    task_manager = session_manager.get_task_manager(session_id)
-
-    if not task_manager:
-        # Check if split was attempted
-        if session_id in splitting_progress:
-            split_info = splitting_progress[session_id]
-            if split_info.get('status') == 'failed':
-                return {
-                    "session_id": session_id,
-                    "status": "split_failed",
-                    "message": f"任务拆分失败: {split_info.get('message', '未知错误')}",
-                    "has_tasks": False
-                }
-
-        raise HTTPException(status_code=404, detail="No tasks found for this session. Please split tasks first.")
-
-    stats = task_manager.get_statistics()
-
-    return convert_numpy_types({
-        "session_id": session_id,
-        "status": "ready",
-        "statistics": stats,
-        "has_tasks": task_manager.df is not None and len(task_manager.df) > 0
-    })
+    # No splitting progress found - session may not have started splitting
+    raise HTTPException(status_code=404, detail="No tasks found for this session. Please split tasks first.")
 
 
 @router.get("/dataframe/{session_id}")

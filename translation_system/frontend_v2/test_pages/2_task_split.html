@@ -177,7 +177,7 @@
         <div class="config">
             <div class="form-group">
                 <label>后端地址：</label>
-                <input type="text" id="apiUrl" value="http://localhost:8013" />
+                <input type="text" id="apiUrl" value="" placeholder="留空使用相对路径" />
             </div>
         </div>
     </div>
@@ -392,16 +392,30 @@
 
                 if (response.ok) {
                     const status = data.status;
+                    const stage = data.stage || '';
                     const progress = data.progress || 0;
                     const message = data.message || '';
+                    const readyForNext = data.ready_for_next_stage;
 
                     // 更新进度条
                     document.getElementById('progressFill').style.width = `${progress}%`;
                     document.getElementById('progressFill').textContent = `${Math.round(progress)}%`;
 
-                    // 更新消息
-                    document.getElementById('progressMessage').textContent = message;
-                    document.getElementById('progressMessage').style.display = 'block';
+                    // 更新消息 - 特殊处理 saving 状态
+                    const msgElement = document.getElementById('progressMessage');
+                    if (status === 'saving') {
+                        // ⏳ saving 状态：黄色警告样式（0-42秒保存阶段）
+                        msgElement.innerHTML = `⏳ ${message} <span style="color: #856404;">(正在保存，请稍候...)</span>`;
+                        msgElement.style.background = '#fff3cd';
+                        msgElement.style.borderColor = '#ffc107';
+                        msgElement.style.borderLeftWidth = '4px';
+                    } else {
+                        // 其他状态：默认蓝色样式
+                        msgElement.textContent = message;
+                        msgElement.style.background = '#e7f3ff';
+                        msgElement.style.borderColor = '#007bff';
+                    }
+                    msgElement.style.display = 'block';
 
                     // 如果完成或失败，停止轮询
                     if (status === 'completed') {
@@ -409,7 +423,19 @@
                         splitPollingInterval = null;
 
                         document.getElementById('progressBar').style.display = 'none';
-                        document.getElementById('progressMessage').style.display = 'none';
+
+                        // ✨ 检查 ready_for_next_stage 标志
+                        if (readyForNext === true) {
+                            msgElement.innerHTML =
+                                `<span style="color: #28a745; font-weight: bold;">✅ 拆分完成，可以进入执行阶段！</span>`;
+                            msgElement.style.background = '#d4edda';
+                            msgElement.style.borderColor = '#28a745';
+                        } else {
+                            msgElement.innerHTML =
+                                `<span style="color: #ffc107; font-weight: bold;">⚠️ 拆分完成，但尚未就绪（ready_for_next_stage=false）</span>`;
+                            msgElement.style.background = '#fff3cd';
+                            msgElement.style.borderColor = '#ffc107';
+                        }
 
                         // 显示统计信息
                         displaySplitResults(data);
@@ -422,7 +448,7 @@
                         splitPollingInterval = null;
 
                         document.getElementById('progressBar').style.display = 'none';
-                        document.getElementById('progressMessage').innerHTML =
+                        msgElement.innerHTML =
                             `<span class="status error">拆分失败: ${message}</span>`;
 
                         document.getElementById('splitResponse').innerHTML =
@@ -619,6 +645,26 @@
                             `拆分进度: ${data.split_progress}%\n` +
                             `状态: ${data.split_message}\n\n` +
                             `请使用 /api/tasks/split/status/${sessionId} 查询详细进度`;
+                        return;
+                    }
+
+                    // Check if saving is in progress
+                    if (data.status === 'saving_in_progress') {
+                        document.getElementById('taskResponse').innerHTML =
+                            `<span class="status" style="background: #fff3cd; color: #856404;">⏳ 正在保存中</span>\n\n` +
+                            `保存进度: ${data.split_progress}%\n` +
+                            `状态: ${data.split_message}\n\n` +
+                            `提示: 保存大文件可能需要0-42秒，请稍候...`;
+                        return;
+                    }
+
+                    // Check if split completed but loading
+                    if (data.status === 'split_completed_loading') {
+                        document.getElementById('taskResponse').innerHTML =
+                            `<span class="status" style="background: #cfe2ff; color: #084298;">拆分完成，加载中</span>\n\n` +
+                            `${data.message}\n` +
+                            `准备执行: ${data.ready_for_next_stage ? '✅ 是' : '⏳ 加载中'}\n\n` +
+                            `请稍候片刻后重新查询`;
                         return;
                     }
 

@@ -151,7 +151,7 @@ async def get_download_info(session_id: str):
         session_id: Session identifier
 
     Returns:
-        JSON response with download information
+        JSON response with download information including execution status
     """
     try:
         # Validate session exists
@@ -162,21 +162,88 @@ async def get_download_info(session_id: str):
                 detail=f"Session {session_id} not found"
             )
 
+        # Get task manager and statistics
+        task_manager = session_manager.get_task_manager(session_id)
+
+        if not task_manager:
+            # No task manager - need to split tasks first
+            return JSONResponse(content={
+                "session_id": session_id,
+                "status": "no_tasks",
+                "message": "任务尚未拆分，无法下载",
+                "ready_for_download": False,
+                "can_download": False,
+                "execution_status": None,
+                "task_statistics": {},
+                "export_info": {
+                    "has_export": False,
+                    "file_exists": False
+                }
+            })
+
+        task_stats = task_manager.get_statistics()
+
+        # Check execution progress
+        execution_progress = session.execution_progress
+        execution_status = None
+        ready_for_download = False
+        status = "unknown"
+        message = ""
+
+        if execution_progress:
+            execution_status = {
+                "status": execution_progress.status.value,
+                "ready_for_download": execution_progress.ready_for_download,
+                "error": execution_progress.error
+            }
+            ready_for_download = execution_progress.ready_for_download
+
+            if execution_progress.status.value == "completed":
+                status = "completed"
+                message = "翻译已完成，可以下载结果"
+            elif execution_progress.status.value == "running":
+                status = "executing"
+                completed = task_stats.get('completed', 0)
+                total = task_stats.get('total', 0)
+                message = f"翻译进行中 ({completed}/{total})，请等待完成后下载"
+            elif execution_progress.status.value == "initializing":
+                status = "initializing"
+                message = "执行初始化中，请稍候..."
+            elif execution_progress.status.value == "failed":
+                status = "failed"
+                message = f"翻译失败: {execution_progress.error or '未知错误'}"
+            else:
+                status = execution_progress.status.value
+                message = "执行状态未知"
+        else:
+            # No execution started yet
+            total = task_stats.get('total', 0)
+            if total > 0:
+                status = "not_started"
+                message = "任务已拆分但尚未执行，请先开始翻译"
+            else:
+                status = "no_tasks"
+                message = "无可用任务"
+
         # Get export information
         export_info = excel_exporter.get_export_info(session_id)
 
-        # Get task statistics
-        task_manager = session_manager.get_task_manager(session_id)
-        task_stats = task_manager.get_statistics() if task_manager else {}
+        # Determine if can download
+        # Can download if:
+        # 1. Execution is completed (ready_for_download=True), OR
+        # 2. Already has exported file
+        can_download = ready_for_download or export_info['has_export']
 
         # Combine information
         download_info = {
             "session_id": session_id,
-            "export_info": export_info,
+            "status": status,
+            "message": message,
+            "ready_for_download": ready_for_download,
+            "can_download": can_download,
+            "execution_status": execution_status,
             "task_statistics": task_stats,
-            "can_download": export_info['has_export'] or (
-                task_stats.get('total', 0) > 0
-            )
+            "export_info": export_info
         }
 
         return JSONResponse(content=download_info)

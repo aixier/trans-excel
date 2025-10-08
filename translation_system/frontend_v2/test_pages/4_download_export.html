@@ -157,7 +157,7 @@
         <div class="config">
             <div class="form-group">
                 <label>后端地址：</label>
-                <input type="text" id="apiUrl" value="http://localhost:8013" />
+                <input type="text" id="apiUrl" value="" placeholder="留空使用相对路径" />
             </div>
         </div>
     </div>
@@ -291,26 +291,98 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    document.getElementById('infoResponse').innerHTML =
-                        `<span class="status success">查询成功!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                    // 根据状态显示不同的UI
+                    let statusMsg = '';
+                    const status = data.status;
 
-                    // 显示文件信息
-                    if (data.file_info) {
-                        document.getElementById('fileName').textContent = data.file_info.filename || '-';
+                    if (status === 'no_tasks') {
+                        statusMsg = '<span class="status" style="background: #fff3cd; color: #856404;">⚠️ 无任务</span>\n\n';
+                        statusMsg += `${data.message}\n`;
+                        statusMsg += '提示: 请先上传Excel并拆分任务\n\n';
+                    } else if (status === 'not_started') {
+                        statusMsg = '<span class="status" style="background: #fff3cd; color: #856404;">⚠️ 未开始</span>\n\n';
+                        statusMsg += `${data.message}\n`;
+                        statusMsg += '提示: 请先开始执行翻译\n\n';
+                    } else if (status === 'initializing') {
+                        statusMsg = '<span class="status" style="background: #cfe2ff; color: #084298;">⏳ 初始化中</span>\n\n';
+                        statusMsg += `${data.message}\n`;
+                        statusMsg += '提示: 翻译正在初始化，请稍候...\n\n';
+                    } else if (status === 'executing') {
+                        statusMsg = '<span class="status" style="background: #cfe2ff; color: #084298;">⚡ 执行中</span>\n\n';
+                        statusMsg += `${data.message}\n`;
+                        statusMsg += '提示: 翻译正在进行，请等待完成后下载\n\n';
+                    } else if (status === 'completed') {
+                        statusMsg = '<span class="status success">✅ 已完成</span>\n\n';
+                        statusMsg += `${data.message}\n`;
+                        if (data.ready_for_download) {
+                            statusMsg += '✅ 可以下载结果\n\n';
+                        }
+                    } else if (status === 'failed') {
+                        statusMsg = '<span class="status error">❌ 失败</span>\n\n';
+                        statusMsg += `${data.message}\n\n`;
+                    } else {
+                        statusMsg = `<span class="status">状态: ${status}</span>\n\n`;
+                    }
+
+                    // 显示ready_for_download和can_download标志
+                    if (data.ready_for_download !== undefined) {
+                        statusMsg += `准备下载: ${data.ready_for_download ? '✅ 是' : '❌ 否'}\n`;
+                    }
+                    if (data.can_download !== undefined) {
+                        statusMsg += `可以下载: ${data.can_download ? '✅ 是' : '❌ 否'}\n`;
+                    }
+
+                    // 显示任务统计
+                    if (data.task_statistics && data.task_statistics.total) {
+                        const stats = data.task_statistics;
+                        statusMsg += `\n任务统计:\n`;
+                        statusMsg += `  总计: ${stats.total}\n`;
+                        statusMsg += `  已完成: ${stats.completed}\n`;
+                        statusMsg += `  失败: ${stats.failed}\n`;
+                        statusMsg += `  进度: ${stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : 0}%\n`;
+                    }
+
+                    statusMsg += '\n' + JSON.stringify(data, null, 2);
+                    document.getElementById('infoResponse').innerHTML = statusMsg;
+
+                    // 显示文件信息（如果存在导出文件）
+                    if (data.export_info && data.export_info.has_export) {
+                        const exportInfo = data.export_info;
+                        document.getElementById('fileName').textContent = exportInfo.filename || '-';
                         document.getElementById('fileSize').textContent =
-                            data.file_info.file_size ? `${(data.file_info.file_size / 1024 / 1024).toFixed(2)} MB` : '-';
-                        document.getElementById('sheetCount').textContent = data.file_info.sheet_count || '-';
-                        document.getElementById('progress').textContent =
-                            data.progress ? `${data.progress.toFixed(1)}%` : '-';
+                            exportInfo.file_size ? `${(exportInfo.file_size / 1024 / 1024).toFixed(2)} MB` : '-';
+                        document.getElementById('sheetCount').textContent = exportInfo.sheet_count || '-';
+
+                        // 显示任务进度
+                        const stats = data.task_statistics;
+                        if (stats && stats.total) {
+                            const progress = (stats.completed / stats.total) * 100;
+                            document.getElementById('progress').textContent = `${progress.toFixed(1)}%`;
+                        } else {
+                            document.getElementById('progress').textContent = '-';
+                        }
+
                         document.getElementById('downloadInfo').style.display = 'block';
+                    } else {
+                        document.getElementById('downloadInfo').style.display = 'none';
                     }
 
                     // 自动填充其他表单
                     document.getElementById('summarySessionId').value = sessionId;
                     document.getElementById('downloadSessionId').value = sessionId;
                 } else {
-                    document.getElementById('infoResponse').innerHTML =
-                        `<span class="status error">查询失败!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                    // 错误处理
+                    let errorMsg = '<span class="status error">查询失败!</span>\n\n';
+
+                    if (response.status === 404) {
+                        if (data.detail && data.detail.includes('Session') && data.detail.includes('not found')) {
+                            errorMsg += '❌ Session 不存在\n';
+                            errorMsg += '提示: 请检查 Session ID 是否正确\n\n';
+                        }
+                    }
+
+                    errorMsg += JSON.stringify(data, null, 2);
+                    document.getElementById('infoResponse').innerHTML = errorMsg;
                 }
             } catch (error) {
                 document.getElementById('infoResponse').innerHTML =
