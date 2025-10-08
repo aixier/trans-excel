@@ -80,6 +80,7 @@ class SessionData:
             # ❌ Not including: excel_df, task_manager, game_info (heavy data)
             # But we include file paths for lazy loading
             'task_file_path': self.metadata.get('task_file_path'),
+            'excel_file_path': self.metadata.get('excel_file_path'),
         }
 
     @classmethod
@@ -213,9 +214,43 @@ class SessionManager:
         return False
 
     def get_excel_df(self, session_id: str) -> Optional[ExcelDataFrame]:
-        """Get Excel DataFrame from session."""
+        """Get Excel DataFrame from session.
+
+        Supports lazy loading from file if not in memory (for cross-worker access).
+        """
         session = self.get_session(session_id)
-        return session.excel_df if session else None
+        if not session:
+            return None
+
+        # Fast path: excel_df already in memory
+        if session.excel_df:
+            return session.excel_df
+
+        # Slow path: try to load from file (cross-worker scenario)
+        excel_file_path = session.metadata.get('excel_file_path')
+        logger.info(f"[DEBUG] get_excel_df for {session_id}: excel_file_path={excel_file_path}")
+
+        if excel_file_path:
+            try:
+                import os
+                from models.excel_dataframe import ExcelDataFrame
+
+                logger.info(f"Attempting to load excel_df from file: {excel_file_path}")
+                if os.path.exists(excel_file_path):
+                    logger.info(f"Loading excel_df from file for session {session_id} (cross-worker)")
+                    excel_df = ExcelDataFrame.load_from_pickle(excel_file_path)
+                    # Cache in memory for future requests
+                    session.excel_df = excel_df
+                    logger.info(f"Loaded excel_df from {excel_file_path}")
+                    return excel_df
+                else:
+                    logger.warning(f"Excel file not found: {excel_file_path}")
+            except Exception as e:
+                logger.error(f"Failed to load excel_df from file: {e}", exc_info=True)
+        else:
+            logger.warning(f"No excel_file_path in metadata for session {session_id}")
+
+        return None
 
     def get_excel_manager(self, session_id: str) -> Optional[ExcelDataFrame]:
         """Get Excel manager from session (alias for get_excel_df)."""
@@ -244,6 +279,8 @@ class SessionManager:
 
         # Slow path: try to load from file (cross-worker scenario)
         task_file_path = session.metadata.get('task_file_path')
+        logger.info(f"[DEBUG] get_task_manager for {session_id}: task_file_path={task_file_path}, metadata={session.metadata}")
+
         if task_file_path:
             try:
                 import os
@@ -251,6 +288,7 @@ class SessionManager:
                 import pandas as pd
                 from models.task_dataframe import TaskDataFrameManager
 
+                logger.info(f"Attempting to load task_manager from file: {task_file_path}")
                 if os.path.exists(task_file_path):
                     logger.info(f"Loading task_manager from file for session {session_id} (cross-worker)")
                     task_manager = TaskDataFrameManager()
@@ -262,7 +300,9 @@ class SessionManager:
                 else:
                     logger.warning(f"Task file not found: {task_file_path}")
             except Exception as e:
-                logger.error(f"Failed to load task_manager from file: {e}")
+                logger.error(f"Failed to load task_manager from file: {e}", exc_info=True)
+        else:
+            logger.warning(f"No task_file_path in metadata for session {session_id}")
 
         return None
 

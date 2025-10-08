@@ -5,13 +5,16 @@ from typing import Optional
 import json
 import tempfile
 import os
+import logging
 
 from models.game_info import GameInfo
+from models.session_state import SessionStage
 from services.excel_loader import ExcelLoader
 from services.excel_analyzer import ExcelAnalyzer
 from utils.session_manager import session_manager
 from utils.json_converter import convert_numpy_types
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/analyze", tags=["analyze"])
 
@@ -57,7 +60,31 @@ async def upload_and_analyze(
 
         # Create session
         session_id = session_manager.create_session()
-        session_manager.set_excel_df(session_id, excel_df)
+        logger.info(f"Created session: {session_id}")
+
+        # Set excel_df
+        result = session_manager.set_excel_df(session_id, excel_df)
+        logger.info(f"Set excel_df for session {session_id}: {result}")
+
+        # ✅ Save excel_df to file for cross-worker access
+        try:
+            from pathlib import Path
+
+            # Create data/sessions directory
+            data_dir = Path(__file__).parent.parent / 'data' / 'sessions'
+            data_dir.mkdir(parents=True, exist_ok=True)
+
+            # Save excel_df to pickle file (preserves all DataFrame features)
+            excel_file_path = str(data_dir / f'{session_id}_excel.pkl')
+            excel_df.save_to_pickle(excel_file_path)
+
+            # Store file path in metadata
+            session_manager.set_metadata(session_id, 'excel_file_path', excel_file_path)
+
+            logger.info(f"Excel data saved to file: {excel_file_path}")
+        except Exception as e:
+            logger.error(f"Failed to save excel_df to file: {e}")
+            # Don't fail the operation
 
         if game_info_obj:
             session_manager.set_game_info(session_id, game_info_obj)
@@ -69,15 +96,27 @@ async def upload_and_analyze(
         # Store analysis in session
         session_manager.set_analysis(session_id, analysis)
 
+        # ✨ Update session status to ANALYZED (ready for split)
+        session = session_manager.get_session(session_id)
+        if session:
+            session.session_status.update_stage(SessionStage.ANALYZED)
+            logger.info(f"Session {session_id} status updated to ANALYZED")
+
         # Prepare response
         response = {
             "session_id": session_id,
+            "stage": session.session_status.stage.value if session else "unknown",
             "analysis": convert_numpy_types(analysis)
         }
 
         return response
 
     except Exception as e:
+        logger.error(f"Error processing file: {str(e)}", exc_info=True)
+        # Clean up session if it was created
+        if 'session_id' in locals():
+            logger.warning(f"Cleaning up failed session: {session_id}")
+            # Note: We should add a method to delete session, but for now just log it
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
     finally:
