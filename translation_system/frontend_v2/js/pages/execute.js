@@ -107,6 +107,10 @@ class ExecutePage {
                                 <i class="bi bi-stop-fill"></i>
                                 停止
                             </button>
+                            <button id="downloadBtn" class="btn btn-success hidden" onclick="executePage.downloadResult()">
+                                <i class="bi bi-download"></i>
+                                下载结果
+                            </button>
 
                             <div class="flex-1"></div>
 
@@ -721,6 +725,7 @@ class ExecutePage {
         const pauseBtn = document.getElementById('pauseBtn');
         const resumeBtn = document.getElementById('resumeBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
 
         switch (status) {
             case 'running':
@@ -729,6 +734,7 @@ class ExecutePage {
                 resumeBtn.classList.add('hidden');
                 pauseBtn.classList.remove('hidden');
                 stopBtn.disabled = false;
+                if (downloadBtn) downloadBtn.classList.add('hidden');
                 break;
 
             case 'paused':
@@ -736,21 +742,33 @@ class ExecutePage {
                 pauseBtn.classList.add('hidden');
                 resumeBtn.classList.remove('hidden');
                 stopBtn.disabled = false;
+                if (downloadBtn) downloadBtn.classList.add('hidden');
                 break;
 
             case 'stopped':
+                startBtn.disabled = false;
+                pauseBtn.disabled = true;
+                resumeBtn.classList.add('hidden');
+                pauseBtn.classList.remove('hidden');
+                stopBtn.disabled = true;
+                if (downloadBtn) downloadBtn.classList.add('hidden');
+                break;
+
             case 'completed':
                 startBtn.disabled = false;
                 pauseBtn.disabled = true;
                 resumeBtn.classList.add('hidden');
                 pauseBtn.classList.remove('hidden');
                 stopBtn.disabled = true;
+                // ✅ 显示下载按钮
+                if (downloadBtn) downloadBtn.classList.remove('hidden');
                 break;
 
             default:
                 startBtn.disabled = false;
                 pauseBtn.disabled = true;
                 stopBtn.disabled = true;
+                if (downloadBtn) downloadBtn.classList.add('hidden');
         }
     }
 
@@ -844,6 +862,62 @@ class ExecutePage {
         const container = document.getElementById('recentCompletions');
         container.classList.toggle('max-h-64');
         container.classList.toggle('overflow-y-auto');
+    }
+
+    async downloadResult() {
+        if (!this.sessionId) {
+            UIHelper.showToast('会话ID不存在', 'error');
+            return;
+        }
+
+        try {
+            UIHelper.showLoading(true, '正在生成下载文件...');
+
+            // 调用下载API
+            const response = await fetch(`/api/download/${this.sessionId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${sessionManager.getToken()}`
+                }
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || '下载失败');
+            }
+
+            // 获取文件名
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'translated.xlsx';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                    // 解码URL编码的文件名
+                    filename = decodeURIComponent(filename);
+                }
+            }
+
+            // 下载文件
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            UIHelper.showToast('下载成功！', 'success');
+            console.log(`✅ Downloaded: ${filename}`);
+
+        } catch (error) {
+            console.error('Download error:', error);
+            UIHelper.showToast(`下载失败：${error.message}`, 'error');
+        } finally {
+            UIHelper.showLoading(false);
+        }
     }
 
     cleanup() {
