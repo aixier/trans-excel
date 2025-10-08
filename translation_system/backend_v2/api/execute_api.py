@@ -66,16 +66,51 @@ async def start_execution(request: ExecuteRequest):
         raise HTTPException(status_code=400, detail=detail)
 
     # ✨ T10: Validation 4 - Session stage correct
-    if not session.session_status.stage.can_execute():
-        detail = f"Cannot execute in stage: {session.session_status.stage.value}. Must be in SPLIT_COMPLETE stage."
+    # Allow execution in these cases:
+    # 1. SPLIT_COMPLETE: First time execution
+    # 2. COMPLETED: Re-execute completed tasks
+    # 3. EXECUTING: Re-execute if previous execution stopped/failed
+    allowed_stages = [SessionStage.SPLIT_COMPLETE, SessionStage.COMPLETED]
+    current_stage = session.session_status.stage
+
+    if current_stage == SessionStage.EXECUTING:
+        # Check if we can restart
+        exec_progress = session.execution_progress
+        if exec_progress and exec_progress.status in [ExecutionStatus.STOPPED, ExecutionStatus.FAILED, ExecutionStatus.COMPLETED]:
+            # Previous execution finished, allow restart
+            logger.info(f"Session {session_id} in EXECUTING stage but previous execution {exec_progress.status.value}, allowing restart")
+        else:
+            # Currently running, don't allow
+            detail = f"Cannot execute: session is currently executing (status: {exec_progress.status.value if exec_progress else 'unknown'})"
+            logger.error(f"Session {session_id}: {detail}")
+            raise HTTPException(status_code=400, detail=detail)
+    elif current_stage not in allowed_stages:
+        detail = f"Cannot execute in stage: {current_stage.value}. Must be in SPLIT_COMPLETE or COMPLETED stage."
         logger.error(f"Session {session_id}: {detail}")
         raise HTTPException(status_code=400, detail=detail)
 
     logger.info(f"✨ All validations passed for session {session_id}")
 
-    # ✨ T10: Initialize execution progress
-    exec_progress = session.init_execution_progress()
+    # ✨ T10: Initialize/Reset execution progress
+    # Force create new execution progress to reset state when re-executing
+    session.execution_progress = ExecutionProgress(session_id)
+    exec_progress = session.execution_progress
     exec_progress.mark_initializing()
+
+    # Reset tasks to PENDING if re-executing
+    if current_stage in [SessionStage.COMPLETED, SessionStage.EXECUTING]:
+        from models.task_dataframe import TaskStatus
+        if task_manager.df is not None:
+            completed_count = (task_manager.df['status'] == TaskStatus.COMPLETED).sum()
+            failed_count = (task_manager.df['status'] == TaskStatus.FAILED).sum()
+            if completed_count > 0 or failed_count > 0:
+                # Reset all completed/failed tasks to pending for re-execution
+                task_manager.df.loc[task_manager.df['status'].isin([TaskStatus.COMPLETED, TaskStatus.FAILED]), 'status'] = TaskStatus.PENDING
+                task_manager.df.loc[task_manager.df['status'].isin([TaskStatus.PENDING]), 'start_time'] = None
+                task_manager.df.loc[task_manager.df['status'].isin([TaskStatus.PENDING]), 'end_time'] = None
+                task_manager.df.loc[task_manager.df['status'].isin([TaskStatus.PENDING]), 'error'] = None
+                logger.info(f"Reset {completed_count + failed_count} tasks to PENDING for re-execution")
+
     logger.info(f"Initialized execution progress for session {session_id}")
 
     # Get configuration
