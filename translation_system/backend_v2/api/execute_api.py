@@ -139,8 +139,6 @@ async def start_execution(request: ExecuteRequest):
         try:
             from services.executor.progress_tracker import progress_tracker
             await progress_tracker.start_progress_monitoring(session_id)
-            # Wait for initialization to complete
-            await progress_tracker.wait_for_initialization(session_id, timeout=5.0)
             logger.info(f"Progress monitoring initialized for session {session_id}")
         except Exception as e:
             logger.warning(f"Failed to start progress monitoring: {e}")
