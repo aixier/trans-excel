@@ -64,68 +64,51 @@ class ExecutePage {
                             <progress class="progress progress-primary h-6" id="mainProgress" value="0" max="100"></progress>
                         </div>
 
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                                <i class="bi bi-clock"></i>
-                                预计剩余: <span id="etaTime" class="font-mono">--:--</span>
-                            </div>
-                            <div>
-                                <i class="bi bi-speedometer2"></i>
-                                速度: <span id="speed" class="font-mono">-- 任务/秒</span>
-                            </div>
-                            <div>
-                                <i class="bi bi-hourglass-split"></i>
-                                已用时: <span id="elapsedTime" class="font-mono">--:--</span>
-                            </div>
-                            <div>
-                                <i class="bi bi-percent"></i>
-                                成功率: <span id="successRate" class="font-mono">--%</span>
-                            </div>
+                        <div class="text-sm mb-4">
+                            <i class="bi bi-clock"></i>
+                            预计剩余: <span id="etaTime" class="font-mono">--:--</span>
                         </div>
-                    </div>
-                </div>
 
-                <!-- 控制面板 -->
-                <div class="card bg-base-100 shadow-xl mb-6">
-                    <div class="card-body">
-                        <h2 class="card-title mb-4">控制面板</h2>
-
-                        <div class="flex flex-wrap gap-4 mb-4">
-                            <button id="startBtn" class="btn btn-primary" onclick="executePage.startExecution()">
+                        <!-- 控制按钮 -->
+                        <div class="flex flex-wrap gap-3">
+                            <button id="startBtn" class="btn btn-primary btn-sm" onclick="executePage.startExecution()">
                                 <i class="bi bi-play-fill"></i>
                                 开始执行
                             </button>
-                            <button id="pauseBtn" class="btn btn-warning" onclick="executePage.pauseExecution()" disabled>
+                            <button id="pauseBtn" class="btn btn-warning btn-sm" onclick="executePage.pauseExecution()" disabled>
                                 <i class="bi bi-pause-fill"></i>
                                 暂停
                             </button>
-                            <button id="resumeBtn" class="btn btn-info hidden" onclick="executePage.resumeExecution()">
+                            <button id="resumeBtn" class="btn btn-info btn-sm hidden" onclick="executePage.resumeExecution()">
                                 <i class="bi bi-play-fill"></i>
                                 继续
                             </button>
-                            <button id="stopBtn" class="btn btn-error" onclick="executePage.stopExecution()" disabled>
+                            <button id="stopBtn" class="btn btn-error btn-sm" onclick="executePage.stopExecution()" disabled>
                                 <i class="bi bi-stop-fill"></i>
                                 停止
                             </button>
-                            <button id="downloadBtn" class="btn btn-success hidden" onclick="executePage.downloadResult()">
+                            <button id="downloadBtn" class="btn btn-success btn-sm hidden" onclick="executePage.downloadResult()">
                                 <i class="bi bi-download"></i>
                                 下载结果
+                            </button>
+                            <button id="newTaskBtn" class="btn btn-outline btn-sm hidden" onclick="executePage.startNewTask()">
+                                <i class="bi bi-plus-circle"></i>
+                                翻译新文件
                             </button>
 
                             <div class="flex-1"></div>
 
                             <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">并发数</span>
+                                <label class="label py-0">
+                                    <span class="label-text text-xs">并发数</span>
                                 </label>
-                                <select id="maxWorkers" class="select select-bordered select-sm">
+                                <select id="maxWorkers" class="select select-bordered select-xs">
                                     <option value="4">4</option>
                                     <option value="8" selected>8</option>
                                     <option value="12">12</option>
                                     <option value="16">16</option>
                                 </select>
                             </div>
-
                         </div>
                     </div>
                 </div>
@@ -167,35 +150,6 @@ class ExecutePage {
                                         失败
                                     </span>
                                     <span class="text-2xl font-bold" id="statusFailed">0</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 性能指标 -->
-                    <div class="card bg-base-100 shadow-xl">
-                        <div class="card-body">
-                            <h3 class="card-title">性能指标</h3>
-
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <span><i class="bi bi-speedometer2"></i> 当前速度</span>
-                                    <span class="font-mono" id="currentSpeed">-- 任务/秒</span>
-                                </div>
-
-                                <div class="flex items-center justify-between">
-                                    <span><i class="bi bi-graph-up"></i> 平均速度</span>
-                                    <span class="font-mono" id="avgSpeed">-- 任务/秒</span>
-                                </div>
-
-                                <div class="flex items-center justify-between">
-                                    <span><i class="bi bi-percent"></i> 成功率</span>
-                                    <span class="font-mono" id="perfSuccessRate">--%</span>
-                                </div>
-
-                                <div class="flex items-center justify-between">
-                                    <span><i class="bi bi-coin"></i> Token消耗</span>
-                                    <span class="font-mono" id="tokenUsage">--</span>
                                 </div>
                             </div>
                         </div>
@@ -588,18 +542,6 @@ class ExecutePage {
         document.getElementById('statusPending').textContent = this.progress.pending;
         document.getElementById('statusFailed').textContent = this.progress.failed;
 
-        // 更新性能
-        const successRate = this.progress.completed > 0
-            ? Math.round((this.progress.completed / (this.progress.completed + this.progress.failed)) * 100)
-            : 100;
-
-        document.getElementById('successRate').textContent = `${successRate}%`;
-        document.getElementById('perfSuccessRate').textContent = `${successRate}%`;
-
-        // 更新速度
-        document.getElementById('speed').textContent = `${this.performance.currentSpeed.toFixed(1)} 任务/秒`;
-        document.getElementById('currentSpeed').textContent = `${this.performance.currentSpeed.toFixed(1)} 任务/秒`;
-
         // 更新预计剩余时间
         if (this.performance.estimatedTime > 0) {
             document.getElementById('etaTime').textContent = UIHelper.formatTime(this.performance.estimatedTime);
@@ -615,14 +557,7 @@ class ExecutePage {
     startUpdateTimer() {
         this.updateInterval = setInterval(() => {
             if (this.performance.startTime) {
-                const elapsed = Math.floor((Date.now() - this.performance.startTime) / 1000);
-                document.getElementById('elapsedTime').textContent = UIHelper.formatTime(elapsed);
-
-                // 计算平均速度
-                if (elapsed > 0 && this.progress.completed > 0) {
-                    const avgSpeed = this.progress.completed / elapsed;
-                    document.getElementById('avgSpeed').textContent = `${avgSpeed.toFixed(1)} 任务/秒`;
-                }
+                // 定时器保留用于其他可能的更新需求
             }
         }, 1000);
     }
@@ -726,49 +661,58 @@ class ExecutePage {
         const resumeBtn = document.getElementById('resumeBtn');
         const stopBtn = document.getElementById('stopBtn');
         const downloadBtn = document.getElementById('downloadBtn');
+        const newTaskBtn = document.getElementById('newTaskBtn');
 
         switch (status) {
             case 'running':
-                startBtn.disabled = true;
-                pauseBtn.disabled = false;
-                resumeBtn.classList.add('hidden');
-                pauseBtn.classList.remove('hidden');
-                stopBtn.disabled = false;
+                if (startBtn) startBtn.disabled = true;
+                if (pauseBtn) pauseBtn.disabled = false;
+                if (resumeBtn) resumeBtn.classList.add('hidden');
+                if (pauseBtn) pauseBtn.classList.remove('hidden');
+                if (stopBtn) stopBtn.disabled = false;
                 if (downloadBtn) downloadBtn.classList.add('hidden');
+                if (newTaskBtn) newTaskBtn.classList.add('hidden');
                 break;
 
             case 'paused':
-                startBtn.disabled = true;
-                pauseBtn.classList.add('hidden');
-                resumeBtn.classList.remove('hidden');
-                stopBtn.disabled = false;
+                if (startBtn) startBtn.disabled = true;
+                if (pauseBtn) pauseBtn.classList.add('hidden');
+                if (resumeBtn) resumeBtn.classList.remove('hidden');
+                if (stopBtn) stopBtn.disabled = false;
                 if (downloadBtn) downloadBtn.classList.add('hidden');
+                if (newTaskBtn) newTaskBtn.classList.add('hidden');
                 break;
 
             case 'stopped':
-                startBtn.disabled = false;
-                pauseBtn.disabled = true;
-                resumeBtn.classList.add('hidden');
-                pauseBtn.classList.remove('hidden');
-                stopBtn.disabled = true;
+                if (startBtn) startBtn.disabled = false;
+                if (pauseBtn) pauseBtn.disabled = true;
+                if (resumeBtn) resumeBtn.classList.add('hidden');
+                if (pauseBtn) pauseBtn.classList.remove('hidden');
+                if (stopBtn) stopBtn.disabled = true;
                 if (downloadBtn) downloadBtn.classList.add('hidden');
+                if (newTaskBtn) newTaskBtn.classList.add('hidden');
                 break;
 
             case 'completed':
-                startBtn.disabled = false;
-                pauseBtn.disabled = true;
-                resumeBtn.classList.add('hidden');
-                pauseBtn.classList.remove('hidden');
-                stopBtn.disabled = true;
-                // ✅ 显示下载按钮
+                // ✅ 完成后：开始执行变灰色，显示下载和新任务按钮
+                if (startBtn) {
+                    startBtn.disabled = true;
+                    startBtn.classList.add('btn-disabled');
+                }
+                if (pauseBtn) pauseBtn.disabled = true;
+                if (resumeBtn) resumeBtn.classList.add('hidden');
+                if (pauseBtn) pauseBtn.classList.remove('hidden');
+                if (stopBtn) stopBtn.disabled = true;
                 if (downloadBtn) downloadBtn.classList.remove('hidden');
+                if (newTaskBtn) newTaskBtn.classList.remove('hidden');
                 break;
 
             default:
-                startBtn.disabled = false;
-                pauseBtn.disabled = true;
-                stopBtn.disabled = true;
+                if (startBtn) startBtn.disabled = false;
+                if (pauseBtn) pauseBtn.disabled = true;
+                if (stopBtn) stopBtn.disabled = true;
                 if (downloadBtn) downloadBtn.classList.add('hidden');
+                if (newTaskBtn) newTaskBtn.classList.add('hidden');
         }
     }
 
@@ -925,6 +869,14 @@ class ExecutePage {
         } finally {
             UIHelper.showLoading(false);
         }
+    }
+
+    startNewTask() {
+        // 清理当前会话
+        sessionManager.clearSession();
+        // 跳转到上传页面
+        router.navigate('/create');
+        UIHelper.showToast('开始新的翻译任务', 'info');
     }
 
     cleanup() {
