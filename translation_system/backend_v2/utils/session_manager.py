@@ -172,6 +172,19 @@ class SessionManager:
         # Fast path: Check memory cache first
         if session_id in self._sessions:
             session = self._sessions[session_id]
+
+            # ✅ Refresh metadata from cache (for cross-worker updates like task_file_path)
+            # This ensures we always have the latest metadata without reloading DataFrames
+            if hasattr(self, '_cache') and self._cache:
+                try:
+                    cached_data = self._cache.get_session(session_id)
+                    if cached_data and 'metadata' in cached_data:
+                        # Merge cached metadata into memory session
+                        session.metadata.update(cached_data['metadata'])
+                        logger.debug(f"Refreshed metadata from cache for session {session_id}")
+                except Exception as e:
+                    logger.debug(f"Failed to refresh metadata from cache: {e}")
+
             session.update_access_time()
             # Update cache with latest access time
             self._sync_to_cache(session)
