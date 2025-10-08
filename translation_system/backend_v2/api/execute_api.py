@@ -44,8 +44,8 @@ async def start_execution(request: ExecuteRequest):
         logger.error(f"Session {session_id} not found")
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # ✨ T10: Validation 2 - TaskManager exists
-    task_manager = session.task_manager
+    # ✨ T10: Validation 2 - TaskManager exists (with lazy loading support)
+    task_manager = session_manager.get_task_manager(session_id)
     if not task_manager:
         logger.error(f"Task manager not found for session {session_id}")
         raise HTTPException(status_code=404, detail="Task manager not found. Please split tasks first.")
@@ -299,7 +299,7 @@ async def get_execution_status(session_id: str):
             }
         elif exec_progress.status == ExecutionStatus.RUNNING:
             # May have completed or stopped
-            task_manager = session.task_manager
+            task_manager = session_manager.get_task_manager(session_id)
             if task_manager:
                 stats = task_manager.get_statistics()
                 total = stats.get('total', 0)
@@ -333,7 +333,7 @@ async def get_execution_status(session_id: str):
             return progress_dict
 
     # No execution_progress - check if tasks exist
-    task_manager = session.task_manager
+    task_manager = session_manager.get_task_manager(session_id)
     if not task_manager:
         raise HTTPException(
             status_code=404,

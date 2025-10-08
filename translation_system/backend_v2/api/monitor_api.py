@@ -29,7 +29,8 @@ async def get_execution_progress(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    task_manager = session.task_manager
+    # Get task_manager with lazy loading support
+    task_manager = session_manager.get_task_manager(session_id)
     if not task_manager:
         raise HTTPException(status_code=404, detail="Task manager not found")
 

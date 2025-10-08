@@ -355,7 +355,7 @@ async def get_split_status(session_id: str):
 
         # Add preview and download URL if completed
         if session.split_progress.status == SplitStatus.COMPLETED:
-            task_manager = session.task_manager
+            task_manager = session_manager.get_task_manager(session_id)
             if task_manager and task_manager.df is not None:
                 # Get preview (first 10 tasks)
                 preview = []
@@ -381,8 +381,9 @@ async def get_split_status(session_id: str):
     # ✨ T09: Check if session exists but split not started
     if session:
         # Check if tasks already exist (from previous session)
-        if session.task_manager and session.task_manager.df is not None:
-            stats = session.task_manager.get_statistics()
+        task_manager = session_manager.get_task_manager(session_id)
+        if task_manager and task_manager.df is not None:
+            stats = task_manager.get_statistics()
             return {
                 "session_id": session_id,
                 "status": "completed",
