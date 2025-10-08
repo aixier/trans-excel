@@ -712,24 +712,8 @@ class ExecutePage {
         this.updateControlButtons('completed');
         sessionManager.updateStage('completed');
 
-        UIHelper.showDialog({
-            type: 'success',
-            title: '翻译完成！',
-            message: `成功完成 ${this.progress.completed} 个任务，失败 ${this.progress.failed} 个`,
-            actions: [
-                {
-                    label: '查看结果',
-                    className: 'btn-primary',
-                    action: () => {
-                        window.location.hash = `#/complete/${this.sessionId}`;
-                    }
-                },
-                {
-                    label: '留在此页',
-                    className: 'btn-ghost'
-                }
-            ]
-        });
+        // 翻译完成 - 不显示弹窗，用户可以从UI上看到完成状态
+        console.log(`✅ 翻译完成: 成功 ${this.progress.completed} 个，失败 ${this.progress.failed} 个`);
     }
 
     updateControlButtons(status) {
