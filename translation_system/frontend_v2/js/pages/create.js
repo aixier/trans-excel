@@ -17,6 +17,8 @@ class CreatePage {
                     </h1>
                 </div>
 
+                <!-- 未完成会话列表 -->
+                <div id="unfinishedSessions"></div>
 
                 <!-- 主内容区域 - 左右分栏 -->
                 <div class="flex-1 flex gap-4 overflow-hidden">
@@ -126,10 +128,6 @@ class CreatePage {
                                     <div class="stat-title text-xs">预估任务</div>
                                     <div class="stat-value text-lg" id="taskCount">--</div>
                                 </div>
-                                <div class="stat bg-base-200 rounded-lg p-2">
-                                    <div class="stat-title text-xs">成功率</div>
-                                    <div class="stat-value text-lg text-success">98%</div>
-                                </div>
                             </div>
 
                             <!-- 任务类型分布 -->
@@ -167,6 +165,7 @@ class CreatePage {
         document.getElementById('pageContent').innerHTML = html;
         this.initEventListeners();
         this.loadUserPreferences();
+        this.renderUnfinishedSessions();
 
         // 更新全局进度
         UIHelper.updateGlobalProgress(1);
@@ -428,6 +427,221 @@ class CreatePage {
             prefs.lastVersion = gameInfo.version || '';
             Storage.savePreferences(prefs);
         }
+    }
+
+    // ========== 未完成会话管理 ==========
+
+    /**
+     * 渲染未完成会话列表
+     */
+    renderUnfinishedSessions() {
+        const unfinishedSessions = SessionManager.checkUnfinishedSessions();
+        const container = document.getElementById('unfinishedSessions');
+
+        if (!container) return;
+
+        // 没有未完成会话
+        if (!unfinishedSessions || unfinishedSessions.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        // 构建会话列表HTML
+        const sessionsHTML = unfinishedSessions.map(session => {
+            const stage = this.getSessionStage(session);
+            const timeAgo = this.formatTimeAgo(session.createdAt);
+            const progress = stage.progress;
+
+            return `
+                <div class="card bg-base-100 shadow-sm border border-base-300 mb-3">
+                    <div class="card-body p-4">
+                        <div class="flex items-start justify-between">
+                            <!-- 左侧信息 -->
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <i class="bi bi-file-earmark-excel text-xl text-success"></i>
+                                    <h3 class="font-semibold">${session.filename}</h3>
+                                    <span class="badge badge-sm">${timeAgo}</span>
+                                </div>
+
+                                <!-- 进度条 -->
+                                <div class="mb-2">
+                                    <div class="flex items-center justify-between text-xs mb-1">
+                                        <span class="text-base-content/70">${stage.label}</span>
+                                        <span class="font-semibold">${progress}%</span>
+                                    </div>
+                                    <progress class="progress progress-primary w-full h-2" value="${progress}" max="100"></progress>
+                                </div>
+
+                                <!-- 会话信息 -->
+                                <div class="text-xs text-base-content/60">
+                                    Session ID: ${session.sessionId.substring(0, 8)}...
+                                </div>
+                            </div>
+
+                            <!-- 右侧操作按钮 -->
+                            <div class="flex gap-2 ml-4">
+                                <button
+                                    class="btn btn-primary btn-sm"
+                                    onclick="createPage.continueSession('${session.sessionId}')"
+                                    title="继续翻译">
+                                    <i class="bi bi-play-fill"></i>
+                                    继续
+                                </button>
+                                <button
+                                    class="btn btn-ghost btn-sm text-error"
+                                    onclick="createPage.deleteSession('${session.sessionId}')"
+                                    title="删除会话">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // 构建完整的UI
+        container.innerHTML = `
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle"></i>
+                <div class="flex-1">
+                    <h3 class="font-bold">发现 ${unfinishedSessions.length} 个未完成的会话</h3>
+                    <div class="text-sm">你可以继续之前的翻译工作，或者上传新文件</div>
+                </div>
+            </div>
+            ${sessionsHTML}
+            <div class="divider text-sm">或者上传新文件</div>
+        `;
+    }
+
+    /**
+     * 继续会话
+     */
+    async continueSession(sessionId) {
+        logger.log('Continuing session:', sessionId);
+
+        // 加载会话
+        const success = sessionManager.loadSession(sessionId);
+
+        if (!success) {
+            UIHelper.showToast('会话加载失败', 'error');
+            return;
+        }
+
+        // 根据会话状态跳转到对应页面
+        const session = sessionManager.session;
+
+        if (!session) {
+            UIHelper.showToast('会话数据异常', 'error');
+            return;
+        }
+
+        // 验证后端会话是否还存在
+        try {
+            UIHelper.showLoading(true);
+
+            // 尝试获取分析状态（所有会话都应该有）
+            await API.getAnalysisStatus(sessionId);
+
+            UIHelper.showLoading(false);
+
+            // 判断会话阶段
+            if (session.executionResult || session.taskData) {
+                // 已经拆分任务或有执行结果，跳转到执行页（执行页支持下载）
+                router.navigate(`/execute/${sessionId}`);
+            } else if (session.analysis) {
+                // 已经分析，跳转到配置页
+                router.navigate('/config');
+            } else {
+                UIHelper.showToast('会话状态异常', 'error');
+            }
+        } catch (error) {
+            UIHelper.showLoading(false);
+
+            // 会话已过期或不存在
+            if (error.message.includes('not found') || error.message.includes('404')) {
+                logger.warn('Session expired or not found:', sessionId);
+
+                // 从localStorage删除过期会话
+                SessionManager.deleteSession(sessionId);
+
+                // 重新渲染会话列表
+                this.renderUnfinishedSessions();
+
+                UIHelper.showToast('会话已过期或已完成，已从列表中移除', 'warning');
+            } else {
+                UIHelper.showToast(`验证会话失败: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    /**
+     * 删除会话
+     */
+    deleteSession(sessionId) {
+        if (!confirm('确定要删除这个会话吗？删除后无法恢复。')) {
+            return;
+        }
+
+        logger.log('Deleting session:', sessionId);
+
+        // 删除会话
+        SessionManager.deleteSession(sessionId);
+
+        UIHelper.showToast('会话已删除', 'success');
+
+        // 重新渲染列表
+        this.renderUnfinishedSessions();
+    }
+
+    /**
+     * 获取会话阶段信息
+     */
+    getSessionStage(session) {
+        if (session.executionResult) {
+            return {
+                label: '已完成',
+                progress: 100,
+                icon: '🎉'
+            };
+        } else if (session.taskData) {
+            return {
+                label: '执行中',
+                progress: 60,
+                icon: '⚡'
+            };
+        } else if (session.analysis) {
+            return {
+                label: '等待配置',
+                progress: 20,
+                icon: '⚙️'
+            };
+        } else {
+            return {
+                label: '分析中',
+                progress: 10,
+                icon: '🔍'
+            };
+        }
+    }
+
+    /**
+     * 格式化时间（相对时间）
+     */
+    formatTimeAgo(timestamp) {
+        const now = Date.now();
+        const diff = now - timestamp;
+        const minutes = Math.floor(diff / 60000);
+
+        if (minutes < 1) return '刚刚';
+        if (minutes < 60) return `${minutes}分钟前`;
+
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}小时前`;
+
+        const days = Math.floor(hours / 24);
+        return `${days}天前`;
     }
 }
 

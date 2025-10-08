@@ -30,7 +30,6 @@
                         <li class="step" data-step="1">上传文件</li>
                         <li class="step" data-step="2">配置任务</li>
                         <li class="step" data-step="3">执行翻译</li>
-                        <li class="step" data-step="4">下载结果</li>
                     </ul>
                 </div>
             </div>
@@ -52,6 +51,21 @@
                         <i class="bi bi-wifi mr-1"></i>
                         <span id="connectionText">未连接</span>
                     </div>
+                </div>
+
+                <!-- 用户信息 -->
+                <div id="userInfo" class="hidden dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-circle avatar placeholder">
+                        <div class="bg-neutral-focus text-neutral-content rounded-full w-10">
+                            <span id="userAvatar">U</span>
+                        </div>
+                    </label>
+                    <ul tabindex="0" class="mt-3 p-2 shadow menu menu-compact dropdown-content bg-base-100 rounded-box w-52">
+                        <li class="menu-title">
+                            <span id="userDisplayName">用户</span>
+                        </li>
+                        <li><a id="logoutBtn"><i class="bi bi-box-arrow-right"></i> 登出</a></li>
+                    </ul>
                 </div>
 
                 <!-- 主题切换 -->
@@ -84,6 +98,7 @@
 
     <!-- 核心JavaScript -->
     <script src="js/config.js"></script>
+    <script src="js/utils/auth.js"></script>
     <script src="js/utils/api.js"></script>
     <script src="js/utils/storage.js"></script>
     <script src="js/utils/session-manager.js"></script>
@@ -92,6 +107,7 @@
     <script src="js/router.js"></script>
 
     <!-- 页面组件 -->
+    <script src="js/pages/login.js"></script>
     <script src="js/pages/create.js"></script>
     <script src="js/pages/config.js"></script>
     <script src="js/pages/execute.js"></script>
