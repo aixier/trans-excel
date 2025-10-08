@@ -104,17 +104,6 @@ class CreatePage {
                                 分析完成
                             </h2>
 
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle-fill"></i>
-                                <div>
-                                    <p class="font-semibold">Session ID: <span id="sessionId" class="font-mono">--</span></p>
-                                    <button class="btn btn-xs btn-ghost" onclick="createPage.copySessionId()">
-                                        <i class="bi bi-clipboard"></i>
-                                        复制
-                                    </button>
-                                </div>
-                            </div>
-
                             <div class="grid grid-cols-2 gap-2 mt-3">
                                 <div class="stat bg-base-200 rounded-lg p-2">
                                     <div class="stat-title text-xs">Sheets</div>
@@ -345,7 +334,6 @@ class CreatePage {
         resultPanel.style.display = 'block';
 
         // 基本信息
-        document.getElementById('sessionId').textContent = result.session_id;
         document.getElementById('sheetCount').textContent = result.analysis.statistics.sheet_count;
         document.getElementById('cellCount').textContent = result.analysis.statistics.total_cells.toLocaleString();
         document.getElementById('taskCount').textContent = result.analysis.statistics.estimated_tasks.toLocaleString();
@@ -394,11 +382,6 @@ class CreatePage {
         }
     }
 
-    copySessionId() {
-        const sessionId = document.getElementById('sessionId').textContent;
-        navigator.clipboard.writeText(sessionId);
-        UIHelper.showToast('Session ID已复制到剪贴板', 'success');
-    }
 
     continueToConfig() {
         // 清理定时器

@@ -100,7 +100,9 @@ async def upload_and_analyze(
         session = session_manager.get_session(session_id)
         if session:
             session.session_status.update_stage(SessionStage.ANALYZED)
-            logger.info(f"Session {session_id} status updated to ANALYZED")
+            # Sync to cache so other workers can see the stage update
+            session_manager._sync_to_cache(session)
+            logger.info(f"Session {session_id} status updated to ANALYZED (synced to cache)")
 
         # Prepare response
         response = {

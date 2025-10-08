@@ -193,6 +193,17 @@ class SessionManager {
 
         return null;
     }
+
+    // 删除指定会话
+    static deleteSession(sessionId) {
+        if (!sessionId) return false;
+
+        // 从 localStorage 中删除会话数据
+        Storage.clearSession(sessionId);
+
+        logger.log('Session deleted:', sessionId);
+        return true;
+    }
 }
 
 // 全局会话管理器实例

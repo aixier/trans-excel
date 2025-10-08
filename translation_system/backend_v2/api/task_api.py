@@ -53,6 +53,21 @@ class TaskPreview(BaseModel):
     char_count: int
 
 
+def _sync_split_progress(session, split_progress):
+    """Helper function to sync split_progress to both legacy dict and cache.
+
+    Args:
+        session: SessionData instance (already retrieved, don't re-fetch to avoid object replacement)
+        split_progress: SplitProgress instance to sync
+    """
+    # Update legacy dict for backward compatibility
+    splitting_progress[session.session_id] = split_progress.to_dict()
+
+    # Update session's split_progress and sync to cache
+    session.split_progress = split_progress
+    session_manager._sync_to_cache(session)
+
+
 async def _perform_split_async(session_id: str, source_lang: Optional[str], target_langs: List[str], extract_context: bool = True, context_options: Optional[Dict[str, bool]] = None):
     """Background task to perform the actual splitting."""
     # ✨ T08: Get session and split_progress
@@ -77,14 +92,14 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
             progress=0,
             message='开始拆分任务...'
         )
-        splitting_progress[session_id] = split_progress.to_dict()
+        _sync_split_progress(session, split_progress)
         logger.info(f"初始化进度: {split_progress.to_dict()}")
 
         # Get session data (with lazy loading support)
         excel_df = session_manager.get_excel_df(session_id)
         if not excel_df:
             split_progress.mark_failed('Session not found or Excel not loaded')
-            splitting_progress[session_id] = split_progress.to_dict()
+            _sync_split_progress(session, split_progress)
             return
 
         game_info = session.game_info
@@ -243,10 +258,12 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
             'statistics': stats
         }
         split_progress.mark_completed(completion_metadata)
-        splitting_progress[session_id] = split_progress.to_dict()
 
         # ✨ Update session global stage to SPLIT_COMPLETE
         session.session_status.update_stage(SessionStage.SPLIT_COMPLETE)
+
+        # Sync split_progress and session_status to cache (single sync call)
+        _sync_split_progress(session, split_progress)
 
         logger.info(f"========== 任务拆分完成 ==========")
         logger.info(f"总任务数: {stats['total']}")
@@ -259,7 +276,7 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
         logger.error(f"========== 任务拆分失败 ==========")
         logger.error(f"错误: {e}", exc_info=True)
         split_progress.mark_failed(str(e))
-        splitting_progress[session_id] = split_progress.to_dict()
+        _sync_split_progress(session, split_progress)
 
 
 @router.post("/split")

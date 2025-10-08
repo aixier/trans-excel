@@ -173,17 +173,33 @@ class SessionManager:
         if session_id in self._sessions:
             session = self._sessions[session_id]
 
-            # ✅ Refresh metadata from cache (for cross-worker updates like task_file_path)
-            # This ensures we always have the latest metadata without reloading DataFrames
+            # ✅ Refresh all state objects from cache (for cross-worker updates)
+            # This ensures we always have the latest state without reloading DataFrames
             if hasattr(self, '_cache') and self._cache:
                 try:
                     cached_data = self._cache.get_session(session_id)
-                    if cached_data and 'metadata' in cached_data:
-                        # Merge cached metadata into memory session
-                        session.metadata.update(cached_data['metadata'])
-                        logger.debug(f"Refreshed metadata from cache for session {session_id}")
+                    if cached_data:
+                        # Refresh metadata (task_file_path, excel_file_path, etc.)
+                        if 'metadata' in cached_data:
+                            session.metadata.update(cached_data['metadata'])
+                            logger.debug(f"Refreshed metadata from cache for session {session_id}")
+
+                        # Refresh session_status (stage updates like ANALYZED, SPLIT_COMPLETE)
+                        if 'session_status' in cached_data:
+                            session.session_status = SessionStatus.from_dict(cached_data['session_status'])
+                            logger.debug(f"Refreshed session_status from cache for session {session_id}")
+
+                        # Refresh split_progress (split state)
+                        if 'split_progress' in cached_data and cached_data['split_progress']:
+                            session.split_progress = SplitProgress.from_dict(cached_data['split_progress'])
+                            logger.debug(f"Refreshed split_progress from cache for session {session_id}")
+
+                        # Refresh execution_progress (execution state)
+                        if 'execution_progress' in cached_data and cached_data['execution_progress']:
+                            session.execution_progress = ExecutionProgress.from_dict(cached_data['execution_progress'])
+                            logger.debug(f"Refreshed execution_progress from cache for session {session_id}")
                 except Exception as e:
-                    logger.debug(f"Failed to refresh metadata from cache: {e}")
+                    logger.debug(f"Failed to refresh state from cache: {e}")
 
             session.update_access_time()
             # Update cache with latest access time

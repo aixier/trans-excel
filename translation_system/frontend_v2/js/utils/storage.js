@@ -1,8 +1,11 @@
-// LocalStorage工具类
+// Storage工具类
+// 会话数据使用sessionStorage（标签页关闭即清除）
+// 用户偏好使用localStorage（永久保存）
 class Storage {
-    static setItem(key, value) {
+    static setItem(key, value, permanent = false) {
         try {
-            localStorage.setItem(key, JSON.stringify(value));
+            const storage = permanent ? localStorage : sessionStorage;
+            storage.setItem(key, JSON.stringify(value));
             return true;
         } catch (error) {
             logger.error('Storage setItem failed:', error);
@@ -10,9 +13,10 @@ class Storage {
         }
     }
 
-    static getItem(key, defaultValue = null) {
+    static getItem(key, defaultValue = null, permanent = false) {
         try {
-            const item = localStorage.getItem(key);
+            const storage = permanent ? localStorage : sessionStorage;
+            const item = storage.getItem(key);
             return item ? JSON.parse(item) : defaultValue;
         } catch (error) {
             logger.error('Storage getItem failed:', error);
@@ -20,9 +24,10 @@ class Storage {
         }
     }
 
-    static removeItem(key) {
+    static removeItem(key, permanent = false) {
         try {
-            localStorage.removeItem(key);
+            const storage = permanent ? localStorage : sessionStorage;
+            storage.removeItem(key);
             return true;
         } catch (error) {
             logger.error('Storage removeItem failed:', error);
@@ -30,9 +35,10 @@ class Storage {
         }
     }
 
-    static clear() {
+    static clear(permanent = false) {
         try {
-            localStorage.clear();
+            const storage = permanent ? localStorage : sessionStorage;
+            storage.clear();
             return true;
         } catch (error) {
             logger.error('Storage clear failed:', error);
@@ -40,7 +46,7 @@ class Storage {
         }
     }
 
-    // 会话相关
+    // 会话相关 - 使用sessionStorage（标签页关闭即清除）
     static saveSession(sessionData) {
         const now = Date.now();
         const session = {
@@ -50,28 +56,13 @@ class Storage {
             lastAccess: now
         };
 
-        this.setItem('currentSession', session);
-
-        // 添加到会话历史
-        const history = this.getItem('sessionHistory', []);
-        const existingIndex = history.findIndex(s => s.sessionId === session.sessionId);
-
-        if (existingIndex >= 0) {
-            history[existingIndex] = session;
-        } else {
-            history.unshift(session);
-            // 只保留最近10个会话
-            if (history.length > 10) {
-                history.pop();
-            }
-        }
-
-        this.setItem('sessionHistory', history);
+        // 只保存当前会话到sessionStorage，不保存历史
+        this.setItem('currentSession', session, false);
         return session;
     }
 
     static getCurrentSession() {
-        const session = this.getItem('currentSession');
+        const session = this.getItem('currentSession', null, false);
 
         if (!session) {
             return null;
@@ -79,7 +70,7 @@ class Storage {
 
         // 检查是否过期
         if (Date.now() > session.expiresAt) {
-            this.removeItem('currentSession');
+            this.removeItem('currentSession', false);
             return null;
         }
 
@@ -87,39 +78,31 @@ class Storage {
     }
 
     static getSessionHistory() {
-        const history = this.getItem('sessionHistory', []);
-        const now = Date.now();
-
-        // 过滤掉过期的会话
-        return history.filter(session => {
-            return (now - session.createdAt) < APP_CONFIG.SESSION_TIMEOUT;
-        });
+        // sessionStorage不保存历史，关闭标签页即清除
+        // 返回空数组，不显示"未完成的会话"提示
+        return [];
     }
 
     static clearSession(sessionId) {
         const currentSession = this.getCurrentSession();
 
         if (currentSession && currentSession.sessionId === sessionId) {
-            this.removeItem('currentSession');
+            this.removeItem('currentSession', false);
         }
-
-        const history = this.getSessionHistory();
-        const filtered = history.filter(s => s.sessionId !== sessionId);
-        this.setItem('sessionHistory', filtered);
     }
 
-    // 配置相关
+    // 配置相关 - 使用localStorage（永久保存）
     static saveTaskConfig(config) {
-        this.setItem('lastTaskConfig', config);
+        this.setItem('lastTaskConfig', config, true);
     }
 
     static getLastTaskConfig() {
-        return this.getItem('lastTaskConfig', APP_CONFIG.DEFAULT_CONFIG);
+        return this.getItem('lastTaskConfig', APP_CONFIG.DEFAULT_CONFIG, true);
     }
 
-    // 用户偏好
+    // 用户偏好 - 使用localStorage（永久保存）
     static savePreferences(prefs) {
-        this.setItem('userPreferences', prefs);
+        this.setItem('userPreferences', prefs, true);
     }
 
     static getPreferences() {
@@ -127,28 +110,28 @@ class Storage {
             theme: 'light',
             lastGameName: '',
             lastVersion: ''
-        });
+        }, true);
     }
 
-    // 缓存管理
+    // 缓存管理 - 使用localStorage（永久保存）
     static setCacheItem(key, data, ttl = 3600000) { // 默认1小时
         const cacheData = {
             data,
             timestamp: Date.now(),
             expires: Date.now() + ttl
         };
-        this.setItem(`cache_${key}`, cacheData);
+        this.setItem(`cache_${key}`, cacheData, true);
     }
 
     static getCacheItem(key) {
-        const cached = this.getItem(`cache_${key}`);
+        const cached = this.getItem(`cache_${key}`, null, true);
 
         if (!cached) {
             return null;
         }
 
         if (Date.now() > cached.expires) {
-            this.removeItem(`cache_${key}`);
+            this.removeItem(`cache_${key}`, true);
             return null;
         }
 

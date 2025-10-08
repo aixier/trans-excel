@@ -3,11 +3,15 @@ class Router {
     constructor() {
         this.routes = {
             '/': 'create',
+            '/login': 'login',
             '/create': 'create',
             '/config': 'config',
             '/execute': 'execute',
             '/complete': 'complete'
         };
+
+        // 公开路由（不需要登录）
+        this.publicRoutes = ['/login'];
 
         this.currentPage = null;
         this.init();
@@ -25,6 +29,26 @@ class Router {
         const routePath = path.split('/').slice(0, 2).join('/'); // 获取基础路径
 
         logger.log('Routing to:', routePath, 'Params:', params);
+
+        // 🔧 认证检查
+        const isPublicRoute = this.publicRoutes.includes(routePath);
+        const isAuthenticated = typeof authManager !== 'undefined' && authManager.isAuthenticated();
+
+        // 如果不是公开路由且未登录，重定向到登录页
+        if (!isPublicRoute && !isAuthenticated) {
+            logger.warn('Not authenticated, redirecting to login');
+            if (routePath !== '/login') {
+                window.location.hash = '#/login';
+                return;
+            }
+        }
+
+        // 如果已登录且访问登录页，重定向到首页
+        if (isAuthenticated && routePath === '/login') {
+            logger.log('Already authenticated, redirecting to home');
+            window.location.hash = '#/create';
+            return;
+        }
 
         // 获取页面名称
         let pageName = this.routes[routePath];
@@ -80,6 +104,11 @@ class Router {
 
                 // 加载新页面
                 switch (pageName) {
+                    case 'login':
+                        this.currentPage = loginPage;
+                        loginPage.render();
+                        break;
+
                     case 'create':
                         this.currentPage = createPage;
                         createPage.render();

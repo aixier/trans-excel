@@ -68,6 +68,15 @@ class ConfigPage {
     }
 
     render() {
+        // 确保session从localStorage加载（防止页面刷新或路由切换导致的session丢失）
+        if (!sessionManager.session) {
+            const savedSession = Storage.getCurrentSession();
+            if (savedSession && savedSession.sessionId) {
+                console.log('Restoring session from localStorage:', savedSession.sessionId);
+                sessionManager.session = savedSession;
+            }
+        }
+
         const session = sessionManager.session;
         if (!session || !session.sessionId) {
             UIHelper.showToast('会话不存在，请重新上传文件', 'warning');
@@ -80,8 +89,7 @@ class ConfigPage {
                 <!-- 页面标题 -->
                 <div class="text-center mb-4">
                     <h1 class="text-2xl font-bold mb-1">配置翻译任务</h1>
-                    <p class="text-sm text-base-content/70">Session: ${session.sessionId}</p>
-                    <p class="text-xs text-base-content/50">${session.filename}</p>
+                    <p class="text-sm text-base-content/70">${session.filename}</p>
                 </div>
 
                 <!-- 主内容区域 - 单栏布局 -->
@@ -295,15 +303,32 @@ class ConfigPage {
 
     validateConfig() {
         const splitBtn = document.getElementById('splitBtn');
+        if (!splitBtn) return; // 防止DOM元素还未渲染
 
-        // 必须同时满足：1) 有sessionId  2) 至少选择1个目标语言
-        const hasSession = sessionManager.session && sessionManager.session.sessionId;
-        const hasTargetLangs = this.config.target_langs.length > 0;
+        // 检查所有必需参数
+        const checks = {
+            hasSession: !!(sessionManager.session && sessionManager.session.sessionId),
+            hasSessionId: !!(sessionManager.session?.sessionId && sessionManager.session.sessionId.length > 0),
+            hasTargetLangs: !!(this.config.target_langs && this.config.target_langs.length > 0),
+            hasValidSourceLang: this.config.source_lang !== undefined // source_lang可以是null(auto)或具体语言
+        };
 
-        if (hasSession && hasTargetLangs) {
+        // 打印验证状态（调试用）
+        console.log('Config validation:', checks);
+
+        // 所有检查都通过才启用按钮
+        const allValid = Object.values(checks).every(v => v === true);
+
+        if (allValid) {
             splitBtn.disabled = false;
+            splitBtn.title = '开始拆分任务';
         } else {
             splitBtn.disabled = true;
+            // 提供具体的禁用原因
+            const reasons = [];
+            if (!checks.hasSession || !checks.hasSessionId) reasons.push('会话未建立');
+            if (!checks.hasTargetLangs) reasons.push('请选择至少一个目标语言');
+            splitBtn.title = reasons.join(', ');
         }
     }
 
@@ -333,7 +358,6 @@ class ConfigPage {
         console.log('sessionManager.session:', sessionManager.session);
         console.log('sessionId:', sessionManager.session?.sessionId);
         console.log('Config:', this.config);
-        console.log('localStorage session:', localStorage.getItem('currentSession'));
 
         this.splitting = true;
         document.getElementById('splitBtn').disabled = true;
@@ -347,10 +371,23 @@ class ConfigPage {
             // 🔍 拆分请求前再次确认sessionId
             console.log('Sending Split Request with SessionID:', sessionManager.session.sessionId);
 
-            // 开始拆分
-            await API.splitTasks(sessionManager.session.sessionId, this.config);
+            // 开始拆分（带自动重试）
+            let splitResult;
+            try {
+                splitResult = await API.splitTasks(sessionManager.session.sessionId, this.config);
+            } catch (firstError) {
+                // 如果是"Session not found"错误，等待1秒后重试一次
+                if (firstError.message && firstError.message.includes('Session not found')) {
+                    console.warn('⚠️ First split attempt failed (Session not found), retrying in 1s...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    splitResult = await API.splitTasks(sessionManager.session.sessionId, this.config);
+                    console.log('✅ Split succeeded on retry');
+                } else {
+                    throw firstError; // 其他错误直接抛出
+                }
+            }
 
-            console.log('Split Request Success!');
+            console.log('Split Request Success!', splitResult);
 
             // 轮询进度
             this.startPolling();

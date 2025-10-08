@@ -113,93 +113,16 @@ class ExecutePage {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- 实时状态 -->
-                    <div class="card bg-base-100 shadow-xl">
-                        <div class="card-body">
-                            <h3 class="card-title">实时状态</h3>
-
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-2">
-                                        <span class="badge badge-success badge-lg">✓</span>
-                                        完成
-                                    </span>
-                                    <span class="text-2xl font-bold" id="statusCompleted">0</span>
-                                </div>
-
-                                <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-2">
-                                        <span class="badge badge-info badge-lg animate-pulse">●</span>
-                                        处理中
-                                    </span>
-                                    <span class="text-2xl font-bold" id="statusProcessing">0</span>
-                                </div>
-
-                                <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-2">
-                                        <span class="badge badge-lg">○</span>
-                                        待处理
-                                    </span>
-                                    <span class="text-2xl font-bold" id="statusPending">0</span>
-                                </div>
-
-                                <div class="flex items-center justify-between">
-                                    <span class="flex items-center gap-2">
-                                        <span class="badge badge-error badge-lg">✕</span>
-                                        失败
-                                    </span>
-                                    <span class="text-2xl font-bold" id="statusFailed">0</span>
-                                </div>
-                            </div>
-                        </div>
+                <!-- 进度统计 - 简洁显示 -->
+                <div class="flex items-center justify-center gap-8 py-4">
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-success" id="statusCompleted">0</div>
+                        <div class="text-sm text-base-content/70">已完成</div>
                     </div>
-                </div>
-
-                <!-- 当前处理任务 -->
-                <div class="card bg-base-100 shadow-xl mt-6">
-                    <div class="card-body">
-                        <h3 class="card-title">
-                            当前处理任务
-                            <span class="badge badge-primary" id="processingCount">0</span>
-                        </h3>
-
-                        <div id="currentTasks" class="space-y-2 max-h-64 overflow-y-auto">
-                            <div class="text-center text-base-content/50 py-8">
-                                暂无正在处理的任务
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 最近完成 -->
-                <div class="card bg-base-100 shadow-xl mt-6">
-                    <div class="card-body">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="card-title">最近完成（最新10个）</h3>
-                            <button class="btn btn-sm btn-ghost" onclick="executePage.toggleCompletedTasks()">
-                                <i class="bi bi-chevron-expand"></i>
-                            </button>
-                        </div>
-
-                        <div id="recentCompletions" class="space-y-2">
-                            <div class="text-center text-base-content/50 py-8">
-                                暂无完成的任务
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 失败任务 -->
-                <div id="failedSection" class="hidden">
-                    <div class="alert alert-error mt-6">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <div>
-                            <h3 class="font-bold">检测到失败任务</h3>
-                            <p>有 <span id="failedCount">0</span> 个任务执行失败</p>
-                        </div>
-                        <button class="btn btn-sm" onclick="executePage.showFailedTasks()">查看详情</button>
-                        <button class="btn btn-sm btn-primary" onclick="executePage.retryFailed()">重试失败任务</button>
+                    <div class="divider divider-horizontal"></div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-base-content/50" id="statusPending">0</div>
+                        <div class="text-sm text-base-content/70">待处理</div>
                     </div>
                 </div>
             </div>
@@ -536,22 +459,12 @@ class ExecutePage {
             totalCount: totalCountEl?.textContent
         });
 
-        // 更新状态
-        document.getElementById('statusCompleted').textContent = this.progress.completed;
-        document.getElementById('statusProcessing').textContent = this.progress.processing;
-        document.getElementById('statusPending').textContent = this.progress.pending;
-        document.getElementById('statusFailed').textContent = this.progress.failed;
+        // 更新状态 - 只更新已完成和待处理
+        const completedEl = document.getElementById('statusCompleted');
+        const pendingEl = document.getElementById('statusPending');
 
-        // 更新预计剩余时间
-        if (this.performance.estimatedTime > 0) {
-            document.getElementById('etaTime').textContent = UIHelper.formatTime(this.performance.estimatedTime);
-        }
-
-        // 显示失败任务提示
-        if (this.progress.failed > 0) {
-            document.getElementById('failedSection').classList.remove('hidden');
-            document.getElementById('failedCount').textContent = this.progress.failed;
-        }
+        if (completedEl) completedEl.textContent = this.progress.completed;
+        if (pendingEl) pendingEl.textContent = this.progress.pending;
     }
 
     startUpdateTimer() {
@@ -751,45 +664,13 @@ class ExecutePage {
     }
 
     updateCurrentTasks(tasks) {
-        const container = document.getElementById('currentTasks');
-        document.getElementById('processingCount').textContent = tasks.length;
-
-        if (tasks.length === 0) {
-            container.innerHTML = '<div class="text-center text-base-content/50 py-8">暂无正在处理的任务</div>';
-            return;
-        }
-
-        container.innerHTML = tasks.map(task => `
-            <div class="alert alert-info">
-                <div class="flex-1">
-                    <p class="font-semibold">任务 #${task.task_id} - ${task.target_lang}</p>
-                    <p class="text-sm">${task.source_text}</p>
-                </div>
-                <span class="loading loading-spinner loading-sm"></span>
-            </div>
-        `).join('');
+        // 已简化：不再显示当前处理任务详情
+        // UI已优化为只显示统计数字
     }
 
     updateRecentCompletions(completions) {
-        const container = document.getElementById('recentCompletions');
-
-        if (completions.length === 0) {
-            container.innerHTML = '<div class="text-center text-base-content/50 py-8">暂无完成的任务</div>';
-            return;
-        }
-
-        container.innerHTML = completions.map(task => `
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle-fill"></i>
-                <div class="flex-1">
-                    <p class="font-semibold">✓ #${task.task_id}</p>
-                    <p class="text-sm">"${task.source_text}" → "${task.result}"</p>
-                    <p class="text-xs text-base-content/70">
-                        置信度: ${task.confidence}% | 耗时: ${(task.duration_ms / 1000).toFixed(1)}秒
-                    </p>
-                </div>
-            </div>
-        `).join('');
+        // 已简化：不再显示最近完成任务详情
+        // UI已优化为只显示统计数字
     }
 
     showFailedTasks() {
@@ -803,9 +684,7 @@ class ExecutePage {
     }
 
     toggleCompletedTasks() {
-        const container = document.getElementById('recentCompletions');
-        container.classList.toggle('max-h-64');
-        container.classList.toggle('overflow-y-auto');
+        // 已简化：不再显示最近完成任务列表
     }
 
     async downloadResult() {
