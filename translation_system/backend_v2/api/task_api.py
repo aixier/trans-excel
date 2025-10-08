@@ -80,8 +80,8 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
         splitting_progress[session_id] = split_progress.to_dict()
         logger.info(f"初始化进度: {split_progress.to_dict()}")
 
-        # Get session data
-        excel_df = session.excel_df
+        # Get session data (with lazy loading support)
+        excel_df = session_manager.get_excel_df(session_id)
         if not excel_df:
             split_progress.mark_failed('Session not found or Excel not loaded')
             splitting_progress[session_id] = split_progress.to_dict()
@@ -282,8 +282,9 @@ async def split_tasks(request: SplitRequest, background_tasks: BackgroundTasks):
         logger.error(f"Session {request.session_id} not found")
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # ✨ T07: Validation 2 - Excel loaded
-    if not session.excel_df:
+    # ✨ T07: Validation 2 - Excel loaded (with lazy loading support)
+    excel_df = session_manager.get_excel_df(request.session_id)
+    if not excel_df:
         logger.error(f"Session {request.session_id} has no Excel data")
         raise HTTPException(status_code=404, detail="Excel not loaded for this session")
 

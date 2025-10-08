@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Tuple
 import pandas as pd
+import pickle
 
 
 @dataclass
@@ -124,3 +125,27 @@ class ExcelDataFrame:
         }
 
         return new_excel
+
+    def save_to_pickle(self, file_path: str) -> None:
+        """
+        Save ExcelDataFrame to pickle file for cross-worker persistence.
+
+        Args:
+            file_path: Path to save the pickle file
+        """
+        with open(file_path, 'wb') as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    @staticmethod
+    def load_from_pickle(file_path: str) -> 'ExcelDataFrame':
+        """
+        Load ExcelDataFrame from pickle file.
+
+        Args:
+            file_path: Path to the pickle file
+
+        Returns:
+            ExcelDataFrame instance
+        """
+        with open(file_path, 'rb') as f:
+            return pickle.load(f)
