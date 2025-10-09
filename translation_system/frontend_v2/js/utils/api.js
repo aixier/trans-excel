@@ -96,7 +96,8 @@ class API {
                 source_lang: config.source_lang,
                 target_langs: config.target_langs,
                 extract_context: config.extract_context,
-                context_options: config.extract_context ? config.context_options : null
+                context_options: config.extract_context ? config.context_options : null,
+                max_chars_per_batch: config.max_chars_per_batch
             })
         });
     }

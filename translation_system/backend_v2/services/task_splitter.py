@@ -17,7 +17,7 @@ from services.language_detector import LanguageDetector
 class TaskSplitter:
     """Split Excel into translation tasks."""
 
-    def __init__(self, excel_df: ExcelDataFrame, game_info: GameInfo = None, extract_context: bool = True, context_options: Dict[str, bool] = None):
+    def __init__(self, excel_df: ExcelDataFrame, game_info: GameInfo = None, extract_context: bool = True, context_options: Dict[str, bool] = None, max_chars_per_batch: int = None):
         """
         Initialize task splitter.
 
@@ -26,12 +26,13 @@ class TaskSplitter:
             game_info: Game information for context
             extract_context: Whether to extract row context (slower but provides more info)
             context_options: Dict specifying which context types to extract (only applies when extract_context=True)
+            max_chars_per_batch: Custom batch size (None = use config default)
         """
         self.excel_df = excel_df
         self.game_info = game_info
         self.extract_context = extract_context
         self.context_extractor = ContextExtractor(game_info, context_options) if extract_context else None
-        self.batch_allocator = BatchAllocator()
+        self.batch_allocator = BatchAllocator(max_chars_per_batch)
         self.language_detector = LanguageDetector()
         self.task_manager = TaskDataFrameManager()
 

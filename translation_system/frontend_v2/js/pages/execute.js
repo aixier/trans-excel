@@ -12,6 +12,11 @@ class ExecutePage {
             pending: 0,
             failed: 0
         };
+        this.batches = {
+            total: 0,
+            completed: 0,
+            failed: 0
+        };
         this.performance = {
             startTime: null,
             elapsedTime: 0,
@@ -54,19 +59,33 @@ class ExecutePage {
                     <div class="card-body">
                         <h2 class="card-title mb-4">总体进度</h2>
 
+                        <!-- 任务进度 -->
                         <div class="mb-4">
                             <div class="flex justify-between mb-2">
-                                <span class="text-2xl font-bold" id="progressPercent">0%</span>
+                                <div>
+                                    <span class="text-sm text-base-content/50">任务进度</span>
+                                    <span class="text-2xl font-bold ml-2" id="progressPercent">0%</span>
+                                </div>
                                 <span class="text-sm text-base-content/70">
-                                    <span id="completedCount">0</span> / <span id="totalCount">0</span>
+                                    <span id="completedCount">0</span> / <span id="totalCount">0</span> 任务
                                 </span>
                             </div>
-                            <progress class="progress progress-primary h-6" id="mainProgress" value="0" max="100"></progress>
+                            <progress class="progress progress-primary h-4" id="mainProgress" value="0" max="100"></progress>
                         </div>
 
-                        <div class="text-sm mb-4">
-                            <i class="bi bi-clock"></i>
-                            预计剩余: <span id="etaTime" class="font-mono">--:--</span>
+                        <!-- 批次进度 -->
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-2">
+                                <div>
+                                    <span class="text-sm text-base-content/50">批次进度</span>
+                                    <span class="text-2xl font-bold ml-2 text-secondary" id="batchPercent">0%</span>
+                                </div>
+                                <span class="text-sm text-base-content/70">
+                                    <span id="batchCompleted">0</span> / <span id="batchTotal">0</span> 批次
+                                    <span class="ml-2 text-xs badge badge-ghost">LLM请求</span>
+                                </span>
+                            </div>
+                            <progress class="progress progress-secondary h-4" id="batchProgress" value="0" max="100"></progress>
                         </div>
 
                         <!-- 控制按钮 -->
@@ -140,6 +159,27 @@ class ExecutePage {
 
     async checkExecutionStatus() {
         try {
+            // 首先获取任务统计，包含批次总数
+            try {
+                const taskStatus = await API.getTaskStatus(this.sessionId);
+                console.log('📊 [checkExecutionStatus] Task status:', taskStatus);
+
+                // 更新批次总数
+                if (taskStatus.batch_count) {
+                    this.batches.total = taskStatus.batch_count;
+                    console.log('📦 [checkExecutionStatus] Batch total:', this.batches.total);
+                }
+
+                // 更新任务总数
+                if (taskStatus.statistics && taskStatus.statistics.total) {
+                    this.progress.total = taskStatus.statistics.total;
+                    this.progress.pending = taskStatus.statistics.by_status?.pending || 0;
+                    this.updateProgressUI();
+                }
+            } catch (taskError) {
+                console.warn('⚠️ [checkExecutionStatus] Failed to get task status:', taskError);
+            }
+
             // 尝试获取执行进度，如果404说明任务未开始
             try {
                 const sessionStatus = await API.getExecutionProgress(this.sessionId);
@@ -286,10 +326,10 @@ class ExecutePage {
             this.polling404Count = 0;
 
             if (data && data.progress) {
-                // 模拟WebSocket消息格式
+                // 模拟WebSocket消息格式，传递完整数据（包括batches）
                 this.handleProgressUpdate({
                     type: 'progress',
-                    data: data.progress
+                    data: data  // ✅ 传递完整data，包含progress和batches
                 });
 
                 // 如果完成，停止轮询
@@ -365,19 +405,24 @@ class ExecutePage {
             fullMessage: message
         });
 
-        // 🔧 FIX: 统一处理消息格式，所有消息都使用 'data' 键
+        // 🔧 FIX: 统一处理消息格式，支持两种数据结构
         let progressData = null;
+        let fullData = null;
 
         if (message.type === 'progress' && message.data) {
             // 标准进度更新消息
-            progressData = message.data;
+            fullData = message.data;
+            // 检查是否是嵌套结构 {progress: {...}, batches: {...}}
+            progressData = message.data.progress || message.data;
         } else if (message.type === 'initial_status' && message.data) {
             // 初始状态消息（已统一为 'data' 键）
-            progressData = message.data;
+            fullData = message.data;
+            progressData = message.data.progress || message.data;
             console.log('📥 [handleProgressUpdate] Received initial_status');
         } else if (message.type === 'initial_status' && message.progress) {
             // 兼容旧格式（可在后续版本移除）
             progressData = message.progress;
+            fullData = message;
             console.warn('⚠️ [handleProgressUpdate] Received old format initial_status');
         }
 
@@ -399,6 +444,16 @@ class ExecutePage {
                 pending: progressData.pending || 0,
                 failed: progressData.failed || 0
             };
+
+            // 更新批次数据（支持两种来源）
+            if (fullData && fullData.batches) {
+                this.batches = {
+                    total: fullData.batches.total || this.batches.total,
+                    completed: fullData.batches.completed || 0,
+                    failed: fullData.batches.failed || 0
+                };
+                console.log('📦 [handleProgressUpdate] Updated batches:', this.batches);
+            }
 
             console.log('📊 [handleProgressUpdate] Updated this.progress:', this.progress);
 
@@ -429,19 +484,25 @@ class ExecutePage {
     }
 
     updateProgressUI() {
-        // 计算百分比
+        // 计算任务百分比
         const percentage = this.progress.total > 0
             ? Math.round((this.progress.completed / this.progress.total) * 100)
             : 0;
 
+        // 计算批次百分比
+        const batchPercentage = this.batches.total > 0
+            ? Math.round((this.batches.completed / this.batches.total) * 100)
+            : 0;
+
         console.log('🎨 [updateProgressUI] Updating UI:', {
-            percentage,
+            taskPercentage: percentage,
+            batchPercentage: batchPercentage,
             completed: this.progress.completed,
             total: this.progress.total,
-            progress: this.progress
+            batches: this.batches
         });
 
-        // 更新主进度
+        // 更新任务进度
         const progressPercentEl = document.getElementById('progressPercent');
         const mainProgressEl = document.getElementById('mainProgress');
         const completedCountEl = document.getElementById('completedCount');
@@ -452,11 +513,24 @@ class ExecutePage {
         if (completedCountEl) completedCountEl.textContent = this.progress.completed;
         if (totalCountEl) totalCountEl.textContent = this.progress.total;
 
+        // 更新批次进度
+        const batchPercentEl = document.getElementById('batchPercent');
+        const batchProgressEl = document.getElementById('batchProgress');
+        const batchCompletedEl = document.getElementById('batchCompleted');
+        const batchTotalEl = document.getElementById('batchTotal');
+
+        if (batchPercentEl) batchPercentEl.textContent = `${batchPercentage}%`;
+        if (batchProgressEl) batchProgressEl.value = batchPercentage;
+        if (batchCompletedEl) batchCompletedEl.textContent = this.batches.completed;
+        if (batchTotalEl) batchTotalEl.textContent = this.batches.total;
+
         console.log('🎨 [updateProgressUI] DOM elements:', {
             progressPercent: progressPercentEl?.textContent,
             mainProgress: mainProgressEl?.value,
             completedCount: completedCountEl?.textContent,
-            totalCount: totalCountEl?.textContent
+            totalCount: totalCountEl?.textContent,
+            batchPercent: batchPercentEl?.textContent,
+            batchProgress: batchProgressEl?.value
         });
 
         // 更新状态 - 只更新已完成和待处理
@@ -649,6 +723,19 @@ class ExecutePage {
     updateUIFromStatus(status) {
         if (status.progress) {
             this.progress = status.progress;
+        }
+
+        // 更新批次数据
+        if (status.batches) {
+            this.batches = {
+                total: status.batches.total || 0,
+                completed: status.batches.completed || 0,
+                failed: status.batches.failed || 0
+            };
+        }
+
+        // 统一更新UI
+        if (status.progress || status.batches) {
             this.updateProgressUI();
         }
 

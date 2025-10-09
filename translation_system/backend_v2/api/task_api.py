@@ -41,6 +41,7 @@ class SplitRequest(BaseModel):
     target_langs: List[str]  # [PT, TH, VN]
     extract_context: Optional[bool] = True  # Whether to extract context (slower but more accurate)
     context_options: Optional[ContextOptions] = None  # Which context types to extract (column header always included)
+    max_chars_per_batch: Optional[int] = None  # Custom batch size (None = use config default)
 
 
 class TaskPreview(BaseModel):
@@ -68,7 +69,7 @@ def _sync_split_progress(session, split_progress):
     session_manager._sync_to_cache(session)
 
 
-async def _perform_split_async(session_id: str, source_lang: Optional[str], target_langs: List[str], extract_context: bool = True, context_options: Optional[Dict[str, bool]] = None):
+async def _perform_split_async(session_id: str, source_lang: Optional[str], target_langs: List[str], extract_context: bool = True, context_options: Optional[Dict[str, bool]] = None, max_chars_per_batch: Optional[int] = None):
     """Background task to perform the actual splitting."""
     # ✨ T08: Get session and split_progress
     session = session_manager.get_session(session_id)
@@ -116,7 +117,7 @@ async def _perform_split_async(session_id: str, source_lang: Optional[str], targ
         splitting_progress[session_id] = split_progress.to_dict()
 
         # Create task splitter with optimization flag and context options
-        splitter = TaskSplitter(excel_df, game_info, extract_context=extract_context, context_options=context_options)
+        splitter = TaskSplitter(excel_df, game_info, extract_context=extract_context, context_options=context_options, max_chars_per_batch=max_chars_per_batch)
 
         # Override split_tasks to report progress
         all_tasks = []
@@ -348,7 +349,8 @@ async def split_tasks(request: SplitRequest, background_tasks: BackgroundTasks):
         request.source_lang,
         request.target_langs,
         request.extract_context,
-        context_opts
+        context_opts,
+        request.max_chars_per_batch
     )
 
     return split_progress.to_dict()
@@ -471,10 +473,18 @@ async def get_task_status(session_id: str):
     if task_manager:
         # Tasks exist, return statistics
         stats = task_manager.get_statistics()
+
+        # Calculate batch statistics
+        tasks_list = task_manager.df.to_dict('records') if task_manager.df is not None else []
+        batch_allocator = BatchAllocator()
+        batch_stats = batch_allocator.calculate_batch_statistics(tasks_list)
+
         return convert_numpy_types({
             "session_id": session_id,
             "status": "ready",
             "statistics": stats,
+            "batch_count": batch_stats['total_batches'],
+            "batch_distribution": batch_stats['batch_distribution'],
             "has_tasks": task_manager.df is not None and len(task_manager.df) > 0
         })
 

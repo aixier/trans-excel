@@ -7,8 +7,9 @@ from utils.config_manager import config_manager
 class BatchAllocator:
     """Allocate tasks into batches based on character count."""
 
-    def __init__(self):
-        self.max_chars_per_batch = config_manager.max_chars_per_batch
+    def __init__(self, max_chars_per_batch: int = None):
+        # Use custom value if provided, otherwise use config default
+        self.max_chars_per_batch = max_chars_per_batch or config_manager.max_chars_per_batch
 
     def allocate_batches(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -89,10 +90,20 @@ class BatchAllocator:
 
         # Calculate statistics
         batch_chars = [b['total_chars'] for b in batches.values()]
+
+        # Build detailed batch distribution with tasks and batches count per language
         batch_distribution = {}
-        for batch_info in batches.values():
+        for batch_id, batch_info in batches.items():
             lang = batch_info['target_lang']
-            batch_distribution[lang] = batch_distribution.get(lang, 0) + 1
+            if lang not in batch_distribution:
+                batch_distribution[lang] = {
+                    'batches': 0,
+                    'tasks': 0,
+                    'chars': 0
+                }
+            batch_distribution[lang]['batches'] += 1
+            batch_distribution[lang]['tasks'] += len(batch_info['tasks'])
+            batch_distribution[lang]['chars'] += batch_info['total_chars']
 
         return {
             'total_batches': len(batches),

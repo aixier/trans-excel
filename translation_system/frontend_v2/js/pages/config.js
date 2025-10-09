@@ -11,7 +11,8 @@ class ConfigPage {
                 neighbors: true,
                 content_analysis: true,
                 sheet_type: true
-            }
+            },
+            max_chars_per_batch: 2000  // Will be loaded from server config
         };
         this.splitting = false;
         this.splitProgress = 0;
@@ -175,6 +176,33 @@ class ConfigPage {
                                                 <span class="label-text">表格类型</span>
                                             </label>
                                         </div>
+
+                                        <!-- 批次大小设置 -->
+                                        <div class="form-control mt-6">
+                                            <label class="label">
+                                                <span class="label-text font-semibold">批次大小（字符数）</span>
+                                            </label>
+                                            <input type="range"
+                                                   id="maxCharsPerBatch"
+                                                   min="1000"
+                                                   max="2000"
+                                                   value="2000"
+                                                   step="100"
+                                                   class="range range-primary range-sm"
+                                                   oninput="configPage.onBatchSizeChange(this)">
+                                            <div class="flex justify-between text-xs px-2 mt-1">
+                                                <span>1000</span>
+                                                <span>1500</span>
+                                                <span>2000</span>
+                                            </div>
+                                            <div class="text-sm text-base-content/70 mt-2">
+                                                当前: <span id="batchSizeValue" class="font-bold text-primary">2000</span> 字符/批次
+                                            </div>
+                                            <p class="text-xs text-base-content/50 mt-1">
+                                                较小值：更细粒度拆分，批次更多<br>
+                                                较大值：批次更少，单批任务更多
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -219,20 +247,35 @@ class ConfigPage {
                                         <div class="stat">
                                             <div class="stat-title">总任务数</div>
                                             <div class="stat-value text-primary" id="totalTasks">--</div>
+                                            <div class="stat-desc">需要翻译的单元格</div>
                                         </div>
                                         <div class="stat">
                                             <div class="stat-title">总批次数</div>
-                                            <div class="stat-value" id="totalBatches">--</div>
+                                            <div class="stat-value text-secondary" id="totalBatches">--</div>
+                                            <div class="stat-desc">LLM请求次数</div>
                                         </div>
                                         <div class="stat">
                                             <div class="stat-title">总字符数</div>
                                             <div class="stat-value" id="totalChars">--</div>
+                                            <div class="stat-desc">待翻译文本量</div>
                                         </div>
                                     </div>
 
                                     <div id="langDistribution" class="mt-4">
-                                        <h4 class="font-semibold mb-2">语言分布</h4>
+                                        <h4 class="font-semibold mb-2">
+                                            <i class="bi bi-translate"></i>
+                                            语言分布
+                                        </h4>
                                         <div class="space-y-2" id="langStats"></div>
+                                    </div>
+
+                                    <!-- 批次类型分布 -->
+                                    <div id="batchTypeDistribution" class="mt-4">
+                                        <h4 class="font-semibold mb-2">
+                                            <i class="bi bi-box-seam"></i>
+                                            批次类型分布
+                                        </h4>
+                                        <div class="flex gap-2 flex-wrap" id="typeStats"></div>
                                     </div>
 
                                     <div class="card-actions justify-end mt-4">
@@ -254,6 +297,7 @@ class ConfigPage {
         `;
 
         document.getElementById('pageContent').innerHTML = html;
+        this.loadServerConfig();  // Load default config from server
         this.loadLastConfig();
         this.updatePreview();
         this.validateConfig();  // 验证配置，确保按钮状态正确
@@ -290,6 +334,14 @@ class ConfigPage {
         }
 
         this.updatePreview();
+    }
+
+    onBatchSizeChange(range) {
+        this.config.max_chars_per_batch = parseInt(range.value);
+        const valueDisplay = document.getElementById('batchSizeValue');
+        if (valueDisplay) {
+            valueDisplay.textContent = range.value;
+        }
     }
 
     updatePreview() {
@@ -446,11 +498,47 @@ class ConfigPage {
         if (status.batch_distribution) {
             const langStats = document.getElementById('langStats');
             langStats.innerHTML = Object.entries(status.batch_distribution).map(([lang, info]) => `
-                <div class="flex justify-between items-center">
-                    <span class="font-semibold">${APP_CONFIG.LANGUAGES.target[lang] || lang}:</span>
-                    <span class="badge badge-primary badge-lg">
-                        ${info.batches}批次，${info.tasks}任务
-                    </span>
+                <div class="alert alert-info py-2">
+                    <div class="flex justify-between items-center w-full">
+                        <div>
+                            <span class="font-bold text-lg">${APP_CONFIG.LANGUAGES.target[lang] || lang}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="badge badge-secondary badge-lg">
+                                <i class="bi bi-boxes mr-1"></i>
+                                ${info.batches} 批次
+                            </div>
+                            <div class="badge badge-primary badge-lg">
+                                <i class="bi bi-file-text mr-1"></i>
+                                ${info.tasks} 任务
+                            </div>
+                            <div class="badge badge-ghost badge-lg">
+                                ${info.chars.toLocaleString()} 字符
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 批次类型分布
+        if (status.type_batch_distribution) {
+            const typeStats = document.getElementById('typeStats');
+            const typeNames = {
+                'blue': '蓝色(缩短)',
+                'yellow': '黄色(重译)',
+                'normal': '普通翻译'
+            };
+            const typeColors = {
+                'blue': 'badge-info',
+                'yellow': 'badge-warning',
+                'normal': 'badge-success'
+            };
+
+            typeStats.innerHTML = Object.entries(status.type_batch_distribution).map(([type, count]) => `
+                <div class="badge ${typeColors[type] || 'badge-neutral'} badge-lg gap-2">
+                    <i class="bi bi-tag-fill"></i>
+                    ${typeNames[type] || type}: ${count} 批次
                 </div>
             `).join('');
         }
@@ -496,6 +584,25 @@ class ConfigPage {
         this.validateConfig();
     }
 
+    async loadServerConfig() {
+        try {
+            const response = await fetch(`${APP_CONFIG.API_BASE_URL}/api/execute/config`);
+            if (response.ok) {
+                const serverConfig = await response.json();
+                // Set default max_chars_per_batch from server
+                if (serverConfig.max_chars_per_batch) {
+                    this.config.max_chars_per_batch = serverConfig.max_chars_per_batch;
+                    const rangeInput = document.getElementById('maxCharsPerBatch');
+                    const valueDisplay = document.getElementById('batchSizeValue');
+                    if (rangeInput) rangeInput.value = serverConfig.max_chars_per_batch;
+                    if (valueDisplay) valueDisplay.textContent = serverConfig.max_chars_per_batch;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load server config, using defaults:', error);
+        }
+    }
+
     loadLastConfig() {
         const lastConfig = Storage.getLastTaskConfig();
         if (lastConfig) {
@@ -518,6 +625,15 @@ class ConfigPage {
                     const checkbox = document.getElementById(id);
                     if (checkbox) checkbox.checked = value;
                 });
+            }
+
+            // 恢复批次大小
+            if (lastConfig.max_chars_per_batch) {
+                this.config.max_chars_per_batch = lastConfig.max_chars_per_batch;
+                const rangeInput = document.getElementById('maxCharsPerBatch');
+                const valueDisplay = document.getElementById('batchSizeValue');
+                if (rangeInput) rangeInput.value = lastConfig.max_chars_per_batch;
+                if (valueDisplay) valueDisplay.textContent = lastConfig.max_chars_per_batch;
             }
 
             this.validateConfig();
