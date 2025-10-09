@@ -145,20 +145,6 @@ class ExcelExporter:
                 cell = worksheet.cell(row=excel_row, column=excel_col)
                 cell.value = cell_value
 
-                # Add comment if task was translated
-                if (row_idx, col_idx) in translation_map:
-                    original_comment = excel_df.get_cell_comment(
-                        sheet_name, row_idx, col_idx
-                    )
-                    translation_comment = f"Translated from: {original_value}"
-
-                    if original_comment:
-                        final_comment = f"{original_comment}\n{translation_comment}"
-                    else:
-                        final_comment = translation_comment
-
-                    cell.comment = Comment(final_comment, "TranslationSystem")
-
     def _apply_sheet_formatting(
         self,
         worksheet,
@@ -167,6 +153,30 @@ class ExcelExporter:
         sheet_name: str
     ):
         """Apply formatting to worksheet."""
+
+        # Get completed tasks for this sheet to identify translated cells
+        task_manager = None
+        translation_cells = set()
+
+        try:
+            # This is called after _write_sheet_with_translations
+            # We need to rebuild translation_cells set for formatting
+            # Get from session via excel_df.excel_id
+            sessions = session_manager._sessions
+            for sid, sess in sessions.items():
+                if sess.excel_df and sess.excel_df.excel_id == excel_df.excel_id:
+                    task_manager = sess.task_manager
+                    break
+
+            if task_manager and task_manager.df is not None:
+                sheet_tasks = task_manager.df[
+                    (task_manager.df['sheet_name'] == sheet_name) &
+                    (task_manager.df['status'] == TaskStatus.COMPLETED)
+                ]
+                for _, task in sheet_tasks.iterrows():
+                    translation_cells.add((int(task['row_idx']), int(task['col_idx'])))
+        except Exception as e:
+            logger.warning(f"Could not load translation cells for formatting: {e}")
 
         # Create named styles
         translated_style = NamedStyle(name="translated")
@@ -195,9 +205,9 @@ class ExcelExporter:
                     )
                     cell.fill = fill
 
-                # Mark translated cells
-                if cell.comment:
-                    # Add gray background to translated cells
+                # ✅ FIX: Mark translated cells using translation_cells set
+                if (row_idx, col_idx) in translation_cells:
+                    # Add gray background to translated cells if no original color
                     current_fill = cell.fill
                     if not current_fill or current_fill.start_color.rgb == '00000000':
                         cell.fill = translated_style.fill
