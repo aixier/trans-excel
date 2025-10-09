@@ -146,8 +146,8 @@ class LoginPage {
                 // 等待一下让用户看到成功提示
                 await new Promise(resolve => setTimeout(resolve, 500))
 
-                // 跳转到首页
-                router.navigate('/create')
+                // 跳转到sessions列表页
+                router.navigate('/sessions')
             } else {
                 // 登录失败
                 this.showError(result.error || '登录失败，请检查用户名和密码')

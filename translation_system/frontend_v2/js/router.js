@@ -2,8 +2,9 @@
 class Router {
     constructor() {
         this.routes = {
-            '/': 'create',
+            '/': 'sessions',
             '/login': 'login',
+            '/sessions': 'sessions',
             '/create': 'create',
             '/config': 'config',
             '/execute': 'execute',
@@ -43,10 +44,10 @@ class Router {
             }
         }
 
-        // 如果已登录且访问登录页，重定向到首页
+        // 如果已登录且访问登录页，重定向到sessions列表
         if (isAuthenticated && routePath === '/login') {
-            logger.log('Already authenticated, redirecting to home');
-            window.location.hash = '#/create';
+            logger.log('Already authenticated, redirecting to sessions');
+            window.location.hash = '#/sessions';
             return;
         }
 
@@ -107,6 +108,11 @@ class Router {
                     case 'login':
                         this.currentPage = loginPage;
                         loginPage.render();
+                        break;
+
+                    case 'sessions':
+                        this.currentPage = sessionsPage;
+                        sessionsPage.render();
                         break;
 
                     case 'create':
