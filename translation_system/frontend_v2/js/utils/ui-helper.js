@@ -38,62 +38,98 @@ class UIHelper {
 
     // 显示对话框
     static showDialog(options) {
-        const {
-            type = 'info',
-            title,
-            message,
-            details,
-            blocking = false,
-            actions = []
-        } = options;
+        return new Promise((resolve) => {
+            const {
+                type = 'info',
+                title,
+                message,
+                details,
+                blocking = false,
+                confirmText = '确认',
+                cancelText = '取消',
+                actions = []
+            } = options;
 
-        // 创建模态框
-        const modal = document.createElement('dialog');
-        modal.className = 'modal modal-open';
-        modal.innerHTML = `
-            <div class="modal-box">
-                <h3 class="font-bold text-lg">
-                    ${this.getDialogIcon(type)} ${title}
-                </h3>
-                <p class="py-4">${message}</p>
-                ${details ? `<div class="text-sm opacity-70">${details}</div>` : ''}
-                <div class="modal-action">
-                    ${actions.map(action => `
-                        <button class="btn ${action.className || 'btn-primary'}"
-                                data-action="${action.label}">
-                            ${action.label}
-                        </button>
-                    `).join('')}
-                    ${!blocking ? '<button class="btn" data-action="close">关闭</button>' : ''}
+            // 如果提供了 confirmText/cancelText，自动构建 actions
+            if ((confirmText || cancelText) && actions.length === 0) {
+                if (confirmText) {
+                    actions.push({
+                        label: confirmText,
+                        className: type === 'warning' ? 'btn-error' : 'btn-primary',
+                        value: true
+                    });
+                }
+                if (cancelText) {
+                    actions.push({
+                        label: cancelText,
+                        className: 'btn-ghost',
+                        value: false
+                    });
+                }
+            }
+
+            // 创建模态框
+            const modal = document.createElement('dialog');
+            modal.className = 'modal modal-open';
+            modal.innerHTML = `
+                <div class="modal-box">
+                    <h3 class="font-bold text-lg">
+                        ${this.getDialogIcon(type)} ${title}
+                    </h3>
+                    <p class="py-4">${message}</p>
+                    ${details ? `<div class="text-sm opacity-70">${details}</div>` : ''}
+                    <div class="modal-action">
+                        ${actions.map((action, idx) => `
+                            <button class="btn ${action.className || 'btn-primary'}"
+                                    data-action-index="${idx}">
+                                ${action.label}
+                            </button>
+                        `).join('')}
+                        ${!blocking && actions.length === 0 ? '<button class="btn" data-action-close>关闭</button>' : ''}
+                    </div>
                 </div>
-            </div>
-            ${!blocking ? '<form method="dialog" class="modal-backdrop"><button>关闭</button></form>' : ''}
-        `;
+                ${!blocking ? '<form method="dialog" class="modal-backdrop"><button data-action-close>关闭</button></form>' : ''}
+            `;
 
-        document.body.appendChild(modal);
+            document.body.appendChild(modal);
 
-        // 绑定按钮事件
-        modal.querySelectorAll('[data-action]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const actionLabel = btn.dataset.action;
-                const action = actions.find(a => a.label === actionLabel);
+            // 绑定按钮事件
+            modal.querySelectorAll('[data-action-index]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const actionIndex = parseInt(btn.dataset.actionIndex);
+                    const action = actions[actionIndex];
 
-                if (action && action.action) {
-                    action.action();
-                }
+                    // 执行自定义回调
+                    if (action && action.action) {
+                        action.action();
+                    }
 
-                if (!blocking || actionLabel !== 'close') {
+                    // 返回结果
+                    const result = action && action.value !== undefined ? action.value : null;
                     document.body.removeChild(modal);
-                }
+                    resolve(result);
+                });
             });
-        });
 
-        // 点击背景关闭
-        if (!blocking) {
-            modal.querySelector('.modal-backdrop').addEventListener('click', () => {
-                document.body.removeChild(modal);
+            // 关闭按钮
+            modal.querySelectorAll('[data-action-close]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.body.removeChild(modal);
+                    resolve(false);
+                });
             });
-        }
+
+            // 点击背景关闭
+            if (!blocking) {
+                const backdrop = modal.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.addEventListener('click', () => {
+                        document.body.removeChild(modal);
+                        resolve(false);
+                    });
+                }
+            }
+        });
     }
 
     static getDialogIcon(type) {
