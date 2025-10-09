@@ -113,27 +113,24 @@ class ProgressTracker:
         self.progress_cache[session_id] = progress_data
 
         # ✅ Sync to diskcache for cross-worker visibility
+        # Use a separate cache key to avoid conflict with session_manager._sync_to_cache()
         try:
             from utils.session_cache import session_cache
 
-            cached_session = session_cache.get_session(session_id)
-            if cached_session:
-                # Update execution_progress statistics in cache
-                if 'execution_progress' not in cached_session:
-                    cached_session['execution_progress'] = {}
+            # Store in a separate key to avoid being overwritten by session.to_dict()
+            realtime_key = f'realtime_progress:{session_id}'
+            realtime_data = {
+                'total': int(total),
+                'completed': int(completed),
+                'processing': int(processing),
+                'pending': int(pending),
+                'failed': int(failed),
+                'completion_rate': float(completion_rate),
+                'updated_at': datetime.now().isoformat()
+            }
 
-                cached_session['execution_progress']['realtime_statistics'] = {
-                    'total': int(total),
-                    'completed': int(completed),
-                    'processing': int(processing),
-                    'pending': int(pending),
-                    'failed': int(failed),
-                    'completion_rate': float(completion_rate),
-                    'updated_at': datetime.now().isoformat()
-                }
-
-                session_cache.set_session(session_id, cached_session)
-                self.logger.debug(f"Synced progress to cache: {session_id} ({completed}/{total})")
+            session_cache.cache[realtime_key] = realtime_data
+            self.logger.debug(f"Synced progress to cache: {session_id} ({completed}/{total})")
         except Exception as e:
             self.logger.warning(f"Failed to sync progress to cache: {e}")
 

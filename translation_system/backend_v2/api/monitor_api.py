@@ -52,8 +52,13 @@ async def get_execution_progress(session_id: str):
             # Different worker: use real-time statistics from cache
             from utils.session_cache import session_cache
 
-            cached_session = session_cache.get_session(session_id)
-            realtime_stats = cached_session.get('execution_progress', {}).get('realtime_statistics') if cached_session else None
+            # Use separate cache key to avoid conflict with session.to_dict()
+            realtime_stats = None
+            try:
+                realtime_key = f'realtime_progress:{session_id}'
+                realtime_stats = session_cache.cache.get(realtime_key)
+            except Exception as e:
+                logger.warning(f"Failed to get realtime_stats from cache: {e}")
 
             if realtime_stats:
                 # Use real-time statistics synced from executing worker

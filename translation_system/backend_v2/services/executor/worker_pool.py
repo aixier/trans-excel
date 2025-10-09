@@ -334,7 +334,7 @@ class WorkerPool:
                             if session:
                                 session.session_status.update_stage(SessionStage.COMPLETED)
 
-                                # ✅ Sync final realtime_statistics to cache
+                                # ✅ Sync final realtime_statistics to cache (use separate key)
                                 from utils.session_cache import session_cache
                                 df = task_manager.df
                                 total = len(df)
@@ -343,23 +343,20 @@ class WorkerPool:
                                 pending = (df['status'] == 'pending').sum()
                                 failed = (df['status'] == 'failed').sum()
 
-                                cached_session = session_cache.get_session(self.current_session_id)
-                                if cached_session:
-                                    if 'execution_progress' not in cached_session:
-                                        cached_session['execution_progress'] = {}
+                                # Use separate cache key to avoid being overwritten by session.to_dict()
+                                realtime_key = f'realtime_progress:{self.current_session_id}'
+                                realtime_data = {
+                                    'total': int(total),
+                                    'completed': int(completed),
+                                    'processing': int(processing),
+                                    'pending': int(pending),
+                                    'failed': int(failed),
+                                    'completion_rate': 100.0,
+                                    'updated_at': datetime.now().isoformat()
+                                }
+                                session_cache.cache[realtime_key] = realtime_data
 
-                                    cached_session['execution_progress']['realtime_statistics'] = {
-                                        'total': int(total),
-                                        'completed': int(completed),
-                                        'processing': int(processing),
-                                        'pending': int(pending),
-                                        'failed': int(failed),
-                                        'completion_rate': 100.0,
-                                        'updated_at': datetime.now().isoformat()
-                                    }
-                                    session_cache.set_session(self.current_session_id, cached_session)
-
-                                # Sync session to cache
+                                # Sync session to cache (this won't overwrite realtime_progress)
                                 session_manager._sync_to_cache(session)
                                 self.logger.info(f"✅ Updated session stage to COMPLETED and synced final stats to cache")
 

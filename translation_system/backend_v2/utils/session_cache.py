@@ -157,12 +157,23 @@ class SessionCache:
             bool: 成功返回True，失败返回False
         """
         try:
+            deleted = False
+
+            # Delete main session data
             key = f'session:{session_id}'
             if key in self.cache:
                 del self.cache[key]
+                deleted = True
+
+            # ✅ Also delete realtime progress data (separate key)
+            realtime_key = f'realtime_progress:{session_id}'
+            if realtime_key in self.cache:
+                del self.cache[realtime_key]
+                deleted = True
+
+            if deleted:
                 logger.debug(f"Deleted session from cache: {session_id}")
-                return True
-            return False
+            return deleted
         except Exception as e:
             logger.error(f"Failed to delete session {session_id} from cache: {e}")
             return False

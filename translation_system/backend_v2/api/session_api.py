@@ -45,7 +45,7 @@ async def get_sessions_list(status: Optional[str] = None):
                 # Build session info
                 session_info = {
                     'session_id': session_id,
-                    'filename': session_data.get('filename', 'unknown'),
+                    'filename': session_data.get('metadata', {}).get('filename', 'unknown'),
                     'created_at': session_data.get('created_at'),
                     'last_accessed': session_data.get('last_accessed'),
                     'stage': session_data.get('session_status', {}).get('stage', 'unknown'),
@@ -73,7 +73,13 @@ async def get_sessions_list(status: Optional[str] = None):
                     session_info['has_tasks'] = True
 
                     # ✅ Priority 1: Try to get real-time statistics from cache (cross-worker support)
-                    realtime_stats = session_data.get('execution_progress', {}).get('realtime_statistics')
+                    # Use separate cache key to avoid conflict with session.to_dict()
+                    realtime_stats = None
+                    try:
+                        realtime_key = f'realtime_progress:{session_id}'
+                        realtime_stats = session_cache.cache.get(realtime_key)
+                    except Exception as e:
+                        logger.warning(f"Failed to get realtime_stats from cache: {e}")
 
                     if realtime_stats:
                         # Use real-time statistics from cache (synced by executing worker)
@@ -183,7 +189,7 @@ async def get_session_detail(session_id: str):
         # Build detailed info
         detail = {
             'session_id': session_id,
-            'filename': session_data.get('filename'),
+            'filename': session_data.get('metadata', {}).get('filename'),
             'created_at': session_data.get('created_at'),
             'last_accessed': session_data.get('last_accessed'),
             'stage': session_data.get('session_status', {}).get('stage'),
