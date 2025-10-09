@@ -145,6 +145,22 @@ class ExcelExporter:
                 cell = worksheet.cell(row=excel_row, column=excel_col)
                 cell.value = cell_value
 
+                # Add comment if task was translated AND original value was not empty
+                if (row_idx, col_idx) in translation_map:
+                    # Only add comment if original_value is not NaN/None (re-translation case)
+                    if pd.notna(original_value) and str(original_value).strip():
+                        original_comment = excel_df.get_cell_comment(
+                            sheet_name, row_idx, col_idx
+                        )
+                        translation_comment = f"原文: {original_value}"
+
+                        if original_comment:
+                            final_comment = f"{original_comment}\n{translation_comment}"
+                        else:
+                            final_comment = translation_comment
+
+                        cell.comment = Comment(final_comment, "TranslationSystem")
+
     def _apply_sheet_formatting(
         self,
         worksheet,
@@ -205,12 +221,13 @@ class ExcelExporter:
                     )
                     cell.fill = fill
 
-                # ✅ FIX: Mark translated cells using translation_cells set
+                # ✅ Mark translated cells (both first-time and re-translation)
                 if (row_idx, col_idx) in translation_cells:
                     # Add gray background to translated cells if no original color
                     current_fill = cell.fill
                     if not current_fill or current_fill.start_color.rgb == '00000000':
                         cell.fill = translated_style.fill
+                    # Italic font for all translated cells
                     cell.font = Font(italic=True)
 
         # Auto-adjust column widths
