@@ -317,6 +317,18 @@ class WorkerPool:
                 self.status = ExecutionStatus.COMPLETED
                 self.statistics['end_time'] = datetime.now()
 
+                # ✅ FIX: Save final task_manager to parquet file
+                if self.current_session_id:
+                    try:
+                        task_manager = session_manager.get_task_manager(self.current_session_id)
+                        task_file_path = session_manager.get_metadata(self.current_session_id, 'task_file_path')
+
+                        if task_manager and task_manager.df is not None and task_file_path:
+                            task_manager.df.to_parquet(task_file_path, index=False)
+                            self.logger.info(f"✅ Saved final task_manager to {task_file_path} ({len(task_manager.df)} tasks)")
+                    except Exception as e:
+                        self.logger.error(f"Failed to save final task_manager: {e}")
+
                 # Log final progress (100%)
                 final_status = self.get_status()
                 self.logger.info(

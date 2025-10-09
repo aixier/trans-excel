@@ -170,10 +170,13 @@ class ExecutePage {
                     console.log('📦 [checkExecutionStatus] Batch total:', this.batches.total);
                 }
 
-                // 更新任务总数
+                // 更新任务统计（从任务状态中恢复）
                 if (taskStatus.statistics && taskStatus.statistics.total) {
                     this.progress.total = taskStatus.statistics.total;
                     this.progress.pending = taskStatus.statistics.by_status?.pending || 0;
+                    this.progress.completed = taskStatus.statistics.by_status?.completed || 0;
+                    this.progress.failed = taskStatus.statistics.by_status?.failed || 0;
+                    this.progress.processing = taskStatus.statistics.by_status?.processing || 0;
                     this.updateProgressUI();
                 }
             } catch (taskError) {
@@ -198,9 +201,16 @@ class ExecutePage {
                     this.connectWebSocket();  // 同时连接WebSocket
                     console.log('🔄 [checkExecutionStatus] Resumed monitoring for running session');
                 } else if (sessionStatus.status === 'completed' || sessionStatus.status === 'stopped') {
-                    // 已完成或已停止，启用开始按钮（可以重新开始）
+                    // ✅ FIX: 已完成或已停止，保持进度显示100%
                     this.isExecuting = false;
                     this.executionStatus = sessionStatus.status;
+
+                    // 如果是completed状态，确保批次进度也是100%
+                    if (sessionStatus.status === 'completed' && this.batches.total > 0) {
+                        this.batches.completed = this.batches.total;
+                    }
+
+                    this.updateProgressUI();  // ✅ 更新UI显示100%
                     this.updateControlButtons(sessionStatus.status);
                     document.getElementById('startBtn').disabled = false;
                 } else {
@@ -625,6 +635,14 @@ class ExecutePage {
         this.isExecuting = false;
         this.executionStatus = 'completed';
 
+        // ✅ FIX: 确保批次进度显示100%
+        if (this.batches.total > 0) {
+            this.batches.completed = this.batches.total;
+        }
+
+        // 最后更新一次UI，确保显示100%
+        this.updateProgressUI();
+
         // 断开WebSocket
         if (this.wsManager) {
             this.wsManager.disconnect();
@@ -635,11 +653,15 @@ class ExecutePage {
             clearInterval(this.updateInterval);
         }
 
+        // 停止轮询
+        this.stopPolling();
+
         this.updateControlButtons('completed');
         sessionManager.updateStage('completed');
 
         // 翻译完成 - 不显示弹窗，用户可以从UI上看到完成状态
         console.log(`✅ 翻译完成: 成功 ${this.progress.completed} 个，失败 ${this.progress.failed} 个`);
+        console.log(`📦 批次完成: ${this.batches.completed} / ${this.batches.total}`);
     }
 
     updateControlButtons(status) {
@@ -838,6 +860,22 @@ class ExecutePage {
     }
 
     startNewTask() {
+        // ✅ FIX: 重置进度状态（新翻译时清零）
+        this.progress = {
+            total: 0,
+            completed: 0,
+            processing: 0,
+            pending: 0,
+            failed: 0
+        };
+        this.batches = {
+            total: 0,
+            completed: 0,
+            failed: 0
+        };
+        this.isExecuting = false;
+        this.executionStatus = 'idle';
+
         // 清理当前会话
         sessionManager.clearSession();
         // 跳转到上传页面

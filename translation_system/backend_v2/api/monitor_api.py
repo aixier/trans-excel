@@ -34,12 +34,42 @@ async def get_execution_progress(session_id: str):
     if not task_manager:
         raise HTTPException(status_code=404, detail="Task manager not found")
 
-    # Check if this session is currently executing
+    # ✅ FIX: Check if session is executing by task status (works across workers)
+    # Instead of only checking current worker's session
     is_executing = worker_pool.current_session_id == session_id
+
+    # Also check if tasks are in processing state (cross-worker support)
+    if not is_executing and task_manager.df is not None:
+        processing_count = (task_manager.df['status'] == TaskStatus.PROCESSING).sum()
+        is_executing = processing_count > 0
 
     if is_executing:
         # Executing: Return real-time status
-        status = worker_pool.get_status()
+        # ✅ FIX: Calculate status from task_manager (works across workers)
+        if worker_pool.current_session_id == session_id:
+            # Same worker: use worker_pool status
+            status = worker_pool.get_status()
+        else:
+            # Different worker: calculate from task_manager directly
+            stats = task_manager.get_statistics()
+            status = {
+                'status': 'running',
+                'session_id': session_id,
+                'progress': {
+                    'total': stats['total'],
+                    'completed': stats['by_status'].get('completed', 0),
+                    'failed': stats['by_status'].get('failed', 0),
+                    'processing': stats['by_status'].get('processing', 0),
+                    'pending': stats['by_status'].get('pending', 0)
+                },
+                'batches': {
+                    'total': 0,  # Unknown in cross-worker scenario
+                    'completed': 0,
+                    'failed': 0
+                },
+                'completion_rate': (stats['by_status'].get('completed', 0) / stats['total'] * 100) if stats['total'] > 0 else 0,
+                'active_workers': 0
+            }
 
         # Add recent completions
         if task_manager.df is not None:
@@ -69,14 +99,8 @@ async def get_execution_progress(session_id: str):
             ]
             status['current_tasks'] = list(processing_df['task_id'].values)
 
-        # Merge with execution_progress if available
-        if session.execution_progress:
-            exec_progress_dict = session.execution_progress.to_dict()
-            return convert_numpy_types({
-                **exec_progress_dict,
-                **status
-            })
-
+        # ✅ FIX: Return real-time status directly (don't merge with stale execution_progress)
+        # execution_progress is only updated at start/completion, not during execution
         return convert_numpy_types(status)
 
     # Not currently executing - check execution_progress for historical status

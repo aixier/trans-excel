@@ -167,6 +167,20 @@ class BatchExecutor:
         # Calculate execution time
         results['duration_seconds'] = time.time() - start_time
 
+        # ✅ FIX: Save task_manager to parquet file after batch completion
+        if session_id and task_manager and task_manager.df is not None:
+            try:
+                from pathlib import Path
+                from utils.session_manager import session_manager as sm
+
+                # Get task file path from session metadata
+                task_file_path = sm.get_metadata(session_id, 'task_file_path')
+                if task_file_path:
+                    task_manager.df.to_parquet(task_file_path, index=False)
+                    self.logger.debug(f"Saved task_manager to {task_file_path} after batch {batch_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to save task_manager to file: {e}")
+
         self.logger.info(
             f"Batch {batch_id} completed: "
             f"{results['successful']} successful, "

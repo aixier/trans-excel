@@ -122,7 +122,12 @@ class ExcelExporter:
             col_idx = int(task['col_idx'])
             translation_map[(row_idx, col_idx)] = task['result']
 
-        # Write data row by row
+        # ✅ FIX: Write column headers first (row 1)
+        for col_idx, col_name in enumerate(df.columns):
+            cell = worksheet.cell(row=1, column=col_idx + 1)
+            cell.value = col_name
+
+        # Write data row by row (starting from row 2)
         for row_idx in range(len(df)):
             for col_idx in range(len(df.columns)):
                 # Get original value
@@ -134,8 +139,8 @@ class ExcelExporter:
                 else:
                     cell_value = original_value
 
-                # Write to Excel (1-based indexing)
-                excel_row = row_idx + 1
+                # Write to Excel (1-based indexing, +1 for header row)
+                excel_row = row_idx + 2  # ✅ FIX: +2 to account for header row
                 excel_col = col_idx + 1
                 cell = worksheet.cell(row=excel_row, column=excel_col)
                 cell.value = cell_value
@@ -170,10 +175,10 @@ class ExcelExporter:
         )
         translated_style.font = Font(italic=True)
 
-        # Apply cell colors and formatting
+        # Apply cell colors and formatting (skip header row)
         for row_idx in range(len(df)):
             for col_idx in range(len(df.columns)):
-                excel_row = row_idx + 1
+                excel_row = row_idx + 2  # ✅ FIX: +2 to account for header row
                 excel_col = col_idx + 1
                 cell = worksheet.cell(row=excel_row, column=excel_col)
 
@@ -207,8 +212,9 @@ class ExcelExporter:
         for col_idx in range(len(df.columns)):
             column_letter = get_column_letter(col_idx + 1)
 
-            # Calculate max width for column
-            max_width = 10  # Minimum width
+            # Calculate max width for column (including header)
+            col_name = df.columns[col_idx]
+            max_width = len(str(col_name))  # ✅ FIX: Start with header length
 
             for row_idx in range(len(df)):
                 cell_value = df.iloc[row_idx, col_idx]
