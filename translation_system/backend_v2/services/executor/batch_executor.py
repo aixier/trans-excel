@@ -41,7 +41,8 @@ class BatchExecutor:
         tasks: List[Dict[str, Any]],
         task_manager: TaskDataFrameManager,
         session_id: str = None,
-        game_info: Optional[Dict[str, Any]] = None
+        game_info: Optional[Dict[str, Any]] = None,
+        glossary_config: Optional[Dict[str, Any]] = None  # ✨ Glossary configuration
     ) -> Dict[str, Any]:
         """
         Execute a batch of translation tasks.
@@ -52,6 +53,7 @@ class BatchExecutor:
             task_manager: Task DataFrame manager
             session_id: Session ID for progress tracking
             game_info: Game information
+            glossary_config: Glossary configuration
 
         Returns:
             Batch execution result
@@ -78,7 +80,7 @@ class BatchExecutor:
                 )
 
         # Prepare translation requests
-        requests = self._prepare_requests(tasks, game_info)
+        requests = self._prepare_requests(tasks, game_info, glossary_config)
 
         # Execute translations
         results = {
@@ -93,7 +95,10 @@ class BatchExecutor:
         try:
             if self.use_batch_optimization:
                 # Use optimized batch translator
-                translated_tasks = await self.batch_translator.translate_batch_optimized(tasks)
+                translated_tasks = await self.batch_translator.translate_batch_optimized(
+                    tasks,
+                    glossary_config=glossary_config  # ✨ Pass glossary config
+                )
 
                 # Process translated tasks
                 for task in translated_tasks:
@@ -193,7 +198,8 @@ class BatchExecutor:
     def _prepare_requests(
         self,
         tasks: List[Dict[str, Any]],
-        game_info: Optional[Dict[str, Any]]
+        game_info: Optional[Dict[str, Any]],
+        glossary_config: Optional[Dict[str, Any]] = None  # ✨ Glossary configuration
     ) -> List[TranslationRequest]:
         """Prepare translation requests from tasks."""
         requests = []
@@ -208,7 +214,8 @@ class BatchExecutor:
                 task_type=task.get('task_type', 'normal'),  # 传递任务类型
                 task_id=task['task_id'],
                 batch_id=task.get('batch_id'),
-                group_id=task.get('group_id')
+                group_id=task.get('group_id'),
+                glossary_config=glossary_config  # ✨ Pass glossary config
             )
             requests.append(request)
 

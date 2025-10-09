@@ -55,7 +55,8 @@ class WorkerPool:
     async def start_execution(
         self,
         session_id: str,
-        llm_provider: BaseLLMProvider
+        llm_provider: BaseLLMProvider,
+        glossary_config: Dict[str, Any] = None  # ✨ Glossary configuration
     ) -> Dict[str, Any]:
         """
         Start translation execution.
@@ -63,6 +64,7 @@ class WorkerPool:
         Args:
             session_id: Session ID
             llm_provider: LLM provider instance
+            glossary_config: Glossary configuration
 
         Returns:
             Execution status
@@ -75,6 +77,7 @@ class WorkerPool:
 
         self.current_session_id = session_id
         self.llm_provider = llm_provider
+        self.glossary_config = glossary_config  # ✨ Store glossary config
         self.status = ExecutionStatus.RUNNING
 
         # Get task manager from session
@@ -283,7 +286,12 @@ class WorkerPool:
 
                     # Execute batch with session_id for WebSocket progress updates
                     result = await executor.execute_batch(
-                        batch_id, tasks, task_manager, self.current_session_id, game_info
+                        batch_id,
+                        tasks,
+                        task_manager,
+                        self.current_session_id,
+                        game_info,
+                        glossary_config=self.glossary_config  # ✨ Pass glossary config
                     )
 
                     # Update statistics

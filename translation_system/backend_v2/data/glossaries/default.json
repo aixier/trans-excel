@@ -1,0 +1,249 @@
+{
+  "id": "default",
+  "name": "通用游戏术语",
+  "description": "包含常见RPG游戏术语",
+  "version": "1.0",
+  "languages": ["EN", "TH", "PT", "VN"],
+  "terms": [
+    {
+      "id": "term_001",
+      "source": "攻击力",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "ATK",
+        "TH": "พลังโจมตี",
+        "PT": "Ataque",
+        "VN": "Sức công"
+      }
+    },
+    {
+      "id": "term_002",
+      "source": "生命值",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "HP",
+        "TH": "พลังชีวิต",
+        "PT": "Vida",
+        "VN": "Sinh lực"
+      }
+    },
+    {
+      "id": "term_003",
+      "source": "防御力",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "DEF",
+        "TH": "พลังป้องกัน",
+        "PT": "Defesa",
+        "VN": "Phòng thủ"
+      }
+    },
+    {
+      "id": "term_004",
+      "source": "暴击率",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "CRIT Rate",
+        "TH": "อัตราคริติคอล",
+        "PT": "Taxa Crítica",
+        "VN": "Tỷ lệ Bạo kích"
+      }
+    },
+    {
+      "id": "term_005",
+      "source": "暴击伤害",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "CRIT DMG",
+        "TH": "ความเสียหายคริติคอล",
+        "PT": "Dano Crítico",
+        "VN": "Sát thương Bạo kích"
+      }
+    },
+    {
+      "id": "term_006",
+      "source": "速度",
+      "category": "属性",
+      "priority": 9,
+      "translations": {
+        "EN": "SPD",
+        "TH": "ความเร็ว",
+        "PT": "Velocidade",
+        "VN": "Tốc độ"
+      }
+    },
+    {
+      "id": "term_007",
+      "source": "等级",
+      "category": "系统",
+      "priority": 9,
+      "translations": {
+        "EN": "Level",
+        "TH": "เลเวล",
+        "PT": "Nível",
+        "VN": "Cấp độ"
+      }
+    },
+    {
+      "id": "term_008",
+      "source": "经验值",
+      "category": "系统",
+      "priority": 9,
+      "translations": {
+        "EN": "EXP",
+        "TH": "ค่าประสบการณ์",
+        "PT": "Experiência",
+        "VN": "Kinh nghiệm"
+      }
+    },
+    {
+      "id": "term_009",
+      "source": "技能",
+      "category": "战斗",
+      "priority": 9,
+      "translations": {
+        "EN": "Skill",
+        "TH": "ทักษะ",
+        "PT": "Habilidade",
+        "VN": "Kỹ năng"
+      }
+    },
+    {
+      "id": "term_010",
+      "source": "装备",
+      "category": "道具",
+      "priority": 9,
+      "translations": {
+        "EN": "Equipment",
+        "TH": "อุปกรณ์",
+        "PT": "Equipamento",
+        "VN": "Trang bị"
+      }
+    },
+    {
+      "id": "term_011",
+      "source": "背包",
+      "category": "系统",
+      "priority": 8,
+      "translations": {
+        "EN": "Inventory",
+        "TH": "กระเป๋า",
+        "PT": "Inventário",
+        "VN": "Túi đồ"
+      }
+    },
+    {
+      "id": "term_012",
+      "source": "金币",
+      "category": "货币",
+      "priority": 9,
+      "translations": {
+        "EN": "Gold",
+        "TH": "เหรียญทอง",
+        "PT": "Ouro",
+        "VN": "Vàng"
+      }
+    },
+    {
+      "id": "term_013",
+      "source": "钻石",
+      "category": "货币",
+      "priority": 9,
+      "translations": {
+        "EN": "Diamond",
+        "TH": "เพชร",
+        "PT": "Diamante",
+        "VN": "Kim cương"
+      }
+    },
+    {
+      "id": "term_014",
+      "source": "公会",
+      "category": "社交",
+      "priority": 9,
+      "translations": {
+        "EN": "Guild",
+        "TH": "กิลด์",
+        "PT": "Guilda",
+        "VN": "Bang hội"
+      }
+    },
+    {
+      "id": "term_015",
+      "source": "排行榜",
+      "category": "系统",
+      "priority": 8,
+      "translations": {
+        "EN": "Leaderboard",
+        "TH": "อันดับ",
+        "PT": "Classificação",
+        "VN": "Bảng xếp hạng"
+      }
+    },
+    {
+      "id": "term_016",
+      "source": "副本",
+      "category": "玩法",
+      "priority": 9,
+      "translations": {
+        "EN": "Dungeon",
+        "TH": "ดันเจี้ยน",
+        "PT": "Masmorra",
+        "VN": "Phó bản"
+      }
+    },
+    {
+      "id": "term_017",
+      "source": "任务",
+      "category": "系统",
+      "priority": 8,
+      "translations": {
+        "EN": "Quest",
+        "TH": "เควสต์",
+        "PT": "Missão",
+        "VN": "Nhiệm vụ"
+      }
+    },
+    {
+      "id": "term_018",
+      "source": "充值",
+      "category": "商城",
+      "priority": 9,
+      "translations": {
+        "EN": "Recharge",
+        "TH": "เติมเงิน",
+        "PT": "Recarregar",
+        "VN": "Nạp tiền"
+      }
+    },
+    {
+      "id": "term_019",
+      "source": "服务器",
+      "category": "系统",
+      "priority": 8,
+      "translations": {
+        "EN": "Server",
+        "TH": "เซิร์ฟเวอร์",
+        "PT": "Servidor",
+        "VN": "Máy chủ"
+      }
+    },
+    {
+      "id": "term_020",
+      "source": "角色",
+      "category": "系统",
+      "priority": 8,
+      "translations": {
+        "EN": "Character",
+        "TH": "ตัวละคร",
+        "PT": "Personagem",
+        "VN": "Nhân vật"
+      }
+    }
+  ]
+}

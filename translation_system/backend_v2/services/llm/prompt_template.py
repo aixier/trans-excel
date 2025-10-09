@@ -1,6 +1,9 @@
 """Translation prompt templates."""
 
-from typing import Dict, Any
+from typing import Dict, Any, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PromptTemplate:
@@ -75,7 +78,8 @@ class PromptTemplate:
         source_lang: str,
         target_lang: str,
         context: str = "",
-        game_info: Dict[str, Any] = None
+        game_info: Dict[str, Any] = None,
+        glossary_config: Dict[str, Any] = None  # ✨ New parameter
     ) -> str:
         """
         Build translation prompt based on available information.
@@ -86,6 +90,7 @@ class PromptTemplate:
             target_lang: Target language code
             context: Translation context
             game_info: Game information
+            glossary_config: Glossary configuration
 
         Returns:
             Formatted prompt string
@@ -95,9 +100,9 @@ class PromptTemplate:
         target_lang_name = self.LANGUAGE_NAMES.get(target_lang.upper(), target_lang)
         target_region = self.TARGET_REGIONS.get(target_lang.upper(), '')
 
-        # If we have game info, use the detailed prompt
+        # Build base prompt
         if game_info and any(game_info.values()):
-            return self.GAME_TRANSLATION_PROMPT.format(
+            prompt = self.GAME_TRANSLATION_PROMPT.format(
                 game_type=game_info.get('game_type', '未知'),
                 world_view=game_info.get('world_view', '未知'),
                 game_style=game_info.get('game_style', '未知'),
@@ -108,12 +113,24 @@ class PromptTemplate:
                 source_text=source_text
             )
         else:
-            # Use simple prompt
-            return self.SIMPLE_TRANSLATION_PROMPT.format(
+            prompt = self.SIMPLE_TRANSLATION_PROMPT.format(
                 source_lang_name=source_lang_name,
                 target_lang_name=target_lang_name,
                 source_text=source_text
             )
+
+        # ✨ Inject glossary if enabled
+        if glossary_config and glossary_config.get('enabled'):
+            glossary_text = self._inject_glossary(
+                source_text,
+                glossary_config.get('id'),
+                target_lang
+            )
+            if glossary_text:
+                # Insert glossary before translation requirements
+                prompt = prompt.replace('翻译要求：', f'{glossary_text}\n\n翻译要求：')
+
+        return prompt
 
     def build_batch_prompt(
         self,
@@ -121,7 +138,8 @@ class PromptTemplate:
         source_lang: str,
         target_lang: str,
         context: str = "",
-        game_info: Dict[str, Any] = None
+        game_info: Dict[str, Any] = None,
+        glossary_config: Dict[str, Any] = None  # ✨ New parameter
     ) -> str:
         """
         Build prompt for batch translation.
@@ -132,6 +150,7 @@ class PromptTemplate:
             target_lang: Target language code
             context: Translation context
             game_info: Game information
+            glossary_config: Glossary configuration
 
         Returns:
             Formatted prompt string
@@ -167,6 +186,16 @@ class PromptTemplate:
 2. 保留特殊格式和变量
 3. 每行一个翻译结果，保持编号对应"""
 
+        # ✨ Inject glossary for batch (match across all texts)
+        if glossary_config and glossary_config.get('enabled'):
+            glossary_text = self._inject_glossary_batch(
+                texts,
+                glossary_config.get('id'),
+                target_lang
+            )
+            if glossary_text:
+                prompt = prompt.replace('翻译要求：', f'{glossary_text}\n\n翻译要求：')
+
         return prompt
 
     def build_task_specific_prompt(
@@ -176,7 +205,8 @@ class PromptTemplate:
         target_lang: str,
         task_type: str = 'normal',
         context: str = "",
-        game_info: Dict[str, Any] = None
+        game_info: Dict[str, Any] = None,
+        glossary_config: Dict[str, Any] = None  # ✨ New parameter
     ) -> str:
         """
         Build task-specific prompt based on task type.
@@ -188,6 +218,7 @@ class PromptTemplate:
             task_type: Task type ('normal', 'yellow', 'blue')
             context: Translation context
             game_info: Game information
+            glossary_config: Glossary configuration
 
         Returns:
             Task-specific formatted prompt string
@@ -198,7 +229,8 @@ class PromptTemplate:
             source_lang=source_lang,
             target_lang=target_lang,
             context=context,
-            game_info=game_info
+            game_info=game_info,
+            glossary_config=glossary_config  # ✨ Pass through
         )
 
         # 根据任务类型添加特殊指令
@@ -213,3 +245,91 @@ class PromptTemplate:
         else:
             # 普通任务，返回基础Prompt
             return base_prompt
+
+    def _inject_glossary(
+        self,
+        source_text: str,
+        glossary_id: str,
+        target_lang: str
+    ) -> str:
+        """
+        Inject glossary terms for single text.
+
+        Args:
+            source_text: Text to analyze
+            glossary_id: Glossary ID to use
+            target_lang: Target language
+
+        Returns:
+            Formatted glossary string
+        """
+        if not glossary_id:
+            return ""
+
+        try:
+            from services.glossary_manager import glossary_manager
+
+            # Load glossary
+            glossary = glossary_manager.load_glossary(glossary_id)
+            if not glossary:
+                return ""
+
+            # Match terms in text
+            matched_terms = glossary_manager.match_terms_in_text(
+                source_text,
+                glossary,
+                target_lang
+            )
+
+            # Format for prompt
+            if matched_terms:
+                return glossary_manager.format_glossary_for_prompt(matched_terms)
+
+        except Exception as e:
+            logger.warning(f"Failed to inject glossary: {e}")
+
+        return ""
+
+    def _inject_glossary_batch(
+        self,
+        texts: List[str],
+        glossary_id: str,
+        target_lang: str
+    ) -> str:
+        """
+        Inject glossary terms for batch texts.
+
+        Args:
+            texts: List of texts to analyze
+            glossary_id: Glossary ID to use
+            target_lang: Target language
+
+        Returns:
+            Formatted glossary string
+        """
+        if not glossary_id:
+            return ""
+
+        try:
+            from services.glossary_manager import glossary_manager
+
+            # Load glossary
+            glossary = glossary_manager.load_glossary(glossary_id)
+            if not glossary:
+                return ""
+
+            # Match terms across all texts
+            matched_terms = glossary_manager.match_terms_in_batch(
+                texts,
+                glossary,
+                target_lang
+            )
+
+            # Format for prompt
+            if matched_terms:
+                return glossary_manager.format_glossary_for_prompt(matched_terms)
+
+        except Exception as e:
+            logger.warning(f"Failed to inject glossary for batch: {e}")
+
+        return ""

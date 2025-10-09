@@ -22,6 +22,7 @@ class TranslationRequest:
     task_id: Optional[str] = None
     batch_id: Optional[str] = None
     group_id: Optional[str] = None
+    glossary_config: Optional[Dict[str, Any]] = None  # ✨ Glossary configuration
 
 
 @dataclass

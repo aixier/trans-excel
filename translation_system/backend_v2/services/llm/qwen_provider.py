@@ -48,7 +48,8 @@ class QwenProvider(BaseLLMProvider):
                 target_lang=request.target_lang,
                 task_type=request.task_type,
                 context=request.context,
-                game_info=request.game_info
+                game_info=request.game_info,
+                glossary_config=request.glossary_config  # ✨ Pass glossary config
             )
 
             # 打印完整的 prompt 内容用于调试

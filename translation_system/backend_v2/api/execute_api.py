@@ -23,6 +23,7 @@ class ExecuteRequest(BaseModel):
     session_id: str
     provider: Optional[str] = None  # Override LLM provider
     max_workers: Optional[int] = None  # Override max workers
+    glossary_config: Optional[Dict] = None  # ✨ Glossary configuration
 
 
 @router.post("/start")
@@ -129,7 +130,11 @@ async def start_execution(request: ExecuteRequest):
         llm_provider = LLMFactory.create_from_config_file(config, provider_name)
 
         # Start execution
-        result = await worker_pool.start_execution(session_id, llm_provider)
+        result = await worker_pool.start_execution(
+            session_id,
+            llm_provider,
+            glossary_config=request.glossary_config  # ✨ Pass glossary config
+        )
 
         if result['status'] == 'error':
             exec_progress.mark_failed(result['message'])

@@ -13,6 +13,7 @@ from api.websocket_api import router as websocket_router
 from api.pool_monitor_api import router as pool_monitor_router
 from api.auth_api import router as auth_router
 from api.session_api import router as session_router
+from api.glossary_api import router as glossary_router
 from utils.config_manager import config_manager
 import asyncio
 from fastapi import Request
@@ -45,6 +46,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router)
 app.include_router(session_router)
+app.include_router(glossary_router)
 app.include_router(analyze_router)
 app.include_router(task_router)
 app.include_router(execute_router)

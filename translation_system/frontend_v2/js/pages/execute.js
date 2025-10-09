@@ -128,6 +128,20 @@ class ExecutePage {
                                     <option value="16">16</option>
                                 </select>
                             </div>
+
+                            <!-- ✨ 术语表配置 -->
+                            <div class="form-control">
+                                <label class="label cursor-pointer gap-2 py-0">
+                                    <input type="checkbox" id="useGlossary" class="checkbox checkbox-xs" onchange="executePage.onGlossaryToggle(this)">
+                                    <span class="label-text text-xs">使用术语表</span>
+                                </label>
+                            </div>
+
+                            <div id="glossarySelector" class="form-control hidden">
+                                <select id="glossaryId" class="select select-bordered select-xs">
+                                    <option value="">加载中...</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -153,8 +167,42 @@ class ExecutePage {
         UIHelper.updateGlobalProgress(3);
         sessionManager.updateStage('executing');
 
+        // 加载术语表列表
+        this.loadGlossaryList();
+
         // 初始化
         this.checkExecutionStatus();
+    }
+
+    async loadGlossaryList() {
+        try {
+            const response = await fetch(`${APP_CONFIG.API_BASE_URL}/api/glossaries/list`, {
+                headers: { 'Authorization': `Bearer ${authManager.getToken()}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const select = document.getElementById('glossaryId');
+
+                if (select && data.glossaries) {
+                    select.innerHTML = '<option value="">不使用术语表</option>' +
+                        data.glossaries.map(g =>
+                            `<option value="${g.id}">${g.name} (${g.term_count}条)</option>`
+                        ).join('');
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load glossaries:', error);
+        }
+    }
+
+    onGlossaryToggle(checkbox) {
+        const selector = document.getElementById('glossarySelector');
+        if (checkbox.checked) {
+            selector.classList.remove('hidden');
+        } else {
+            selector.classList.add('hidden');
+        }
     }
 
     async checkExecutionStatus() {
@@ -259,9 +307,16 @@ class ExecutePage {
 
         try {
             // 获取配置
+            const useGlossary = document.getElementById('useGlossary')?.checked || false;
+            const glossaryId = document.getElementById('glossaryId')?.value || '';
+
             const options = {
                 max_workers: parseInt(document.getElementById('maxWorkers').value),
-                provider: 'qwen-plus'  // 固定使用通义千问 qwen-plus
+                provider: 'qwen-plus',  // 固定使用通义千问 qwen-plus
+                glossary_config: useGlossary && glossaryId ? {  // ✨ Glossary config
+                    enabled: true,
+                    id: glossaryId
+                } : null
             };
 
             // 开始执行

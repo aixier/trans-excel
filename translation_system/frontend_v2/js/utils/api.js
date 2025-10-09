@@ -125,7 +125,8 @@ class API {
             body: JSON.stringify({
                 session_id: sessionId,
                 provider: options.provider,
-                max_workers: options.max_workers
+                max_workers: options.max_workers,
+                glossary_config: options.glossary_config  // ✨ Glossary config
             })
         });
     }

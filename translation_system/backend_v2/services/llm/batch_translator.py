@@ -37,13 +37,15 @@ class BatchTranslator:
 
     async def translate_batch_optimized(
         self,
-        tasks: List[Dict[str, Any]]
+        tasks: List[Dict[str, Any]],
+        glossary_config: Dict[str, Any] = None  # ✨ Glossary configuration
     ) -> List[Dict[str, Any]]:
         """
         Optimized batch translation that processes multiple tasks in fewer LLM calls.
 
         Args:
             tasks: List of translation tasks
+            glossary_config: Glossary configuration
 
         Returns:
             List of tasks with translation results
@@ -62,7 +64,7 @@ class BatchTranslator:
 
             # Process batches concurrently
             batch_results = await asyncio.gather(
-                *[self._process_single_batch(batch, target_lang) for batch in batches],
+                *[self._process_single_batch(batch, target_lang, glossary_config) for batch in batches],
                 return_exceptions=True
             )
 
@@ -100,7 +102,8 @@ class BatchTranslator:
     async def _process_single_batch(
         self,
         batch_tasks: List[Dict],
-        target_lang: str
+        target_lang: str,
+        glossary_config: Dict[str, Any] = None  # ✨ Glossary configuration
     ) -> List[Dict]:
         """
         Process a single batch of tasks with one LLM call.
@@ -125,7 +128,8 @@ class BatchTranslator:
                 target_lang=target_lang,
                 context=self._extract_context(batch_tasks),
                 game_info=batch_tasks[0].get('game_context', {}),
-                task_type=batch_task_type
+                task_type=batch_task_type,
+                glossary_config=glossary_config  # ✨ Pass glossary config
             )
 
             # Call LLM once for all tasks
