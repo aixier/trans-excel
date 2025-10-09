@@ -47,7 +47,7 @@ class SessionsPage {
                 </div>
 
                 <!-- Session列表 -->
-                <div id="sessionsList" class="space-y-4">
+                <div id="sessionsList" class="space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
                     <div class="text-center py-12">
                         <span class="loading loading-spinner loading-lg"></span>
                         <p class="mt-4 text-base-content/70">加载中...</p>
