@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional, List
 import pandas as pd
+import logging
 
 from services.executor.worker_pool import worker_pool
 from services.monitor.performance_monitor import performance_monitor
@@ -11,6 +12,7 @@ from utils.json_converter import convert_numpy_types
 from models.task_dataframe import TaskStatus
 
 router = APIRouter(prefix="/api/monitor", tags=["monitor"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/status/{session_id}")
@@ -34,42 +36,68 @@ async def get_execution_progress(session_id: str):
     if not task_manager:
         raise HTTPException(status_code=404, detail="Task manager not found")
 
-    # ✅ FIX: Check if session is executing by task status (works across workers)
-    # Instead of only checking current worker's session
-    is_executing = worker_pool.current_session_id == session_id
-
-    # Also check if tasks are in processing state (cross-worker support)
-    if not is_executing and task_manager.df is not None:
-        processing_count = (task_manager.df['status'] == TaskStatus.PROCESSING).sum()
-        is_executing = processing_count > 0
+    # ✅ Check if session is executing (prioritize session.stage for cross-worker)
+    from models.session_state import SessionStage
+    is_executing = (
+        worker_pool.current_session_id == session_id or
+        session.session_status.stage == SessionStage.EXECUTING
+    )
 
     if is_executing:
         # Executing: Return real-time status
-        # ✅ FIX: Calculate status from task_manager (works across workers)
         if worker_pool.current_session_id == session_id:
             # Same worker: use worker_pool status
             status = worker_pool.get_status()
         else:
-            # Different worker: calculate from task_manager directly
-            stats = task_manager.get_statistics()
-            status = {
-                'status': 'running',
-                'session_id': session_id,
-                'progress': {
-                    'total': stats['total'],
-                    'completed': stats['by_status'].get('completed', 0),
-                    'failed': stats['by_status'].get('failed', 0),
-                    'processing': stats['by_status'].get('processing', 0),
-                    'pending': stats['by_status'].get('pending', 0)
-                },
-                'batches': {
-                    'total': 0,  # Unknown in cross-worker scenario
-                    'completed': 0,
-                    'failed': 0
-                },
-                'completion_rate': (stats['by_status'].get('completed', 0) / stats['total'] * 100) if stats['total'] > 0 else 0,
-                'active_workers': 0
-            }
+            # Different worker: use real-time statistics from cache
+            from utils.session_cache import session_cache
+
+            cached_session = session_cache.get_session(session_id)
+            realtime_stats = cached_session.get('execution_progress', {}).get('realtime_statistics') if cached_session else None
+
+            if realtime_stats:
+                # Use real-time statistics synced from executing worker
+                status = {
+                    'status': 'running',
+                    'session_id': session_id,
+                    'progress': {
+                        'total': realtime_stats.get('total', 0),
+                        'completed': realtime_stats.get('completed', 0),
+                        'failed': realtime_stats.get('failed', 0),
+                        'processing': realtime_stats.get('processing', 0),
+                        'pending': realtime_stats.get('pending', 0)
+                    },
+                    'batches': {
+                        'total': 0,  # Unknown in cross-worker scenario
+                        'completed': 0,
+                        'failed': 0
+                    },
+                    'completion_rate': realtime_stats.get('completion_rate', 0.0),
+                    'active_workers': 0
+                }
+                logger.info(f"Using real-time stats from cache for cross-worker query: {session_id}")
+            else:
+                # Fallback: calculate from task_manager (may be outdated)
+                stats = task_manager.get_statistics()
+                status = {
+                    'status': 'running',
+                    'session_id': session_id,
+                    'progress': {
+                        'total': stats['total'],
+                        'completed': stats['by_status'].get('completed', 0),
+                        'failed': stats['by_status'].get('failed', 0),
+                        'processing': stats['by_status'].get('processing', 0),
+                        'pending': stats['by_status'].get('pending', 0)
+                    },
+                    'batches': {
+                        'total': 0,
+                        'completed': 0,
+                        'failed': 0
+                    },
+                    'completion_rate': (stats['by_status'].get('completed', 0) / stats['total'] * 100) if stats['total'] > 0 else 0,
+                    'active_workers': 0
+                }
+                logger.warning(f"No real-time stats in cache, using task_manager (may be outdated): {session_id}")
 
         # Add recent completions
         if task_manager.df is not None:

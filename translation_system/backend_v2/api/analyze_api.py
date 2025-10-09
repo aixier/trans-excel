@@ -81,6 +81,9 @@ async def upload_and_analyze(
             # Store file path in metadata
             session_manager.set_metadata(session_id, 'excel_file_path', excel_file_path)
 
+            # ✅ Store original filename in metadata (for session list display)
+            session_manager.set_metadata(session_id, 'filename', file.filename)
+
             logger.info(f"Excel data saved to file: {excel_file_path}")
         except Exception as e:
             logger.error(f"Failed to save excel_df to file: {e}")

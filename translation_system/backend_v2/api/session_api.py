@@ -64,13 +64,30 @@ async def get_sessions_list(status: Optional[str] = None):
                     'can_download': False
                 }
 
+                # ✅ Determine status based on session stage (more reliable for cross-worker)
+                current_stage = session_info['stage']
+
                 # Check if tasks exist
                 task_file_path = session_data.get('metadata', {}).get('task_file_path')
                 if task_file_path and os.path.exists(task_file_path):
                     session_info['has_tasks'] = True
 
-                    # Load task statistics
-                    if task_manager and task_manager.df is not None:
+                    # ✅ Priority 1: Try to get real-time statistics from cache (cross-worker support)
+                    realtime_stats = session_data.get('execution_progress', {}).get('realtime_statistics')
+
+                    if realtime_stats:
+                        # Use real-time statistics from cache (synced by executing worker)
+                        session_info['progress'] = {
+                            'total': realtime_stats.get('total', 0),
+                            'completed': realtime_stats.get('completed', 0),
+                            'failed': realtime_stats.get('failed', 0),
+                            'processing': realtime_stats.get('processing', 0),
+                            'pending': realtime_stats.get('pending', 0),
+                            'percentage': realtime_stats.get('completion_rate', 0.0)
+                        }
+                        logger.debug(f"Using real-time stats from cache for {session_id}")
+                    elif task_manager and task_manager.df is not None:
+                        # Fallback: Load from task_manager (works for all stages)
                         stats = task_manager.get_statistics()
 
                         session_info['progress'] = {
@@ -81,29 +98,41 @@ async def get_sessions_list(status: Optional[str] = None):
                             'pending': stats.get('by_status', {}).get('pending', 0),
                             'percentage': (stats.get('by_status', {}).get('completed', 0) / stats.get('total', 1) * 100) if stats.get('total', 0) > 0 else 0.0
                         }
+                        logger.debug(f"Using task_manager stats for {session_id} (stage: {current_stage})")
+                    else:
+                        # No stats available, keep default (all zeros)
+                        logger.warning(f"No progress stats available for {session_id}")
 
-                        # Determine status
-                        processing = session_info['progress']['processing']
-                        completed = session_info['progress']['completed']
-                        total = session_info['progress']['total']
-
-                        if processing > 0:
-                            session_info['status'] = 'running'
-                            session_info['is_running'] = True
-                            session_info['can_resume'] = False
-                        elif completed >= total and total > 0:
-                            session_info['status'] = 'completed'
-                            session_info['is_running'] = False
-                            session_info['can_resume'] = False
-                            session_info['can_download'] = True
-                        elif completed > 0:
-                            session_info['status'] = 'stopped'
-                            session_info['is_running'] = False
-                            session_info['can_resume'] = True
-                        else:
-                            session_info['status'] = 'ready'
-                            session_info['is_running'] = False
-                            session_info['can_resume'] = True
+                # ✅ Determine status based on session stage (primary indicator)
+                if current_stage == 'executing':
+                    session_info['status'] = 'running'
+                    session_info['is_running'] = True
+                    session_info['can_resume'] = False
+                    session_info['can_download'] = False
+                elif current_stage == 'completed':
+                    session_info['status'] = 'completed'
+                    session_info['is_running'] = False
+                    session_info['can_resume'] = False
+                    session_info['can_download'] = True
+                elif current_stage == 'split_complete':
+                    # Check if has partial progress (resumed case)
+                    completed = session_info['progress']['completed']
+                    if completed > 0:
+                        session_info['status'] = 'stopped'
+                        session_info['is_running'] = False
+                        session_info['can_resume'] = True
+                    else:
+                        session_info['status'] = 'ready'
+                        session_info['is_running'] = False
+                        session_info['can_resume'] = True
+                elif current_stage == 'analyzed':
+                    session_info['status'] = 'analyzed'
+                    session_info['is_running'] = False
+                    session_info['can_resume'] = False
+                else:
+                    session_info['status'] = 'created'
+                    session_info['is_running'] = False
+                    session_info['can_resume'] = False
 
                 # Apply filter
                 if status:

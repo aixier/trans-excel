@@ -147,7 +147,10 @@ async def start_execution(request: ExecuteRequest):
         # ✨ T10: Mark as running (monitoring ready)
         exec_progress.mark_running()
         session.session_status.update_stage(SessionStage.EXECUTING)
-        logger.info(f"✨ Execution started, ready_for_monitoring={exec_progress.ready_for_monitoring}")
+
+        # ✅ Sync to cache so other workers can see the stage update
+        session_manager._sync_to_cache(session)
+        logger.info(f"✨ Execution started, ready_for_monitoring={exec_progress.ready_for_monitoring} (synced to cache)")
 
         # ✨ T10: Return execution progress with ready_for_monitoring flag
         # Include progress field for frontend compatibility

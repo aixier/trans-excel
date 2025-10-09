@@ -317,17 +317,54 @@ class WorkerPool:
                 self.status = ExecutionStatus.COMPLETED
                 self.statistics['end_time'] = datetime.now()
 
-                # ✅ FIX: Save final task_manager to parquet file
+                # ✅ FIX: Save final task_manager and update session state
                 if self.current_session_id:
                     try:
                         task_manager = session_manager.get_task_manager(self.current_session_id)
                         task_file_path = session_manager.get_metadata(self.current_session_id, 'task_file_path')
 
                         if task_manager and task_manager.df is not None and task_file_path:
+                            # Save to file
                             task_manager.df.to_parquet(task_file_path, index=False)
                             self.logger.info(f"✅ Saved final task_manager to {task_file_path} ({len(task_manager.df)} tasks)")
+
+                            # ✅ Update session.stage to COMPLETED
+                            from models.session_state import SessionStage
+                            session = session_manager.get_session(self.current_session_id)
+                            if session:
+                                session.session_status.update_stage(SessionStage.COMPLETED)
+
+                                # ✅ Sync final realtime_statistics to cache
+                                from utils.session_cache import session_cache
+                                df = task_manager.df
+                                total = len(df)
+                                completed = (df['status'] == 'completed').sum()
+                                processing = (df['status'] == 'processing').sum()
+                                pending = (df['status'] == 'pending').sum()
+                                failed = (df['status'] == 'failed').sum()
+
+                                cached_session = session_cache.get_session(self.current_session_id)
+                                if cached_session:
+                                    if 'execution_progress' not in cached_session:
+                                        cached_session['execution_progress'] = {}
+
+                                    cached_session['execution_progress']['realtime_statistics'] = {
+                                        'total': int(total),
+                                        'completed': int(completed),
+                                        'processing': int(processing),
+                                        'pending': int(pending),
+                                        'failed': int(failed),
+                                        'completion_rate': 100.0,
+                                        'updated_at': datetime.now().isoformat()
+                                    }
+                                    session_cache.set_session(self.current_session_id, cached_session)
+
+                                # Sync session to cache
+                                session_manager._sync_to_cache(session)
+                                self.logger.info(f"✅ Updated session stage to COMPLETED and synced final stats to cache")
+
                     except Exception as e:
-                        self.logger.error(f"Failed to save final task_manager: {e}")
+                        self.logger.error(f"Failed to save final state: {e}")
 
                 # Log final progress (100%)
                 final_status = self.get_status()

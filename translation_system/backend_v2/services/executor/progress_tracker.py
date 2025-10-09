@@ -69,7 +69,7 @@ class ProgressTracker:
                 await self._trigger_callbacks(session_id)
 
     async def _update_progress_cache(self, session_id: str):
-        """Update cached progress statistics."""
+        """Update cached progress statistics and sync to diskcache for cross-worker visibility."""
         task_manager = session_manager.get_task_manager(session_id)
         if not task_manager or task_manager.df is None:
             return
@@ -99,8 +99,8 @@ class ProgressTracker:
         else:
             estimated_remaining = None
 
-        # Update cache
-        self.progress_cache[session_id] = {
+        # Update local cache
+        progress_data = {
             'total': total,
             'completed': completed,
             'processing': processing,
@@ -110,6 +110,32 @@ class ProgressTracker:
             'estimated_remaining_seconds': estimated_remaining,
             'last_updated': datetime.now().isoformat()
         }
+        self.progress_cache[session_id] = progress_data
+
+        # ✅ Sync to diskcache for cross-worker visibility
+        try:
+            from utils.session_cache import session_cache
+
+            cached_session = session_cache.get_session(session_id)
+            if cached_session:
+                # Update execution_progress statistics in cache
+                if 'execution_progress' not in cached_session:
+                    cached_session['execution_progress'] = {}
+
+                cached_session['execution_progress']['realtime_statistics'] = {
+                    'total': int(total),
+                    'completed': int(completed),
+                    'processing': int(processing),
+                    'pending': int(pending),
+                    'failed': int(failed),
+                    'completion_rate': float(completion_rate),
+                    'updated_at': datetime.now().isoformat()
+                }
+
+                session_cache.set_session(session_id, cached_session)
+                self.logger.debug(f"Synced progress to cache: {session_id} ({completed}/{total})")
+        except Exception as e:
+            self.logger.warning(f"Failed to sync progress to cache: {e}")
 
     async def _trigger_callbacks(self, session_id: str):
         """Trigger all registered callbacks with progress update."""
