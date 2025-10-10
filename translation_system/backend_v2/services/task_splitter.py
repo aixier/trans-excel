@@ -167,11 +167,13 @@ class TaskSplitter:
 
                 # ✨ Check if EN column is yellow (EN as reference source)
                 en_reference = None
+                en_is_yellow = False
                 en_col_idx = col_mapping.get('EN')
-                if source_is_yellow and en_col_idx is not None:
-                    # Check if EN cell is also yellow
+                if en_col_idx is not None:
+                    # Check if EN cell is yellow
                     en_cell_color = sheet_color_map.get((row_idx, en_col_idx))
                     if en_cell_color and is_yellow_color(en_cell_color):
+                        en_is_yellow = True
                         # EN is yellow → use as reference
                         en_value = df_values[row_idx, en_col_idx] if en_col_idx < len(df.columns) else None
                         if pd.notna(en_value) and str(en_value).strip():
@@ -194,9 +196,9 @@ class TaskSplitter:
 
                 # Check each target language
                 for target_lang in target_langs:
-                    # ✨ Skip EN if it's being used as reference
-                    if target_lang == 'EN' and en_reference:
-                        continue  # EN is reference source, not target
+                    # ✨ Skip EN if it's yellow (already finalized)
+                    if target_lang == 'EN' and en_is_yellow:
+                        continue  # EN is yellow = already finalized, skip
 
                     if target_lang in col_mapping:
                         target_col = col_mapping[target_lang]
@@ -222,7 +224,7 @@ class TaskSplitter:
                             task_type = 'blue'
 
                         # ✅ Priority 3: Source or EN is yellow → Force re-translate (regardless of content)
-                        elif source_is_yellow or en_reference:
+                        elif source_is_yellow or en_is_yellow:
                             needs_translation = True
                             task_type = 'yellow'  # Force re-translate all right columns
 
