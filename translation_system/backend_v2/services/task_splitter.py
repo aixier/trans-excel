@@ -211,19 +211,22 @@ class TaskSplitter:
                         needs_translation = False
                         task_type = 'normal'
 
-                        # Priority 1: Target cell has color marking
-                        if target_color:
-                            if is_yellow_color(target_color):
-                                needs_translation = True
-                                task_type = 'yellow'
-                            elif is_blue_color(target_color):
-                                needs_translation = True
-                                task_type = 'blue'
-                        # Priority 2: Source cell has yellow marking -> need re-translation
-                        elif source_is_yellow:
+                        # ✅ Priority 1: Target cell is yellow → Skip (already modified, final version)
+                        if target_color and is_yellow_color(target_color):
+                            needs_translation = False
+                            continue  # Yellow target = already finalized, skip translation
+
+                        # ✅ Priority 2: Target cell is blue → Shortening task
+                        if target_color and is_blue_color(target_color):
                             needs_translation = True
-                            task_type = 'yellow'  # Source changed, need re-translate
-                        # Priority 3: Empty target cell needs translation
+                            task_type = 'blue'
+
+                        # ✅ Priority 3: Source or EN is yellow → Force re-translate (regardless of content)
+                        elif source_is_yellow or en_reference:
+                            needs_translation = True
+                            task_type = 'yellow'  # Force re-translate all right columns
+
+                        # Priority 4: Empty target cell needs normal translation
                         elif pd.isna(target_value) or str(target_value).strip() == '':
                             if source_text and source_text.strip():
                                 needs_translation = True
