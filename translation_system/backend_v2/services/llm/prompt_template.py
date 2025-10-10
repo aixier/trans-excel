@@ -236,7 +236,26 @@ class PromptTemplate:
         # 根据任务类型添加特殊指令
         if task_type == 'yellow':
             # 黄色重译任务特殊指令
-            additional_instruction = "\n\n特别注意：这是重译任务，请重新审视现有翻译质量，提供更准确和地道的翻译。"
+            # ✨ 检查是否有英文参考
+            reference_en = (game_info or {}).get('reference_en', '') if game_info else ''
+
+            if reference_en:
+                # 有英文参考时的特殊Prompt
+                additional_instruction = f"""
+
+【英文参考翻译】
+{reference_en}
+【英文参考结束】
+
+特别注意：
+1. 这是重译任务，中文原文已修改
+2. 请参考上述英文翻译，保持风格和术语一致
+3. 提供准确、地道的{self.LANGUAGE_NAMES.get(target_lang.upper(), target_lang)}翻译
+"""
+            else:
+                # 无英文参考时的标准重译提示
+                additional_instruction = "\n\n特别注意：这是重译任务，请重新审视现有翻译质量，提供更准确和地道的翻译。"
+
             return base_prompt + additional_instruction
         elif task_type == 'blue':
             # 蓝色缩短任务特殊指令

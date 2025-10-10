@@ -165,6 +165,18 @@ class TaskSplitter:
                 source_is_yellow = source_cell_color and is_yellow_color(source_cell_color)
                 source_is_blue = source_cell_color and is_blue_color(source_cell_color)
 
+                # ✨ Check if EN column is yellow (EN as reference source)
+                en_reference = None
+                en_col_idx = col_mapping.get('EN')
+                if source_is_yellow and en_col_idx is not None:
+                    # Check if EN cell is also yellow
+                    en_cell_color = sheet_color_map.get((row_idx, en_col_idx))
+                    if en_cell_color and is_yellow_color(en_cell_color):
+                        # EN is yellow → use as reference
+                        en_value = df_values[row_idx, en_col_idx] if en_col_idx < len(df.columns) else None
+                        if pd.notna(en_value) and str(en_value).strip():
+                            en_reference = str(en_value)
+
                 # If source cell has blue color, create a blue task for shortening
                 if source_is_blue:
                     task = self._create_task(
@@ -182,6 +194,10 @@ class TaskSplitter:
 
                 # Check each target language
                 for target_lang in target_langs:
+                    # ✨ Skip EN if it's being used as reference
+                    if target_lang == 'EN' and en_reference:
+                        continue  # EN is reference source, not target
+
                     if target_lang in col_mapping:
                         target_col = col_mapping[target_lang]
 
@@ -224,7 +240,8 @@ class TaskSplitter:
                                 actual_source_lang,
                                 target_lang,
                                 start_counter + len(tasks),
-                                task_type
+                                task_type,
+                                reference_en=en_reference or ''  # ✨ 传入EN参考
                             )
                             tasks.append(task)
 
@@ -368,7 +385,8 @@ class TaskSplitter:
         source_lang: str,
         target_lang: str,
         task_num: int,
-        task_type: str = 'normal'
+        task_type: str = 'normal',
+        reference_en: str = ''  # ✨ EN参考翻译
     ) -> Dict[str, Any]:
         """Create a single task dictionary (optimized version)."""
         # Cache frequently used values
@@ -423,6 +441,7 @@ class TaskSplitter:
             'source_text': source_text,
             'source_context': source_context,
             'game_context': self.game_info.to_context_string() if self.game_info else "",
+            'reference_en': reference_en,  # ✨ 英文参考
             'target_lang': target_lang,
             'excel_id': self.excel_df.excel_id,
             'sheet_name': sheet_name,

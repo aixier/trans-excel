@@ -205,12 +205,17 @@ class BatchExecutor:
         requests = []
 
         for task in tasks:
+            # ✨ Merge reference_en into game_info for prompt building
+            task_game_info = (game_info or {}).copy()
+            if task.get('reference_en'):
+                task_game_info['reference_en'] = task['reference_en']
+
             request = TranslationRequest(
                 source_text=task['source_text'],
                 source_lang=task['source_lang'],
                 target_lang=task['target_lang'],
                 context=task.get('source_context', ''),
-                game_info=game_info or {},
+                game_info=task_game_info,  # ✨ 包含reference_en
                 task_type=task.get('task_type', 'normal'),  # 传递任务类型
                 task_id=task['task_id'],
                 batch_id=task.get('batch_id'),

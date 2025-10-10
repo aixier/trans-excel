@@ -15,6 +15,7 @@ TASK_DF_COLUMNS = {
     'source_text': str,               # 5. 源文本
     'source_context': str,            # 6. 源文本上下文
     'game_context': str,              # 7. 游戏背景信息
+    'reference_en': str,              # 7.5. 英文参考翻译（黄色重译时的EN参考）
     'target_lang': 'category',        # 8. 目标语言 (PT/TH/VN)
     'excel_id': str,                  # 9. Excel文件标识符
     'sheet_name': str,                # 10. Sheet名称
