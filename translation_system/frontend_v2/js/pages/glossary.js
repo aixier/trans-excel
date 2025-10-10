@@ -60,16 +60,38 @@ class GlossaryPage {
                 </div>
 
                 <!-- 术语表列表 -->
-                <div class="mb-4">
-                    <h2 class="text-2xl font-bold mb-4">
-                        已有术语表 (<span id="glossaryCount">0</span>个)
-                    </h2>
-                </div>
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="card-title">术语表列表</h2>
+                            <div class="text-sm text-base-content/70">
+                                共 <span id="glossaryCount" class="font-bold text-primary">0</span> 个术语表
+                            </div>
+                        </div>
 
-                <div id="glossariesList" class="space-y-4">
-                    <div class="text-center py-12">
-                        <span class="loading loading-spinner loading-lg"></span>
-                        <p class="mt-4 text-base-content/70">加载中...</p>
+                        <!-- 表格 -->
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>术语表名称</th>
+                                        <th>术语数量</th>
+                                        <th>支持语言</th>
+                                        <th>版本</th>
+                                        <th>描述</th>
+                                        <th class="text-center">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="glossariesTable">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-8">
+                                            <span class="loading loading-spinner loading-lg"></span>
+                                            <p class="mt-2 text-base-content/70">加载中...</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -101,93 +123,77 @@ class GlossaryPage {
     }
 
     displayGlossaries() {
-        const container = document.getElementById('glossariesList');
+        const tbody = document.getElementById('glossariesTable');
 
         if (this.glossaries.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-12">
-                    <i class="bi bi-inbox text-6xl text-base-content/30"></i>
-                    <p class="mt-4 text-base-content/70">暂无术语表</p>
-                    <p class="text-sm text-base-content/50 mt-2">点击上方导入术语表或下载模板开始</p>
-                </div>
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-12">
+                        <i class="bi bi-inbox text-4xl text-base-content/30"></i>
+                        <p class="mt-2 text-base-content/70">暂无术语表</p>
+                        <p class="text-xs text-base-content/50 mt-1">点击上方导入术语表或下载模板开始</p>
+                    </td>
+                </tr>
             `;
             return;
         }
 
-        container.innerHTML = this.glossaries.map(g => this.renderGlossaryCard(g)).join('');
+        tbody.innerHTML = this.glossaries.map(g => this.renderGlossaryRow(g)).join('');
     }
 
-    renderGlossaryCard(glossary) {
-        const isExpanded = this.expandedId === glossary.id;
+    renderGlossaryRow(glossary) {
         const isDefault = glossary.id === 'default';
+        const uploadDate = new Date().toLocaleDateString('zh-CN'); // TODO: 从metadata获取实际日期
 
         return `
-            <div class="card bg-base-100 shadow-xl ${isDefault ? 'border-2 border-primary' : ''}">
-                <div class="card-body">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h3 class="card-title">
-                                ${glossary.name}
-                                ${isDefault ? '<span class="badge badge-primary badge-sm">默认</span>' : ''}
-                            </h3>
-                            <p class="text-sm text-base-content/70 mt-1">
-                                <i class="bi bi-tag"></i> ${glossary.term_count} 条术语
-                                • ${glossary.languages.join(', ')}
-                                ${glossary.version ? `• v${glossary.version}` : ''}
-                            </p>
-                            ${glossary.description ? `
-                                <p class="text-xs text-base-content/50 mt-1">${glossary.description}</p>
-                            ` : ''}
-                        </div>
-                        <div class="dropdown dropdown-end">
-                            <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </label>
-                            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
-                                <li><a onclick="glossaryPage.viewDetails('${glossary.id}')">
-                                    <i class="bi bi-eye"></i> 查看详情
-                                </a></li>
-                                <li><a onclick="glossaryPage.downloadGlossary('${glossary.id}')">
-                                    <i class="bi bi-download"></i> 下载Excel
-                                </a></li>
-                                ${!isDefault ? `
-                                    <li><a onclick="glossaryPage.deleteGlossary('${glossary.id}')" class="text-error">
-                                        <i class="bi bi-trash"></i> 删除
-                                    </a></li>
-                                ` : ''}
-                            </ul>
-                        </div>
+            <tr class="hover">
+                <td>
+                    <div class="flex items-center gap-2">
+                        <i class="bi bi-book text-primary"></i>
+                        <span class="font-semibold">${glossary.name}</span>
+                        ${isDefault ? '<span class="badge badge-primary badge-xs">默认</span>' : ''}
                     </div>
-
-                    <!-- 快速预览前5个术语 -->
-                    <div class="mt-3 flex flex-wrap gap-2" id="preview_${glossary.id}">
-                        <span class="loading loading-dots loading-xs"></span>
+                </td>
+                <td>
+                    <span class="badge badge-ghost">${glossary.term_count} 条</span>
+                </td>
+                <td>
+                    <div class="flex gap-1">
+                        ${glossary.languages.map(lang =>
+                            `<span class="badge badge-outline badge-xs">${lang}</span>`
+                        ).join('')}
                     </div>
-
-                    <!-- 展开详情区域 -->
-                    <div id="detail_${glossary.id}" class="hidden mt-4">
-                        <div class="divider"></div>
-                        <div class="max-h-96 overflow-y-auto">
-                            <div class="space-y-2" id="terms_${glossary.id}">
-                                <span class="loading loading-spinner loading-sm"></span> 加载中...
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card-actions justify-end mt-4">
-                        <button class="btn btn-sm btn-ghost" onclick="glossaryPage.toggleExpand('${glossary.id}')">
-                            <i class="bi bi-chevron-${isExpanded ? 'up' : 'down'}"></i>
-                            ${isExpanded ? '收起' : '查看全部'}
+                </td>
+                <td>
+                    <span class="text-sm">${glossary.version || '1.0'}</span>
+                </td>
+                <td>
+                    <span class="text-sm text-base-content/70">${glossary.description || '-'}</span>
+                </td>
+                <td class="text-center">
+                    <div class="flex gap-1 justify-center">
+                        <button class="btn btn-ghost btn-xs" onclick="glossaryPage.viewGlossary('${glossary.id}')" title="查看详情">
+                            <i class="bi bi-eye"></i>
                         </button>
+                        <button class="btn btn-ghost btn-xs" onclick="glossaryPage.downloadGlossary('${glossary.id}')" title="下载">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        ${!isDefault ? `
+                            <button class="btn btn-ghost btn-xs text-error" onclick="glossaryPage.deleteGlossary('${glossary.id}')" title="删除">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        ` : ''}
                     </div>
-                </div>
-            </div>
+                </td>
+            </tr>
         `;
     }
 
-    async viewDetails(glossaryId) {
-        // 加载术语详情
+    async viewGlossary(glossaryId) {
+        // 打开模态框显示术语详情
         try {
+            UIHelper.showLoading(true);
+
             const response = await fetch(
                 `${APP_CONFIG.API_BASE_URL}/api/glossaries/${glossaryId}`,
                 { headers: { 'Authorization': `Bearer ${authManager.getToken()}` } }
@@ -197,78 +203,76 @@ class GlossaryPage {
 
             const glossary = await response.json();
 
-            // 显示预览（前5个术语）
-            const previewContainer = document.getElementById(`preview_${glossaryId}`);
-            if (previewContainer && glossary.terms) {
-                const preview = glossary.terms.slice(0, 5).map(term =>
-                    `<span class="badge badge-outline">${term.source}</span>`
-                ).join('');
-                previewContainer.innerHTML = preview +
-                    (glossary.terms.length > 5 ? ` <span class="text-xs text-base-content/50">+${glossary.terms.length - 5}条</span>` : '');
-            }
+            // 显示模态框
+            this.showGlossaryModal(glossary);
 
         } catch (error) {
-            logger.error('Failed to load glossary details:', error);
+            logger.error('Failed to load glossary:', error);
+            UIHelper.showToast('加载失败', 'error');
+        } finally {
+            UIHelper.showLoading(false);
         }
     }
 
-    async toggleExpand(glossaryId) {
-        const detailDiv = document.getElementById(`detail_${glossaryId}`);
-        const wasExpanded = !detailDiv.classList.contains('hidden');
+    showGlossaryModal(glossary) {
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-open';
+        modal.innerHTML = `
+            <div class="modal-box max-w-4xl">
+                <h3 class="font-bold text-lg mb-4">
+                    ${glossary.name}
+                    <span class="badge badge-ghost ml-2">${glossary.terms?.length || 0}条术语</span>
+                </h3>
 
-        if (wasExpanded) {
-            // 收起
-            detailDiv.classList.add('hidden');
-            this.expandedId = null;
-        } else {
-            // 展开
-            detailDiv.classList.remove('hidden');
-            this.expandedId = glossaryId;
+                <!-- 搜索框 -->
+                <div class="form-control mb-4">
+                    <input type="text" placeholder="搜索术语..." class="input input-bordered input-sm"
+                           oninput="this.nextElementSibling.querySelectorAll('tr').forEach(tr => {
+                               tr.style.display = tr.textContent.toLowerCase().includes(this.value.toLowerCase()) ? '' : 'none';
+                           })">
+                </div>
 
-            // 加载完整术语列表
-            await this.loadTermsDetail(glossaryId);
-        }
+                <!-- 术语表格 -->
+                <div class="overflow-x-auto max-h-96">
+                    <table class="table table-zebra table-xs">
+                        <thead class="sticky top-0 bg-base-100">
+                            <tr>
+                                <th>术语</th>
+                                <th>EN</th>
+                                <th>TH</th>
+                                <th>PT</th>
+                                <th>VN</th>
+                                <th>分类</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${glossary.terms?.map(term => `
+                                <tr>
+                                    <td class="font-semibold">${term.source}</td>
+                                    <td>${term.translations?.EN || '-'}</td>
+                                    <td>${term.translations?.TH || '-'}</td>
+                                    <td>${term.translations?.PT || '-'}</td>
+                                    <td>${term.translations?.VN || '-'}</td>
+                                    <td><span class="badge badge-sm">${term.category || '-'}</span></td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="6" class="text-center">无数据</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
 
-        // 重新渲染（更新按钮）
-        await this.loadGlossaries();
+                <div class="modal-action">
+                    <button class="btn btn-sm" onclick="this.closest('.modal').remove()">关闭</button>
+                    <button class="btn btn-sm btn-primary" onclick="glossaryPage.downloadGlossary('${glossary.id}'); this.closest('.modal').remove()">
+                        <i class="bi bi-download"></i> 下载Excel
+                    </button>
+                </div>
+            </div>
+            <div class="modal-backdrop" onclick="this.parentElement.remove()"></div>
+        `;
+
+        document.body.appendChild(modal);
     }
 
-    async loadTermsDetail(glossaryId) {
-        try {
-            const response = await fetch(
-                `${APP_CONFIG.API_BASE_URL}/api/glossaries/${glossaryId}`,
-                { headers: { 'Authorization': `Bearer ${authManager.getToken()}` } }
-            );
-
-            if (!response.ok) throw new Error('Failed to load terms');
-
-            const glossary = await response.json();
-            const termsContainer = document.getElementById(`terms_${glossaryId}`);
-
-            if (termsContainer && glossary.terms) {
-                termsContainer.innerHTML = glossary.terms.map(term => `
-                    <div class="alert">
-                        <div class="flex-1">
-                            <div class="font-bold">${term.source}</div>
-                            <div class="text-sm mt-1 flex flex-wrap gap-2">
-                                ${Object.entries(term.translations || {}).map(([lang, trans]) =>
-                                    `<span class="badge badge-sm">${lang}: ${trans}</span>`
-                                ).join('')}
-                            </div>
-                            ${term.category ? `<div class="text-xs text-base-content/50 mt-1">分类: ${term.category}</div>` : ''}
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-        } catch (error) {
-            logger.error('Failed to load terms detail:', error);
-            const termsContainer = document.getElementById(`terms_${glossaryId}`);
-            if (termsContainer) {
-                termsContainer.innerHTML = '<div class="text-error">加载失败</div>';
-            }
-        }
-    }
 
     handleDrop(event) {
         event.preventDefault();
@@ -442,16 +446,17 @@ class GlossaryPage {
     }
 
     displayError() {
-        const container = document.getElementById('glossariesList');
-        container.innerHTML = `
-            <div class="alert alert-error">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <div>
-                    <h3 class="font-bold">加载失败</h3>
-                    <p>无法获取术语表列表</p>
-                </div>
-                <button class="btn btn-sm" onclick="glossaryPage.loadGlossaries()">重试</button>
-            </div>
+        const tbody = document.getElementById('glossariesTable');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-8">
+                    <div class="alert alert-error inline-flex">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>加载失败</span>
+                        <button class="btn btn-xs" onclick="glossaryPage.loadGlossaries()">重试</button>
+                    </div>
+                </td>
+            </tr>
         `;
     }
 
