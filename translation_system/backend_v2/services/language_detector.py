@@ -156,12 +156,30 @@ class LanguageDetector:
                         source_langs.add(lang)
 
         # Also check specifically labeled language columns for source
+        # ✅ FIX: Only add if column has content (not empty)
         if language_columns['CH_columns']:
-            source_langs.add('CH')
+            for col_idx in language_columns['CH_columns']:
+                if col_idx < len(df.columns):
+                    non_empty = df.iloc[:, col_idx].dropna().astype(str).str.strip().str.len().sum()
+                    if non_empty > 0:
+                        source_langs.add('CH')
+                        break
+
         if language_columns['EN_columns']:
-            source_langs.add('EN')
+            for col_idx in language_columns['EN_columns']:
+                if col_idx < len(df.columns):
+                    non_empty = df.iloc[:, col_idx].dropna().astype(str).str.strip().str.len().sum()
+                    if non_empty > 0:
+                        source_langs.add('EN')
+                        break
+
         if language_columns['TW_columns']:
-            source_langs.add('TW')
+            for col_idx in language_columns['TW_columns']:
+                if col_idx < len(df.columns):
+                    non_empty = df.iloc[:, col_idx].dropna().astype(str).str.strip().str.len().sum()
+                    if non_empty > 0:
+                        source_langs.add('TW')
+                        break
 
         # Determine available target languages
         target_langs = []
