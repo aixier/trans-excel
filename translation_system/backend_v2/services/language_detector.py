@@ -165,6 +165,8 @@ class LanguageDetector:
 
         # Determine available target languages
         target_langs = []
+        if language_columns['EN_columns'] and 'EN' not in source_langs:
+            target_langs.append('EN')
         if language_columns['PT_columns']:
             target_langs.append('PT')
         if language_columns['TH_columns']:
