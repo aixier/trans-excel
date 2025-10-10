@@ -161,10 +161,6 @@ async def delete_glossary(glossary_id: str):
         Deletion status
     """
     try:
-        # Don't allow deleting default glossary
-        if glossary_id == 'default':
-            raise HTTPException(status_code=400, detail="Cannot delete default glossary")
-
         # Delete file
         from pathlib import Path
         glossaries_dir = Path(__file__).parent.parent / 'data' / 'glossaries'

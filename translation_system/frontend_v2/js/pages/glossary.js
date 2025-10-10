@@ -143,11 +143,9 @@ class GlossaryPage {
                         <button class="btn btn-ghost btn-xs" onclick="glossaryPage.downloadGlossary('${glossary.id}')" title="下载">
                             <i class="bi bi-download"></i>
                         </button>
-                        ${!isDefault ? `
-                            <button class="btn btn-ghost btn-xs text-error" onclick="glossaryPage.deleteGlossary('${glossary.id}')" title="删除">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        ` : ''}
+                        <button class="btn btn-ghost btn-xs text-error" onclick="glossaryPage.deleteGlossary('${glossary.id}')" title="删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </td>
             </tr>
