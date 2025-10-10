@@ -6,24 +6,21 @@ class SessionsPage {
     }
 
     async render() {
+        // 更新面包屑
+        updateBreadcrumb(['首页', '工作台']);
+
         const html = `
-            <div class="max-w-7xl mx-auto">
+            <div class="h-full">
                 <!-- 页面标题 -->
                 <div class="flex justify-between items-center mb-6">
                     <div>
-                        <h1 class="text-3xl font-bold">我的翻译任务</h1>
-                        <p class="text-base-content/70 mt-1">管理所有翻译会话</p>
+                        <h1 class="text-2xl font-bold">工作台</h1>
+                        <p class="text-sm text-base-content/70 mt-1">查看和管理所有翻译会话</p>
                     </div>
-                    <div class="flex gap-2">
-                        <button class="btn btn-ghost" onclick="router.navigate('/glossary')">
-                            <i class="bi bi-book"></i>
-                            术语管理
-                        </button>
-                        <button class="btn btn-primary" onclick="router.navigate('/create')">
-                            <i class="bi bi-plus-circle"></i>
-                            新建翻译
-                        </button>
-                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="router.navigate('/create')">
+                        <i class="bi bi-plus-circle"></i>
+                        新建翻译
+                    </button>
                 </div>
 
                 <!-- 筛选和刷新 -->

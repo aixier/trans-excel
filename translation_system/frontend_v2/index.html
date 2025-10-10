@@ -16,69 +16,126 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
 </head>
 <body>
-    <!-- 顶部导航栏 -->
-    <div class="navbar bg-base-100 shadow-lg sticky top-0 z-50">
-        <div class="navbar-start">
-            <div class="flex items-center gap-4">
-                <h1 class="text-xl font-bold">
-                    <i class="bi bi-translate"></i>
-                    stringlock
-                </h1>
-                <!-- 进度指示器 -->
-                <div id="globalProgress" class="hidden lg:flex">
-                    <ul class="steps steps-horizontal">
-                        <li class="step" data-step="1">上传文件</li>
-                        <li class="step" data-step="2">配置任务</li>
-                        <li class="step" data-step="3">执行翻译</li>
-                    </ul>
+    <!-- SaaS后台布局 -->
+    <div class="flex h-screen overflow-hidden">
+        <!-- 左侧菜单 -->
+        <aside id="sidebar" class="w-64 bg-base-100 shadow-xl flex flex-col transition-all duration-300">
+            <!-- Logo区域 -->
+            <div class="h-16 flex items-center justify-between px-4 border-b border-base-300">
+                <div class="flex items-center gap-2">
+                    <i class="bi bi-translate text-2xl text-primary"></i>
+                    <span class="font-bold text-lg">stringlock</span>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-circle lg:hidden" onclick="toggleSidebar()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <!-- 菜单区域 -->
+            <nav class="flex-1 overflow-y-auto p-4">
+                <ul class="menu menu-vertical gap-1">
+                    <li class="menu-title">
+                        <span>工作区</span>
+                    </li>
+                    <li>
+                        <a href="#/sessions" class="gap-3">
+                            <i class="bi bi-grid-3x3-gap"></i>
+                            <span>工作台</span>
+                        </a>
+                    </li>
+
+                    <li class="menu-title mt-4">
+                        <span>翻译管理</span>
+                    </li>
+                    <li>
+                        <a href="#/create" class="gap-3">
+                            <i class="bi bi-plus-circle"></i>
+                            <span>新建翻译</span>
+                        </a>
+                    </li>
+
+                    <li class="menu-title mt-4">
+                        <span>资源管理</span>
+                    </li>
+                    <li>
+                        <a href="#/glossary" class="gap-3">
+                            <i class="bi bi-book"></i>
+                            <span>术语管理</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- 底部信息 -->
+            <div class="p-4 border-t border-base-300">
+                <div class="text-xs text-base-content/50 text-center">
+                    v2.26 • 运行正常
                 </div>
             </div>
-        </div>
+        </aside>
 
-        <div class="navbar-end">
-            <div class="flex items-center gap-4">
-                <!-- 会话倒计时 -->
-                <div id="sessionTimer" class="hidden">
-                    <div class="badge badge-lg" id="sessionTimerBadge">
-                        <i class="bi bi-clock mr-1"></i>
-                        <span id="sessionTimerText">--:--</span>
+        <!-- 主内容区域 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 顶部导航栏 -->
+            <header class="h-16 bg-base-100 shadow-md flex items-center justify-between px-6 border-b border-base-300">
+                <div class="flex items-center gap-4">
+                    <!-- 移动端菜单按钮 -->
+                    <button class="btn btn-ghost btn-sm btn-circle lg:hidden" onclick="toggleSidebar()">
+                        <i class="bi bi-list text-xl"></i>
+                    </button>
+
+                    <!-- 面包屑 -->
+                    <div id="breadcrumb" class="text-sm breadcrumbs">
+                        <ul>
+                            <li>首页</li>
+                        </ul>
                     </div>
                 </div>
 
-                <!-- 用户信息 -->
-                <div id="userInfo" class="hidden dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-ghost btn-circle avatar placeholder">
-                        <div class="bg-neutral-focus text-neutral-content rounded-full w-10">
-                            <span id="userAvatar">U</span>
+                <div class="flex items-center gap-4">
+                    <!-- 会话倒计时 -->
+                    <div id="sessionTimer" class="hidden">
+                        <div class="badge badge-lg" id="sessionTimerBadge">
+                            <i class="bi bi-clock mr-1"></i>
+                            <span id="sessionTimerText">--:--</span>
                         </div>
+                    </div>
+
+                    <!-- 主题切换 -->
+                    <label class="swap swap-rotate">
+                        <input type="checkbox" id="themeToggle" />
+                        <i class="bi bi-sun-fill swap-on text-xl"></i>
+                        <i class="bi bi-moon-fill swap-off text-xl"></i>
                     </label>
-                    <ul tabindex="0" class="mt-3 p-2 shadow menu menu-compact dropdown-content bg-base-100 rounded-box w-52">
-                        <li class="menu-title">
-                            <span id="userDisplayName">用户</span>
-                        </li>
-                        <li><a id="logoutBtn"><i class="bi bi-box-arrow-right"></i> 登出</a></li>
-                    </ul>
+
+                    <!-- 用户信息 -->
+                    <div id="userInfo" class="hidden dropdown dropdown-end">
+                        <label tabindex="0" class="btn btn-ghost btn-sm gap-2">
+                            <div class="avatar placeholder">
+                                <div class="bg-neutral-focus text-neutral-content rounded-full w-8">
+                                    <span id="userAvatar" class="text-xs">U</span>
+                                </div>
+                            </div>
+                            <span id="userDisplayName" class="hidden sm:inline">用户</span>
+                        </label>
+                        <ul tabindex="0" class="mt-3 p-2 shadow menu dropdown-content bg-base-100 rounded-box w-52">
+                            <li><a id="logoutBtn"><i class="bi bi-box-arrow-right"></i> 登出</a></li>
+                        </ul>
+                    </div>
                 </div>
+            </header>
 
-                <!-- 主题切换 -->
-                <label class="swap swap-rotate">
-                    <input type="checkbox" id="themeToggle" />
-                    <i class="bi bi-sun-fill swap-on text-xl"></i>
-                    <i class="bi bi-moon-fill swap-off text-xl"></i>
-                </label>
-            </div>
+            <!-- 内容区域 -->
+            <main class="flex-1 overflow-y-auto bg-base-200 p-6" id="app">
+                <div id="pageContent">
+                    <!-- 动态页面内容 -->
+                </div>
+            </main>
         </div>
     </div>
 
-    <!-- 主内容区域 -->
-    <div id="app" class="min-h-screen bg-base-200">
-        <!-- 页面内容将通过JavaScript动态加载 -->
-        <div class="container mx-auto p-4">
-            <div id="pageContent">
-                <!-- 动态页面内容 -->
-            </div>
-        </div>
-    </div>
+    <!-- 移动端侧边栏遮罩 -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
 
     <!-- Toast提示容器 -->
     <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
@@ -90,6 +147,7 @@
 
     <!-- 核心JavaScript -->
     <script src="js/config.js"></script>
+    <script src="js/utils/layout.js"></script>
     <script src="js/utils/auth.js"></script>
     <script src="js/utils/api.js"></script>
     <script src="js/utils/storage.js"></script>

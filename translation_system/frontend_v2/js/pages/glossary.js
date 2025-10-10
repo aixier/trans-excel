@@ -6,21 +6,15 @@ class GlossaryPage {
     }
 
     async render() {
+        // 更新面包屑
+        updateBreadcrumb(['首页', '资源管理', '术语管理']);
+
         const html = `
-            <div class="max-w-6xl mx-auto">
+            <div class="h-full">
                 <!-- 页面标题 -->
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 class="text-3xl font-bold">
-                            <i class="bi bi-book"></i>
-                            术语管理
-                        </h1>
-                        <p class="text-base-content/70 mt-1">管理游戏翻译术语表</p>
-                    </div>
-                    <button class="btn btn-ghost" onclick="router.navigate('/sessions')">
-                        <i class="bi bi-arrow-left"></i>
-                        返回任务列表
-                    </button>
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold">术语管理</h1>
+                    <p class="text-sm text-base-content/70 mt-1">管理游戏翻译术语表，保证术语一致性</p>
                 </div>
 
                 <!-- 上传区域 -->
