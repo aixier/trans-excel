@@ -335,10 +335,13 @@ class RetryableBatchExecutor(BatchExecutor):
         tasks: List[Dict[str, Any]],
         task_manager: TaskDataFrameManager,
         session_id: str = None,
-        game_info: Optional[Dict[str, Any]] = None
+        game_info: Optional[Dict[str, Any]] = None,
+        glossary_config: Optional[Dict[str, Any]] = None  # ✨ Add missing parameter
     ) -> Dict[str, Any]:
         """Execute batch with retry logic for failed tasks."""
-        results = await super().execute_batch(batch_id, tasks, task_manager, session_id, game_info)
+        results = await super().execute_batch(
+            batch_id, tasks, task_manager, session_id, game_info, glossary_config
+        )
 
         # Collect failed tasks for retry
         failed_tasks = []
@@ -369,7 +372,8 @@ class RetryableBatchExecutor(BatchExecutor):
                 failed_tasks,
                 task_manager,
                 session_id,
-                game_info
+                game_info,
+                glossary_config  # ✨ Pass glossary_config to retry
             )
 
             # Update results
