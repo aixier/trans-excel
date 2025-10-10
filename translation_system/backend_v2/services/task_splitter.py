@@ -165,19 +165,25 @@ class TaskSplitter:
                 source_is_yellow = source_cell_color and is_yellow_color(source_cell_color)
                 source_is_blue = source_cell_color and is_blue_color(source_cell_color)
 
-                # ✨ Check if EN column is yellow (EN as reference source)
+                # ✨ Check if EN column is yellow (EN as final version)
                 en_reference = None
                 en_is_yellow = False
+                en_as_source = False  # ✨ EN作为主源文本
                 en_col_idx = col_mapping.get('EN')
+
                 if en_col_idx is not None:
                     # Check if EN cell is yellow
                     en_cell_color = sheet_color_map.get((row_idx, en_col_idx))
                     if en_cell_color and is_yellow_color(en_cell_color):
                         en_is_yellow = True
-                        # EN is yellow → use as reference
+                        # EN is yellow → use as main source (not just reference)
                         en_value = df_values[row_idx, en_col_idx] if en_col_idx < len(df.columns) else None
                         if pd.notna(en_value) and str(en_value).strip():
                             en_reference = str(en_value)
+
+                            # ✅ If only EN is yellow (CH not yellow), EN becomes main source
+                            if not source_is_yellow:
+                                en_as_source = True
 
                 # If source cell has blue color, create a blue task for shortening
                 if source_is_blue:
@@ -235,18 +241,29 @@ class TaskSplitter:
                                 task_type = 'normal'
 
                         if needs_translation:
+                            # ✅ Determine actual source text and language
+                            # If EN is yellow and CH is not, use EN as main source
+                            if en_as_source:
+                                actual_task_source = en_reference
+                                actual_task_source_lang = 'EN'
+                                actual_reference = source_text  # CH becomes context reference
+                            else:
+                                actual_task_source = source_text
+                                actual_task_source_lang = actual_source_lang
+                                actual_reference = en_reference or ''
+
                             # Create task with type
                             task = self._create_task(
                                 sheet_name,
                                 row_idx,
                                 source_col_idx,
                                 target_col,
-                                source_text,
-                                actual_source_lang,
+                                actual_task_source,  # ✨ 可能是EN内容
+                                actual_task_source_lang,  # ✨ 可能是'EN'
                                 target_lang,
                                 start_counter + len(tasks),
                                 task_type,
-                                reference_en=en_reference or ''  # ✨ 传入EN参考
+                                reference_en=actual_reference  # ✨ CH作为参考
                             )
                             tasks.append(task)
 
