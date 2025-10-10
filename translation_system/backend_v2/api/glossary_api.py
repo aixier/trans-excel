@@ -111,3 +111,46 @@ async def upload_glossary(
     except Exception as e:
         logger.error(f"Failed to upload glossary: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.delete("/{glossary_id}")
+async def delete_glossary(glossary_id: str):
+    """
+    Delete a glossary.
+
+    Args:
+        glossary_id: Glossary identifier
+
+    Returns:
+        Deletion status
+    """
+    try:
+        # Don't allow deleting default glossary
+        if glossary_id == 'default':
+            raise HTTPException(status_code=400, detail="Cannot delete default glossary")
+
+        # Delete file
+        from pathlib import Path
+        glossaries_dir = Path(__file__).parent.parent / 'data' / 'glossaries'
+        file_path = glossaries_dir / f"{glossary_id}.json"
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"Glossary '{glossary_id}' not found")
+
+        file_path.unlink()
+
+        # Clear cache
+        if hasattr(glossary_manager, 'cache') and glossary_id in glossary_manager.cache:
+            del glossary_manager.cache[glossary_id]
+
+        return {
+            'status': 'success',
+            'glossary_id': glossary_id,
+            'message': 'Glossary deleted successfully'
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete glossary {glossary_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")

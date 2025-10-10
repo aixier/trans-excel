@@ -5,6 +5,7 @@ class Router {
             '/': 'sessions',
             '/login': 'login',
             '/sessions': 'sessions',
+            '/glossary': 'glossary',
             '/create': 'create',
             '/config': 'config',
             '/execute': 'execute',
@@ -113,6 +114,11 @@ class Router {
                     case 'sessions':
                         this.currentPage = sessionsPage;
                         sessionsPage.render();
+                        break;
+
+                    case 'glossary':
+                        this.currentPage = glossaryPage;
+                        glossaryPage.render();
                         break;
 
                     case 'create':

@@ -14,10 +14,16 @@ class SessionsPage {
                         <h1 class="text-3xl font-bold">我的翻译任务</h1>
                         <p class="text-base-content/70 mt-1">管理所有翻译会话</p>
                     </div>
-                    <button class="btn btn-primary" onclick="router.navigate('/create')">
-                        <i class="bi bi-plus-circle"></i>
-                        新建翻译
-                    </button>
+                    <div class="flex gap-2">
+                        <button class="btn btn-ghost" onclick="router.navigate('/glossary')">
+                            <i class="bi bi-book"></i>
+                            术语管理
+                        </button>
+                        <button class="btn btn-primary" onclick="router.navigate('/create')">
+                            <i class="bi bi-plus-circle"></i>
+                            新建翻译
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 筛选和刷新 -->
