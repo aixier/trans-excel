@@ -17,56 +17,21 @@ class GlossaryPage {
                     <p class="text-sm text-base-content/70 mt-1">管理游戏翻译术语表，保证术语一致性</p>
                 </div>
 
-                <!-- 上传区域 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <!-- 下载模板 -->
-                    <div class="card bg-base-100 shadow-xl">
-                        <div class="card-body">
-                            <h3 class="card-title text-lg">
-                                <i class="bi bi-download"></i>
-                                下载术语模板
-                            </h3>
-                            <p class="text-sm text-base-content/70">
-                                下载标准Excel模板，填充术语后导入
-                            </p>
-                            <button class="btn btn-outline btn-sm mt-2" onclick="glossaryPage.downloadTemplate()">
-                                <i class="bi bi-file-earmark-excel"></i>
-                                下载Excel模板
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 导入术语表 -->
-                    <div class="card bg-base-100 shadow-xl">
-                        <div class="card-body">
-                            <h3 class="card-title text-lg">
-                                <i class="bi bi-upload"></i>
-                                导入术语表
-                            </h3>
-                            <div id="dropZone"
-                                 class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center hover:border-primary hover:bg-base-200 cursor-pointer transition-all"
-                                 onclick="document.getElementById('glossaryFile').click()"
-                                 ondrop="glossaryPage.handleDrop(event)"
-                                 ondragover="event.preventDefault()"
-                                 ondragleave="event.target.classList.remove('border-primary', 'bg-base-200')">
-                                <i class="bi bi-cloud-upload text-4xl text-base-content/30"></i>
-                                <p class="mt-2 text-sm">点击或拖拽Excel文件到这里</p>
-                                <p class="text-xs text-base-content/50 mt-1">支持 .xlsx 格式</p>
-                            </div>
-                            <input type="file" id="glossaryFile" accept=".xlsx,.xls"
-                                   class="hidden" onchange="glossaryPage.handleFileSelect(event)">
-                        </div>
-                    </div>
-                </div>
 
                 <!-- 术语表列表 -->
                 <div class="card bg-base-100 shadow-xl">
                     <div class="card-body">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 class="card-title">术语表列表</h2>
-                            <div class="text-sm text-base-content/70">
-                                共 <span id="glossaryCount" class="font-bold text-primary">0</span> 个术语表
+                            <div>
+                                <h2 class="card-title">术语表列表</h2>
+                                <div class="text-sm text-base-content/70 mt-1">
+                                    共 <span id="glossaryCount" class="font-bold text-primary">0</span> 个术语表
+                                </div>
                             </div>
+                            <button class="btn btn-primary btn-sm" onclick="glossaryPage.showUploadModal()">
+                                <i class="bi bi-upload"></i>
+                                导入术语表
+                            </button>
                         </div>
 
                         <!-- 表格 -->
@@ -274,28 +239,79 @@ class GlossaryPage {
     }
 
 
-    handleDrop(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.target.classList.remove('border-primary', 'bg-base-200');
+    showUploadModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-open';
+        modal.innerHTML = `
+            <div class="modal-box">
+                <h3 class="font-bold text-lg mb-4">导入术语表</h3>
 
-        const files = event.dataTransfer.files;
-        if (files.length > 0) {
-            this.uploadFile(files[0]);
-        }
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">选择文件</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="file" id="modalGlossaryFile" accept=".xlsx,.xls,.json"
+                               class="file-input file-input-bordered file-input-sm flex-1">
+                    </div>
+                    <label class="label">
+                        <span class="label-text-alt">支持 Excel (.xlsx) 或 JSON (.json) 格式</span>
+                    </label>
+                </div>
+
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">术语表名称（可选）</span>
+                    </label>
+                    <input type="text" id="modalGlossaryName" placeholder="留空将使用文件名"
+                           class="input input-bordered input-sm">
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <div class="text-xs">
+                        <p>• Excel格式：第一行为列名，支持中文列名自动识别</p>
+                        <p>• JSON格式：需包含terms数组，每项包含source和translations</p>
+                    </div>
+                </div>
+
+                <div class="modal-action">
+                    <button class="btn btn-sm" onclick="this.closest('.modal').remove()">取消</button>
+                    <button class="btn btn-sm btn-primary" onclick="glossaryPage.handleModalUpload(this)">
+                        <i class="bi bi-upload"></i> 确认导入
+                    </button>
+                </div>
+            </div>
+            <div class="modal-backdrop" onclick="this.parentElement.remove()"></div>
+        `;
+
+        document.body.appendChild(modal);
     }
 
-    handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (file) {
-            this.uploadFile(file);
+    async handleModalUpload(button) {
+        const fileInput = document.getElementById('modalGlossaryFile');
+        const nameInput = document.getElementById('modalGlossaryName');
+
+        const file = fileInput.files[0];
+        if (!file) {
+            UIHelper.showToast('请选择文件', 'warning');
+            return;
         }
+
+        // 关闭模态框
+        button.closest('.modal').remove();
+
+        // 上传文件
+        await this.uploadFile(file, nameInput.value);
     }
 
-    async uploadFile(file) {
+    async uploadFile(file, customName = '') {
         // 验证文件类型
-        if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-            UIHelper.showToast('请上传Excel文件(.xlsx)', 'error');
+        const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+        const isJson = file.name.endsWith('.json');
+
+        if (!isExcel && !isJson) {
+            UIHelper.showToast('请上传Excel或JSON文件', 'error');
             return;
         }
 
@@ -304,6 +320,11 @@ class GlossaryPage {
 
             const formData = new FormData();
             formData.append('file', file);
+
+            // 如果提供了自定义名称
+            if (customName) {
+                formData.append('glossary_id', customName.replace(/\s+/g, '_').toLowerCase());
+            }
 
             const response = await fetch(
                 `${APP_CONFIG.API_BASE_URL}/api/glossaries/upload`,

@@ -76,20 +76,56 @@ async def upload_glossary(
     """
     try:
         # Validate file type
-        if not file.filename.endswith('.json'):
-            raise HTTPException(status_code=400, detail="Only JSON files are supported")
+        is_json = file.filename.endswith('.json')
+        is_excel = file.filename.endswith('.xlsx') or file.filename.endswith('.xls')
+
+        if not is_json and not is_excel:
+            raise HTTPException(status_code=400, detail="Only JSON or Excel files are supported")
 
         # Read file content
         content = await file.read()
-        glossary_data = json.loads(content.decode('utf-8'))
+
+        # Parse based on file type
+        if is_json:
+            glossary_data = json.loads(content.decode('utf-8'))
+
+            # Support simple key-value format: {"术语": "translation"}
+            if isinstance(glossary_data, dict) and 'terms' not in glossary_data:
+                # Convert simple format to standard format
+                # Detect language by first value
+                first_value = list(glossary_data.values())[0] if glossary_data else ''
+                # Simple heuristic: if English characters, assume EN; otherwise use multi-lang
+                target_lang = 'EN' if first_value and ord(first_value[0]) < 128 else 'EN'
+
+                standard_terms = []
+                for idx, (source, translation) in enumerate(glossary_data.items()):
+                    standard_terms.append({
+                        'id': f'term_{idx+1:03d}',
+                        'source': source,
+                        'category': '通用',
+                        'priority': 5,
+                        'translations': {
+                            target_lang: translation
+                        }
+                    })
+
+                glossary_data = {
+                    'id': glossary_id or file.filename.replace('.json', ''),
+                    'name': glossary_id or file.filename.replace('.json', ''),
+                    'description': '自动导入的术语表',
+                    'version': '1.0',
+                    'languages': [target_lang],
+                    'terms': standard_terms
+                }
+            elif 'terms' not in glossary_data:
+                raise HTTPException(status_code=400, detail="Invalid JSON format")
+        else:
+            # Excel parsing (TODO: implement Excel parser)
+            raise HTTPException(status_code=400, detail="Excel format not yet supported, please use JSON")
 
         # Use provided ID or extract from data or filename
         if not glossary_id:
-            glossary_id = glossary_data.get('id') or file.filename.replace('.json', '')
-
-        # Validate glossary structure
-        if 'terms' not in glossary_data:
-            raise HTTPException(status_code=400, detail="Invalid glossary format: missing 'terms' field")
+            glossary_id = glossary_data.get('id') or file.filename.replace('.json', '').replace('.xlsx', '')
 
         # Save glossary
         success = glossary_manager.save_glossary(glossary_id, glossary_data)
