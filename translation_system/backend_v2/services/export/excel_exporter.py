@@ -51,6 +51,17 @@ class ExcelExporter:
             if not excel_df or not task_manager:
                 raise ValueError(f"Session {session_id} not found or incomplete")
 
+            # ✅ FIX: Force reload task_manager from file to get latest translations
+            task_file_path = session_manager.get_metadata(session_id, 'task_file_path')
+            if task_file_path and os.path.exists(task_file_path):
+                import pandas as pd
+                from models.task_dataframe import TaskDataFrameManager
+
+                self.logger.info(f"Reloading task_manager from file for latest data: {task_file_path}")
+                task_manager = TaskDataFrameManager()
+                task_manager.df = pd.read_parquet(task_file_path)
+                self.logger.info(f"Reloaded {len(task_manager.df)} tasks from file")
+
             # Create output filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             base_filename = Path(excel_df.filename).stem
