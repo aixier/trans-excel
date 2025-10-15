@@ -122,6 +122,9 @@ class TaskSplitter:
             elif col in ['ES', 'SPANISH', '西班牙语', '西语']:
                 col_mapping['ES'] = idx
                 has_explicit_columns = True
+            elif col in ['TW', '繁体', '繁中', 'TAIWAN', 'TCHINESE', '繁體中文', '繁體']:
+                col_mapping['TW'] = idx
+                has_explicit_columns = True
 
         # If we have explicit columns, use them directly
         if has_explicit_columns:
@@ -202,9 +205,10 @@ class TaskSplitter:
 
                 # Check each target language
                 for target_lang in target_langs:
-                    # ✨ Skip EN if it's yellow (already finalized)
-                    if target_lang == 'EN' and en_is_yellow:
-                        continue  # EN is yellow = already finalized, skip
+                    # ✨ Skip EN if it's yellow (already finalized), unless in CAPS sheet
+                    # In CAPS sheet, we still need to process yellow EN for uppercase conversion
+                    if target_lang == 'EN' and en_is_yellow and 'caps' not in sheet_name.lower():
+                        continue  # EN is yellow = already finalized, skip (unless CAPS sheet)
 
                     if target_lang in col_mapping:
                         target_col = col_mapping[target_lang]
@@ -219,22 +223,28 @@ class TaskSplitter:
                         needs_translation = False
                         task_type = 'normal'
 
-                        # ✅ Priority 1: Target cell is yellow → Skip (already modified, final version)
-                        if target_color and is_yellow_color(target_color):
-                            needs_translation = False
-                            continue  # Yellow target = already finalized, skip translation
-
-                        # ✅ Priority 2: Target cell is blue → Shortening task
+                        # ✅ Priority 1: Target cell is blue → Shortening task
                         if target_color and is_blue_color(target_color):
                             needs_translation = True
                             task_type = 'blue'
 
-                        # ✅ Priority 3: Source or EN is yellow → Force re-translate (regardless of content)
+                        # ✅ Priority 2: Check sheet name for special types (caps) - moved up for CAPS priority
+                        elif 'caps' in sheet_name.lower():
+                            if source_text and source_text.strip():
+                                needs_translation = True
+                                task_type = 'caps'  # ✨ CAPS task type
+
+                        # ✅ Priority 3: Target cell is yellow → Skip (already modified, final version)
+                        elif target_color and is_yellow_color(target_color):
+                            needs_translation = False
+                            continue  # Yellow target = already finalized, skip translation
+
+                        # ✅ Priority 4: Source or EN is yellow → Force re-translate (regardless of content)
                         elif source_is_yellow or en_is_yellow:
                             needs_translation = True
                             task_type = 'yellow'  # Force re-translate all right columns
 
-                        # Priority 4: Empty target cell needs normal translation
+                        # Priority 5: Empty target cell needs normal translation
                         elif pd.isna(target_value) or str(target_value).strip() == '':
                             if source_text and source_text.strip():
                                 needs_translation = True
@@ -266,6 +276,27 @@ class TaskSplitter:
                                 reference_en=actual_reference  # ✨ CH作为参考
                             )
                             tasks.append(task)
+
+                # ✨ Special handling for CAPS sheets with yellow EN cells
+                # In CAPS sheets, even if EN is yellow (used as source),
+                # we also need to create a CH→EN yellow task for re-translation and uppercase
+                if 'caps' in sheet_name.lower() and en_is_yellow:
+                    # EN is yellow but CH is also source, create CH→EN yellow task
+                    en_col_idx = col_mapping.get('EN')
+                    if en_col_idx is not None and 'CH' in col_mapping:
+                        task = self._create_task(
+                            sheet_name,
+                            row_idx,
+                            col_mapping['CH'],  # CH as source
+                            en_col_idx,         # EN as target
+                            source_text,        # CH text as source
+                            'CH',               # Source language is CH
+                            'EN',               # Target language is EN
+                            start_counter + len(tasks),
+                            'yellow',           # Yellow task for re-translation
+                            reference_en=en_reference  # Current EN as reference
+                        )
+                        tasks.append(task)
 
         else:
             # Fall back to language detection
@@ -387,15 +418,21 @@ class TaskSplitter:
         row_idx: int,
         col_idx: int
     ) -> str:
-        """Determine task type based on cell color."""
+        """Determine task type based on cell color and sheet name."""
+        # First check cell colors (highest priority)
         color = self.excel_df.get_cell_color(sheet_name, row_idx, col_idx)
 
         if color and is_yellow_color(color):
             return 'yellow'  # Yellow re-translation task
         elif color and is_blue_color(color):
             return 'blue'    # Blue shortening task
-        else:
-            return 'normal'  # Normal translation task
+
+        # ✨ Check sheet name for special task types
+        sheet_lower = sheet_name.lower()
+        if 'caps' in sheet_lower:
+            return 'caps'    # ✨ CAPS post-processing task
+
+        return 'normal'  # Normal translation task
 
     def _create_task(
         self,
@@ -429,8 +466,10 @@ class TaskSplitter:
             priority = 9
         elif task_type == 'blue':
             priority = 7
-        else:
+        elif task_type == 'caps':  # ✨ CAPS 任务优先级
             priority = 5
+        else:  # normal
+            priority = 6
 
         # Fast group_id determination
         sheet_lower = sheet_name.lower()
@@ -542,8 +581,10 @@ class TaskSplitter:
             base_priority = 9  # Yellow re-translation is highest priority
         elif task_type == 'blue':
             base_priority = 7  # Blue shortening is high priority
+        elif task_type == 'caps':  # ✨ CAPS 任务优先级
+            base_priority = 5  # CAPS post-processing task
         else:  # normal
-            base_priority = 5  # Normal translation is standard priority
+            base_priority = 6  # Normal translation is standard priority
 
         # Additional priority adjustments based on content
         sheet_lower = sheet_name.lower()

@@ -60,7 +60,8 @@ class PromptTemplate:
         'PT-BR': '巴西葡萄牙语',
         'TH': '泰语',
         'VN': '越南语',
-        'VI': '越南语'
+        'VI': '越南语',
+        'TW': '繁体中文'
     }
 
     # Target region mapping

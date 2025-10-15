@@ -103,11 +103,15 @@ class BatchExecutor:
                 # Process translated tasks
                 for task in translated_tasks:
                     if task.get('status') == 'completed':
+                        # ✨ Apply post-processing if needed
+                        from services.executor.post_processor import PostProcessor
+                        final_result = PostProcessor.apply_post_processing(task, task.get('result', ''))
+
                         task_manager.update_task(
                             task['task_id'],
                             {
                                 'status': TaskStatus.COMPLETED,
-                                'result': task.get('result'),
+                                'result': final_result,  # ✨ Use post-processed result
                                 'confidence': task.get('confidence', 0.7),
                                 'end_time': datetime.now(),
                                 'duration_ms': task.get('duration_ms', 0),
@@ -124,7 +128,7 @@ class BatchExecutor:
                                 session_id,
                                 task['task_id'],
                                 TaskStatus.COMPLETED,
-                                result=task.get('result'),
+                                result=final_result,  # ✨ Use post-processed result
                                 confidence=task.get('confidence', 0.7),
                                 duration_ms=task.get('duration_ms', 0)
                             )
@@ -251,11 +255,15 @@ class BatchExecutor:
 
             else:
                 # Translation successful
+                # ✨ Apply post-processing if needed
+                from services.executor.post_processor import PostProcessor
+                final_result = PostProcessor.apply_post_processing(task, response.translated_text)
+
                 task_manager.update_task(
                     task['task_id'],
                     {
                         'status': TaskStatus.COMPLETED,
-                        'result': response.translated_text,
+                        'result': final_result,  # ✨ Use post-processed result
                         'confidence': response.confidence,
                         'end_time': datetime.now(),
                         'duration_ms': response.duration_ms,
