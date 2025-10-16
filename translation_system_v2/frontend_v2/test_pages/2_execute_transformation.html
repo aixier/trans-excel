@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阶段2: 执行转换</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            color: #ff6b6b;
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            color: #666;
+            margin: 5px 0;
+        }
+        .principle {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ff6b6b;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #ff6b6b;
+            border-bottom: 2px solid #ff6b6b;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="file"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #ff6b6b;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .info-box {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .response {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-weight: bold;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 35px;
+            background: #e9ecef;
+            border-radius: 18px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b 0%, #ff8e53 100%);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e0e0e0;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .input-mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: #ff6b6b;
+            color: white;
+            border-color: #ff6b6b;
+        }
+        .input-section {
+            display: none;
+        }
+        .input-section.active {
+            display: block;
+        }
+        .export-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            margin-top: 10px;
+        }
+        .export-btn:hover {
+            transform: translateY(-2px);
+        }
+        .session-id {
+            background: #28a745;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 16px;
+            text-align: center;
+            margin: 15px 0;
+            cursor: pointer;
+            display: none;
+        }
+        .session-id:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ 阶段2: 执行转换</h1>
+        <p><strong>架构阶段</strong>: SPLIT_COMPLETE → EXECUTING → COMPLETED</p>
+        <p><strong>输入</strong>: Session ID OR Excel文件（数据状态N + 任务表）</p>
+        <p><strong>输出</strong>: Session ID（数据状态N+1） + 可导出验证</p>
+
+        <div class="principle">
+            <strong>💡 架构原则</strong>: 任务拆分表 → [转换器] → 数据状态N+1<br>
+            • 输入灵活性：继续已拆分Session OR 上传文件并拆分再转换<br>
+            • 转换器根据任务表中的指令执行转换<br>
+            • 输出可验证：导出Excel查看转换后的中间状态
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="form-group">
+            <label>🌐 后端地址：</label>
+            <input type="text" id="apiUrl" value="http://localhost:8013" />
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📥 选择输入方式</h2>
+
+        <div class="input-mode-selector">
+            <div class="mode-btn active" onclick="switchInputMode('session')">
+                🔗 使用Session ID
+            </div>
+            <div class="mode-btn" onclick="switchInputMode('file')">
+                📁 上传文件并执行
+            </div>
+        </div>
+
+        <!-- Session ID模式 -->
+        <div id="sessionInput" class="input-section active">
+            <div class="form-group">
+                <label>📋 Session ID（来自阶段1）：</label>
+                <input type="text" id="sessionId" placeholder="粘贴阶段1返回的Session ID" />
+                <div class="info-box">
+                    💡 从 "阶段1: 任务拆分" 获取已完成拆分的Session ID<br>
+                    必须是 stage=SPLIT_COMPLETE 的Session
+                </div>
+            </div>
+        </div>
+
+        <!-- 文件上传模式 -->
+        <div id="fileInput" class="input-section">
+            <div class="form-group">
+                <label>选择Excel文件：</label>
+                <input type="file" id="excelFile" accept=".xlsx,.xls" />
+                <div class="info-box">
+                    📝 上传文件将自动拆分任务并执行转换（快速模式）
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>🌐 目标语言（可多选，逗号分隔）：</label>
+                <input type="text" id="targetLangs" value="EN" placeholder="例如: EN,CH,JP" />
+            </div>
+
+            <div class="form-group">
+                <label>📋 规则集：</label>
+                <select id="ruleSet">
+                    <option value="translation" selected>translation - 标准翻译</option>
+                    <option value="caps_only">caps_only - CAPS大写</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>🎯 Processor（处理器）：</label>
+            <select id="processor">
+                <option value="">🤖 自动选择（根据rule_set）</option>
+                <optgroup label="LLM翻译处理器">
+                    <option value="llm_qwen">llm_qwen - 通义千问翻译</option>
+                    <option value="llm_openai">llm_openai - OpenAI GPT翻译</option>
+                </optgroup>
+                <optgroup label="文本转换处理器">
+                    <option value="uppercase">uppercase - 转大写（CAPS）</option>
+                    <option value="lowercase">lowercase - 转小写</option>
+                </optgroup>
+            </select>
+            <div class="info-box">
+                <strong>💡 Processor自动选择逻辑</strong>:<br>
+                • rule_set=translation → processor=llm_qwen（LLM翻译）<br>
+                • rule_set=caps_only → processor=uppercase（大写转换）<br>
+                <br>
+                <strong>建议</strong>: 使用自动选择
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>⚙️ 并发数（Max Workers）：</label>
+            <input type="number" id="maxWorkers" value="5" min="1" max="20" />
+            <small style="color: #666;">同时处理的任务批次数，建议5-10</small>
+        </div>
+
+        <button onclick="startExecution()" id="executeBtn">🚀 开始执行转换</button>
+
+        <div id="progress" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+            </div>
+            <small id="progressText" style="color: #666;"></small>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div id="sessionIdDisplay" class="session-id" onclick="copySessionId()">
+            Session ID: <span id="sessionIdValue"></span><br>
+            <small>点击复制到剪贴板</small>
+        </div>
+
+        <div id="stats" class="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalTasks">0</div>
+                <div class="stat-label">总任务</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="completedTasks">0</div>
+                <div class="stat-label">已完成</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="failedTasks">0</div>
+                <div class="stat-label">失败</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="progressPct">0%</div>
+                <div class="stat-label">进度</div>
+            </div>
+        </div>
+
+        <!-- 导出按钮 -->
+        <div id="exportButtons" style="display: none;">
+            <button onclick="exportOutputExcel()" class="export-btn">
+                📄 导出最终Excel表（翻译结果）
+            </button>
+            <button onclick="exportDataFrame()" class="export-btn">
+                📊 导出DataFrame（验证用）
+            </button>
+        </div>
+
+        <h3>📊 API响应：</h3>
+        <div class="response" id="response">等待执行...</div>
+    </div>
+
+    <script>
+        const apiUrl = () => document.getElementById('apiUrl').value;
+        let pollInterval = null;
+        let currentSessionId = null;
+        let currentInputMode = 'session';
+
+        function switchInputMode(mode) {
+            currentInputMode = mode;
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            document.getElementById('sessionInput').classList.remove('active');
+            document.getElementById('fileInput').classList.remove('active');
+
+            if (mode === 'session') {
+                document.getElementById('sessionInput').classList.add('active');
+            } else {
+                document.getElementById('fileInput').classList.add('active');
+            }
+        }
+
+        async function startExecution() {
+            const processor = document.getElementById('processor').value;
+            const maxWorkers = parseInt(document.getElementById('maxWorkers').value);
+
+            try {
+                document.getElementById('executeBtn').disabled = true;
+                updateStatus('processing', '⏳ 正在提交执行请求...');
+                document.getElementById('progress').style.display = 'block';
+                document.getElementById('stats').style.display = 'grid';
+
+                let sessionId;
+
+                if (currentInputMode === 'session') {
+                    // 使用已有Session ID
+                    sessionId = document.getElementById('sessionId').value.trim();
+                    if (!sessionId) {
+                        alert('请输入Session ID');
+                        document.getElementById('executeBtn').disabled = false;
+                        return;
+                    }
+                } else {
+                    // 文件上传模式：先拆分再执行
+                    const fileInput = document.getElementById('excelFile');
+                    if (!fileInput.files[0]) {
+                        alert('请选择Excel文件');
+                        document.getElementById('executeBtn').disabled = false;
+                        return;
+                    }
+
+                    updateStatus('processing', '⏳ 步骤1/2: 上传文件并拆分任务...');
+
+                    const targetLangsInput = document.getElementById('targetLangs').value;
+                    const targetLangs = targetLangsInput.split(',').map(lang => lang.trim()).filter(lang => lang);
+                    const ruleSet = document.getElementById('ruleSet').value;
+
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[0]);
+                    formData.append('target_langs', JSON.stringify(targetLangs));
+                    formData.append('rule_set', ruleSet);
+                    formData.append('extract_context', true);
+
+                    const splitResponse = await fetch(`${apiUrl()}/api/tasks/split`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const splitData = await splitResponse.json();
+                    
+                    if (!splitResponse.ok) {
+                        updateStatus('error', `❌ 拆分失败: ${splitData.detail || '未知错误'}`);
+                        document.getElementById('executeBtn').disabled = false;
+                        return;
+                    }
+
+                    sessionId = splitData.session_id;
+
+                    // 等待拆分完成
+                    await waitForSplitComplete(sessionId);
+                    
+                    updateStatus('processing', '⏳ 步骤2/2: 开始执行转换...');
+                }
+
+                // 执行转换
+                const requestBody = {
+                    session_id: sessionId
+                };
+
+                if (processor) {
+                    requestBody.processor = processor;
+                }
+
+                if (maxWorkers) {
+                    requestBody.max_workers = maxWorkers;
+                }
+
+                const response = await fetch(`${apiUrl()}/api/execute/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+                document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+
+                if (response.ok) {
+                    currentSessionId = sessionId;
+                    
+                    // 显示Session ID
+                    document.getElementById('sessionIdValue').textContent = sessionId;
+                    document.getElementById('sessionIdDisplay').style.display = 'block';
+
+                    const processorUsed = processor || '自动选择';
+                    updateStatus('processing', `✅ 执行已开始！\n处理器: ${processorUsed}\n正在处理任务...`);
+
+                    const totalTasks = data.total_tasks || 0;
+                    document.getElementById('totalTasks').textContent = totalTasks;
+                    document.getElementById('completedTasks').textContent = '0';
+                    document.getElementById('failedTasks').textContent = '0';
+                    document.getElementById('progressPct').textContent = '0%';
+                    document.getElementById('progressFill').style.width = '0%';
+                    document.getElementById('progressFill').textContent = '0%';
+                    document.getElementById('progressText').textContent = `开始执行 0/${totalTasks} 任务`;
+
+                    pollExecutionStatus(sessionId);
+                } else {
+                    updateStatus('error', `❌ 执行失败:\n${data.detail || JSON.stringify(data)}`);
+                    document.getElementById('executeBtn').disabled = false;
+                }
+            } catch (error) {
+                updateStatus('error', `❌ 请求错误: ${error.message}`);
+                document.getElementById('executeBtn').disabled = false;
+            }
+        }
+
+        async function waitForSplitComplete(sessionId) {
+            while (true) {
+                const response = await fetch(`${apiUrl()}/api/tasks/split/status/${sessionId}`);
+                const data = await response.json();
+
+                if (data.status === 'completed') {
+                    return;
+                } else if (data.status === 'failed') {
+                    throw new Error('拆分失败');
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        async function pollExecutionStatus(sessionId) {
+            if (pollInterval) clearInterval(pollInterval);
+
+            await checkExecutionStatus(sessionId);
+
+            pollInterval = setInterval(async () => {
+                await checkExecutionStatus(sessionId);
+            }, 2000);
+        }
+
+        async function checkExecutionStatus(sessionId) {
+            try {
+                const response = await fetch(`${apiUrl()}/api/execute/status/${sessionId}`);
+                const data = await response.json();
+
+                let total, completed, failed, processing, pending;
+
+                if (data.progress) {
+                    total = data.progress.total || 0;
+                    completed = data.progress.completed || 0;
+                    failed = data.progress.failed || 0;
+                    processing = data.progress.processing || 0;
+                    pending = data.progress.pending || 0;
+                } else if (data.statistics) {
+                    const stats = data.statistics;
+                    const byStatus = stats.by_status || {};
+                    total = stats.total || 0;
+                    completed = byStatus.completed || 0;
+                    failed = byStatus.failed || 0;
+                    processing = byStatus.processing || 0;
+                    pending = byStatus.pending || 0;
+                } else {
+                    total = completed = failed = processing = pending = 0;
+                }
+
+                const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+                document.getElementById('totalTasks').textContent = total;
+                document.getElementById('completedTasks').textContent = completed;
+                document.getElementById('failedTasks').textContent = failed;
+                document.getElementById('progressPct').textContent = `${progress}%`;
+
+                document.getElementById('progressFill').style.width = `${progress}%`;
+                document.getElementById('progressFill').textContent = `${progress}%`;
+                document.getElementById('progressText').textContent =
+                    `已完成 ${completed}/${total} | 处理中: ${processing} | 待处理: ${pending} | 失败: ${failed}`;
+
+                if (data.status === 'completed') {
+                    clearInterval(pollInterval);
+                    updateStatus('success',
+                        `✅ 转换完成！\n` +
+                        `✔️ 成功: ${completed}/${total}\n` +
+                        `❌ 失败: ${failed}\n` +
+                        `📋 Session ID: ${sessionId}\n\n` +
+                        `➡️ 下一步:\n` +
+                        `  • 导出Excel验证转换结果\n` +
+                        `  • 复制Session ID到 "阶段3: 下载结果" 或 "阶段4: CAPS转换"`
+                    );
+                    
+                    // 显示导出按钮
+                    document.getElementById('exportButtons').style.display = 'block';
+                    document.getElementById('executeBtn').disabled = false;
+                } else if (data.status === 'running' || data.status === 'processing') {
+                    updateStatus('processing',
+                        `⚡ 正在执行...\n进度: ${progress}% (${completed}/${total})\n失败: ${failed}`);
+                } else if (data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    updateStatus('error',
+                        `❌ 执行失败\n失败任务: ${failed}/${total}`);
+                    document.getElementById('executeBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Poll error:', error);
+            }
+        }
+
+        async function exportTasks() {
+            if (!currentSessionId) {
+                alert('没有可导出的任务表');
+                return;
+            }
+
+            try {
+                updateStatus('processing', '⏳ 正在导出任务表（TaskDataFrame）...');
+
+                // 导出任务拆分表
+                const response = await fetch(`${apiUrl()}/api/tasks/export/${currentSessionId}?export_type=tasks`);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    updateStatus('error', `❌ 导出失败：${errorData.detail || '未知错误'}`);
+                    return;
+                }
+
+                // 下载文件
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tasks_${currentSessionId}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                updateStatus('success',
+                    `✅ 任务表导出成功！\n` +
+                    `📄 文件名: tasks_${currentSessionId}.xlsx\n\n` +
+                    `💡 打开此文件可查看（TaskDataFrame）：\n` +
+                    `  • 任务执行状态\n` +
+                    `  • 源文本和翻译结果\n` +
+                    `  • 失败原因（如有）\n` +
+                    `  • 任务耗时统计`
+                );
+            } catch (error) {
+                updateStatus('error', `❌ 导出错误: ${error.message}`);
+            }
+        }
+
+        async function exportOutputExcel() {
+            if (!currentSessionId) {
+                alert('没有可导出的结果');
+                return;
+            }
+
+            try {
+                updateStatus('processing', '⏳ 正在导出转换结果Excel（output_state）...');
+
+                const response = await fetch(`${apiUrl()}/api/download/${currentSessionId}`);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    updateStatus('error', `❌ 导出失败：${errorData.detail || '未知错误'}`);
+                    return;
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `result_${currentSessionId}.xlsx`;
+                if (contentDisposition) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+                    if (matches && matches[1]) {
+                        filename = matches[1].replace(/['"]/g, '');
+                    }
+                }
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                updateStatus('success',
+                    `✅ 转换结果Excel导出成功！\n` +
+                    `📄 文件名: ${filename}\n\n` +
+                    `💡 打开此文件可查看（output_state）：\n` +
+                    `  • 转换后的文本\n` +
+                    `  • 保留原始格式和样式\n` +
+                    `  • 此文件可作为下一阶段输入（如CAPS）`
+                );
+            } catch (error) {
+                updateStatus('error', `❌ 导出错误: ${error.message}`);
+            }
+        }
+
+        async function exportDataFrame() {
+            if (!currentSessionId) {
+                alert('没有可导出的DataFrame');
+                return;
+            }
+
+            try {
+                updateStatus('processing', '⏳ 正在导出DataFrame（验证用）...');
+
+                // 导出DataFrame格式
+                const response = await fetch(`${apiUrl()}/api/tasks/export/${currentSessionId}?export_type=dataframe`);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    updateStatus('error', `❌ 导出失败：${errorData.detail || '未知错误'}`);
+                    return;
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `dataframe_${currentSessionId}.xlsx`;
+                if (contentDisposition) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+                    if (matches && matches[1]) {
+                        filename = matches[1].replace(/['"]/g, '');
+                    }
+                }
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                updateStatus('success',
+                    `✅ DataFrame导出成功！\n` +
+                    `📄 文件名: ${filename}\n\n` +
+                    `💡 此文件包含（DataFrame格式）：\n` +
+                    `  • 所有数据列\n` +
+                    `  • color_* 列（颜色信息）\n` +
+                    `  • comment_* 列（注释信息）\n` +
+                    `  • 完整的DataFrame结构，可用于下一阶段`
+                );
+            } catch (error) {
+                updateStatus('error', `❌ 导出错误: ${error.message}`);
+            }
+        }
+
+        function updateStatus(type, message) {
+            const el = document.getElementById('status');
+            el.className = `status ${type}`;
+            el.style.display = 'block';
+            el.textContent = message;
+        }
+
+        function copySessionId() {
+            const sessionId = document.getElementById('sessionIdValue').textContent;
+            navigator.clipboard.writeText(sessionId).then(() => {
+                alert('Session ID已复制到剪贴板！\n\n可以粘贴到 "阶段3: 下载结果" 或 "阶段4: CAPS转换"');
+            });
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (pollInterval) clearInterval(pollInterval);
+        });
+    </script>
+</body>
+</html>

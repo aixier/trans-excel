@@ -1,0 +1,374 @@
+"""
+Pipeline API - 新架构的翻译流程API
+
+提供基于模块化架构的翻译流程端点：
+- POST /api/v2/pipeline/translate - 执行翻译流程
+- GET /api/v2/pipeline/status/{session_id} - 查询流程状态
+- POST /api/v2/pipeline/cancel/{session_id} - 取消流程执行
+"""
+
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi.responses import JSONResponse
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, Field
+import logging
+import uuid
+from pathlib import Path
+import tempfile
+
+# 导入新架构模块
+from services.data_state import ExcelState
+from services.processors import (
+    Processor,
+    LLMProcessor,
+    UppercaseProcessor,
+    TrimProcessor,
+    NormalizeProcessor
+)
+from services.splitter import (
+    TaskSplitter,
+    EmptyCellRule,
+    YellowCellRule,
+    BlueCellRule,
+    CapsSheetRule
+)
+from services.transformer import BaseTransformer
+from services.orchestrator import BaseOrchestrator, PipelineStage
+from services.excel_loader import ExcelLoader
+from services.llm import LLMFactory
+from utils.session_manager import SessionManager
+from utils.config_manager import config_manager
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v2/pipeline", tags=["pipeline-v2"])
+
+
+# ============================================================================
+# Pydantic Models
+# ============================================================================
+
+class PipelineConfig(BaseModel):
+    """流程配置"""
+    include_translation: bool = Field(True, description="是否包含翻译阶段")
+    include_caps: bool = Field(False, description="是否包含CAPS大写阶段")
+    include_trim: bool = Field(False, description="是否包含去空格阶段")
+    include_normalize: bool = Field(False, description="是否包含标点规范化阶段")
+
+    # LLM配置
+    llm_provider: str = Field("qwen-plus", description="LLM提供商")
+    llm_config: Dict[str, Any] = Field(default_factory=dict, description="LLM配置")
+
+    # 规则配置
+    translate_empty_cells: bool = Field(True, description="翻译空单元格")
+    translate_yellow_cells: bool = Field(True, description="翻译黄色单元格")
+    translate_blue_cells: bool = Field(False, description="翻译蓝色单元格（带CH参考）")
+
+    # 术语表
+    glossary_name: Optional[str] = Field(None, description="术语表名称")
+
+
+class PipelineRequest(BaseModel):
+    """流程请求"""
+    session_id: str = Field(..., description="会话ID")
+    config: PipelineConfig = Field(default_factory=PipelineConfig, description="流程配置")
+
+
+class PipelineStatus(BaseModel):
+    """流程状态"""
+    session_id: str
+    status: str  # 'pending', 'running', 'completed', 'failed'
+    progress: float  # 0.0 - 1.0
+    current_stage: Optional[str] = None
+    total_stages: int = 0
+    completed_stages: int = 0
+    total_tasks: int = 0
+    completed_tasks: int = 0
+    failed_tasks: int = 0
+    error_message: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+
+
+class PipelineResult(BaseModel):
+    """流程结果"""
+    session_id: str
+    status: str
+    stages: List[Dict[str, Any]]
+    summary: Dict[str, Any]
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def create_orchestrator(config: PipelineConfig, llm_provider: Any) -> BaseOrchestrator:
+    """根据配置创建Orchestrator
+
+    Args:
+        config: 流程配置
+        llm_provider: LLM提供商实例
+
+    Returns:
+        配置好的Orchestrator实例
+    """
+    orchestrator = BaseOrchestrator()
+
+    # 阶段1: 翻译 (如果启用)
+    if config.include_translation:
+        translation_rules = []
+
+        if config.translate_empty_cells:
+            translation_rules.append(EmptyCellRule())
+
+        if config.translate_yellow_cells:
+            translation_rules.append(YellowCellRule())
+
+        if config.translate_blue_cells:
+            translation_rules.append(BlueCellRule())
+
+        if translation_rules:
+            orchestrator.add_stage(PipelineStage(
+                stage_id='translate',
+                splitter_rules=translation_rules,
+                transformer=BaseTransformer(LLMProcessor(llm_provider)),
+                depends_on=[]
+            ))
+            logger.info(f"Added translation stage with {len(translation_rules)} rules")
+
+    # 阶段2: CAPS大写 (如果启用，依赖翻译)
+    if config.include_caps:
+        depends_on = ['translate'] if config.include_translation else []
+
+        orchestrator.add_stage(PipelineStage(
+            stage_id='uppercase',
+            splitter_rules=[CapsSheetRule()],
+            transformer=BaseTransformer(UppercaseProcessor()),
+            depends_on=depends_on
+        ))
+        logger.info("Added CAPS uppercase stage")
+
+    # 阶段3: 去空格 (如果启用)
+    if config.include_trim:
+        # 去空格应该在翻译之后
+        depends_on = []
+        if config.include_translation:
+            depends_on.append('translate')
+        if config.include_caps:
+            depends_on.append('uppercase')
+
+        # TODO: 创建一个"所有非空单元格"的规则
+        # orchestrator.add_stage(PipelineStage(
+        #     stage_id='trim',
+        #     splitter_rules=[NonEmptyCellRule()],
+        #     transformer=BaseTransformer(TrimProcessor()),
+        #     depends_on=depends_on
+        # ))
+        logger.info("Trim stage requested but not yet implemented")
+
+    # 阶段4: 标点规范化 (如果启用)
+    if config.include_normalize:
+        # 标点规范化应该在所有文本处理之后
+        depends_on = []
+        if config.include_translation:
+            depends_on.append('translate')
+        if config.include_caps:
+            depends_on.append('uppercase')
+        if config.include_trim:
+            depends_on.append('trim')
+
+        # TODO: 创建规范化规则
+        # orchestrator.add_stage(PipelineStage(
+        #     stage_id='normalize',
+        #     splitter_rules=[NonEmptyCellRule()],
+        #     transformer=BaseTransformer(NormalizeProcessor()),
+        #     depends_on=depends_on
+        # ))
+        logger.info("Normalize stage requested but not yet implemented")
+
+    return orchestrator
+
+
+# ============================================================================
+# API Endpoints
+# ============================================================================
+
+@router.post("/translate")
+async def translate_with_pipeline(
+    file: UploadFile = File(...),
+    config_json: str = Form("{}"),
+):
+    """
+    使用新的Pipeline架构执行翻译
+
+    **流程**:
+    1. 上传Excel文件
+    2. 根据配置创建Pipeline
+    3. 执行翻译流程
+    4. 返回结果文件
+
+    **配置示例**:
+    ```json
+    {
+        "include_translation": true,
+        "include_caps": true,
+        "translate_empty_cells": true,
+        "translate_yellow_cells": true,
+        "llm_provider": "qwen-plus"
+    }
+    ```
+    """
+    session_id = str(uuid.uuid4())
+    logger.info(f"[{session_id}] Starting pipeline translation")
+
+    try:
+        # 1. 解析配置
+        import json
+        config_dict = json.loads(config_json) if config_json else {}
+        config = PipelineConfig(**config_dict)
+
+        logger.info(f"[{session_id}] Config: translation={config.include_translation}, caps={config.include_caps}")
+
+        # 2. 保存上传的文件
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+
+        logger.info(f"[{session_id}] File saved to {tmp_path}")
+
+        # 3. 加载Excel
+        excel_df = ExcelLoader.load_excel(tmp_path)
+        initial_state = ExcelState(excel_df)
+
+        logger.info(f"[{session_id}] Excel loaded: {len(initial_state.sheets)} sheets")
+
+        # 4. 创建LLM提供商
+        # 从 config_manager 读取完整配置
+        full_config = config_manager.config
+        llm_provider = LLMFactory.create_from_config_file(
+            full_config,
+            provider_name=config.llm_provider
+        )
+
+        # 5. 创建Orchestrator
+        orchestrator = create_orchestrator(config, llm_provider)
+
+        # 6. 验证Pipeline
+        if not orchestrator.validate_pipeline():
+            raise HTTPException(status_code=400, detail="Invalid pipeline configuration")
+
+        logger.info(f"[{session_id}] Pipeline validated: {len(orchestrator.stages)} stages")
+
+        # 7. 执行Pipeline
+        final_state = orchestrator.execute(initial_state)
+
+        logger.info(f"[{session_id}] Pipeline execution completed")
+
+        # 8. 保存结果
+        output_path = tmp_path.replace('.xlsx', '_translated.xlsx')
+        ExcelLoader.save_excel(final_state.excel_dataframe, output_path)
+
+        logger.info(f"[{session_id}] Result saved to {output_path}")
+
+        # 9. 生成执行摘要
+        summary = orchestrator.get_execution_summary()
+
+        # 10. 返回结果
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            output_path,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=f"{file.filename.replace('.xlsx', '')}_translated.xlsx",
+            headers={
+                "X-Session-Id": session_id,
+                "X-Stages-Completed": str(summary.get('completed_stages', 0)),
+                "X-Total-Tasks": str(sum(s.get('tasks_count', 0) for s in summary.get('stages', [])))
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"[{session_id}] Pipeline execution failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {str(e)}")
+
+
+@router.get("/status/{session_id}")
+async def get_pipeline_status(session_id: str):
+    """
+    查询Pipeline执行状态
+
+    **注意**: 当前版本是同步执行，此端点主要用于未来的异步实现
+    """
+    # TODO: 实现异步执行状态查询
+    # 当前版本Pipeline是同步执行的，所以此端点返回模拟状态
+
+    return JSONResponse({
+        "session_id": session_id,
+        "status": "completed",
+        "message": "Current version uses synchronous execution. Status tracking will be available in async version."
+    })
+
+
+@router.post("/cancel/{session_id}")
+async def cancel_pipeline(session_id: str):
+    """
+    取消Pipeline执行
+
+    **注意**: 当前版本是同步执行，不支持取消
+    """
+    # TODO: 实现异步执行取消
+
+    return JSONResponse({
+        "session_id": session_id,
+        "status": "not_supported",
+        "message": "Current version uses synchronous execution. Cancellation will be available in async version."
+    })
+
+
+@router.get("/health")
+async def pipeline_health_check():
+    """
+    Pipeline API健康检查
+    """
+    return {
+        "status": "healthy",
+        "version": "2.0.0",
+        "architecture": "modular",
+        "modules": {
+            "data_state": "✅",
+            "processor": "✅",
+            "splitter": "✅",
+            "transformer": "✅",
+            "orchestrator": "✅"
+        }
+    }
+
+
+# ============================================================================
+# 向后兼容端点
+# ============================================================================
+
+@router.post("/v1/translate")
+async def translate_v1_compat(
+    file: UploadFile = File(...),
+):
+    """
+    V1兼容端点 - 使用默认配置
+
+    自动启用:
+    - 翻译空单元格
+    - 翻译黄色单元格
+    - 不启用CAPS（保持与V1一致）
+    """
+    config = PipelineConfig(
+        include_translation=True,
+        include_caps=False,  # V1不包含CAPS
+        translate_empty_cells=True,
+        translate_yellow_cells=True,
+        llm_provider="qwen-plus"
+    )
+
+    return await translate_with_pipeline(
+        file=file,
+        config_json=config.model_dump_json()
+    )

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阶段1: 任务拆分</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            color: #667eea;
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            color: #666;
+            margin: 5px 0;
+        }
+        .principle {
+            background: #e7f3ff;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        input[type="text"],
+        input[type="file"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .response {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-weight: bold;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .status.processing {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .session-id {
+            background: #28a745;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 16px;
+            text-align: center;
+            margin: 15px 0;
+            cursor: pointer;
+            display: none;
+        }
+        .session-id:hover {
+            background: #218838;
+        }
+        .input-mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .input-section {
+            display: none;
+        }
+        .input-section.active {
+            display: block;
+        }
+        .export-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            margin-top: 10px;
+        }
+        .export-btn:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 阶段1: 任务拆分</h1>
+        <p><strong>架构阶段</strong>: CREATED → INPUT_LOADED → SPLIT_COMPLETE</p>
+        <p><strong>输入</strong>: Excel文件 OR Session ID（数据状态N）</p>
+        <p><strong>输出</strong>: Session ID + 任务拆分表 + 可导出验证</p>
+
+        <div class="principle">
+            <strong>💡 架构原则</strong>: 数据状态N → [拆分器] → 任务拆分表<br>
+            • 输入灵活性：上传新文件 OR 使用已有Session的数据<br>
+            • 拆分器根据规则生成任务表（描述如何转换）<br>
+            • 输出可验证：导出任务表Excel查看拆分结果
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="form-group">
+            <label>🌐 后端地址：</label>
+            <input type="text" id="apiUrl" value="http://localhost:8013" />
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📥 选择输入方式</h2>
+
+        <div class="input-mode-selector">
+            <div class="mode-btn active" onclick="switchInputMode('file')">
+                📁 上传Excel文件
+            </div>
+            <div class="mode-btn" onclick="switchInputMode('session')">
+                🔗 使用已有Session
+            </div>
+        </div>
+
+        <!-- 文件上传模式 -->
+        <div id="fileInput" class="input-section active">
+            <div class="form-group">
+                <label>选择Excel文件：</label>
+                <input type="file" id="excelFile" accept=".xlsx,.xls" />
+                <div class="info-box">
+                    📝 上传新文件将创建新Session，文件内容作为 <strong>数据状态0</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session ID模式 -->
+        <div id="sessionInput" class="input-section">
+            <div class="form-group">
+                <label>🔗 Parent Session ID：</label>
+                <input type="text" id="parentSessionId" placeholder="粘贴已有的Session ID" />
+                <div class="info-box">
+                    💡 从已有Session继承数据，可以用不同规则重新拆分<br>
+                    <strong>使用场景</strong>：<br>
+                    • 阶段2完成后，想用不同规则拆分（如CAPS）<br>
+                    • 验证某个数据状态的不同拆分策略
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>🌐 目标语言（可多选，逗号分隔）：</label>
+            <input type="text" id="targetLangs" value="EN" placeholder="例如: EN,CH,JP" />
+            <small style="color: #666;">支持: CH,EN,TR,TH,PT,VN,IND,ES,AR,FR,DE,JP,KR,RU,TW,BR,IT,PL,NL,MS,HI</small>
+        </div>
+
+        <div class="form-group">
+            <label>📋 规则集（拆分规则）：</label>
+            <select id="ruleSet">
+                <option value="translation" selected>translation - 标准翻译任务拆分</option>
+                <option value="caps_only">caps_only - 仅CAPS大写任务</option>
+            </select>
+            <div class="info-box">
+                💡 <strong>规则集决定任务类型</strong>:<br>
+                • translation: 空单元格、黄色重翻、蓝色缩短、普通翻译<br>
+                • caps_only: 仅拆分CAPS表格的大写转换任务
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="extractContext" checked style="width: auto; margin-right: 8px;">
+                提取上下文（提高翻译准确度，但速度稍慢）
+            </label>
+        </div>
+
+        <button onclick="uploadAndSplit()" id="submitBtn">🚀 执行任务拆分</button>
+
+        <div id="progress" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+            </div>
+            <small id="progressText" style="color: #666;"></small>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div id="sessionIdDisplay" class="session-id" onclick="copySessionId()">
+            Session ID: <span id="sessionIdValue"></span><br>
+            <small>点击复制到剪贴板</small>
+        </div>
+
+        <!-- 导出按钮 -->
+        <div id="exportButtons" style="display: none;">
+            <button onclick="exportInputExcel()" class="export-btn">
+                📄 导出拆分前Excel（input_state）
+            </button>
+            <button onclick="exportTasks()" class="export-btn">
+                📋 导出任务表（拆分结果）
+            </button>
+        </div>
+
+        <h3>📊 API响应：</h3>
+        <div class="response" id="response">等待提交...</div>
+    </div>
+
+    <script>
+        const apiUrl = () => document.getElementById('apiUrl').value;
+        let currentSessionId = null;
+        let pollInterval = null;
+        let currentInputMode = 'file';
+
+        function switchInputMode(mode) {
+            currentInputMode = mode;
+
+            // 更新按钮样式
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // 显示/隐藏对应输入区域
+            document.getElementById('fileInput').classList.remove('active');
+            document.getElementById('sessionInput').classList.remove('active');
+
+            if (mode === 'file') {
+                document.getElementById('fileInput').classList.add('active');
+            } else {
+                document.getElementById('sessionInput').classList.add('active');
+            }
+        }
+
+        async function uploadAndSplit() {
+            const targetLangsInput = document.getElementById('targetLangs').value;
+            const ruleSet = document.getElementById('ruleSet').value;
+            const extractContext = document.getElementById('extractContext').checked;
+
+            // 解析目标语言
+            const targetLangs = targetLangsInput.split(',').map(lang => lang.trim()).filter(lang => lang);
+            if (targetLangs.length === 0) {
+                alert('请输入至少一个目标语言');
+                return;
+            }
+
+            try {
+                document.getElementById('submitBtn').disabled = true;
+                updateStatus('processing', '⏳ 正在提交拆分请求...');
+                document.getElementById('progress').style.display = 'block';
+
+                let response;
+
+                if (currentInputMode === 'file') {
+                    // 文件上传模式
+                    const fileInput = document.getElementById('excelFile');
+                    if (!fileInput.files[0]) {
+                        alert('请选择Excel文件');
+                        document.getElementById('submitBtn').disabled = false;
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[0]);
+                    formData.append('target_langs', JSON.stringify(targetLangs));
+                    formData.append('rule_set', ruleSet);
+                    formData.append('extract_context', extractContext);
+
+                    response = await fetch(`${apiUrl()}/api/tasks/split`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    // Session ID模式
+                    const parentSessionId = document.getElementById('parentSessionId').value.trim();
+                    if (!parentSessionId) {
+                        alert('请输入Parent Session ID');
+                        document.getElementById('submitBtn').disabled = false;
+                        return;
+                    }
+
+                    // ✅ FIX: Use FormData instead of JSON to match backend API expectation
+                    const formData = new FormData();
+                    formData.append('parent_session_id', parentSessionId);
+                    formData.append('target_langs', JSON.stringify(targetLangs));
+                    formData.append('rule_set', ruleSet);
+                    formData.append('extract_context', extractContext);
+
+                    response = await fetch(`${apiUrl()}/api/tasks/split`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+
+                const data = await response.json();
+                document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+
+                if (response.ok) {
+                    currentSessionId = data.session_id;
+                    updateStatus('processing', `✅ Session已创建！正在拆分任务...\nSession ID: ${currentSessionId}`);
+
+                    // 显示Session ID
+                    document.getElementById('sessionIdValue').textContent = currentSessionId;
+                    document.getElementById('sessionIdDisplay').style.display = 'block';
+
+                    // 开始轮询状态
+                    pollSplitStatus(currentSessionId);
+                } else {
+                    updateStatus('error', `❌ 失败: ${data.detail || JSON.stringify(data)}`);
+                    document.getElementById('submitBtn').disabled = false;
+                }
+            } catch (error) {
+                updateStatus('error', `❌ 请求错误: ${error.message}`);
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+
+        async function pollSplitStatus(sessionId) {
+            if (pollInterval) clearInterval(pollInterval);
+
+            await checkSplitStatus(sessionId);
+
+            pollInterval = setInterval(async () => {
+                await checkSplitStatus(sessionId);
+            }, 2000);
+        }
+
+        async function checkSplitStatus(sessionId) {
+            try {
+                const response = await fetch(`${apiUrl()}/api/tasks/split/status/${sessionId}`);
+                const data = await response.json();
+
+                const progress = data.progress || 0;
+                document.getElementById('progressFill').style.width = `${progress}%`;
+                document.getElementById('progressFill').textContent = `${Math.round(progress)}%`;
+                document.getElementById('progressText').textContent = data.message || '';
+
+                if (data.status === 'completed') {
+                    clearInterval(pollInterval);
+
+                    const taskCount = data.task_count || 0;
+                    const stats = data.statistics || {};
+                    const totalChars = stats.total_chars || 0;
+
+                    updateStatus('success',
+                        `✅ 拆分完成！\n` +
+                        `📋 任务数: ${taskCount}\n` +
+                        `📝 总字符数: ${totalChars}\n` +
+                        `📊 Session ID: ${sessionId}\n\n` +
+                        `➡️ 下一步: \n` +
+                        `  • 导出任务表验证拆分结果\n` +
+                        `  • 复制Session ID到 "阶段2: 执行转换"`
+                    );
+
+                    // 显示导出按钮
+                    document.getElementById('exportButtons').style.display = 'block';
+                    document.getElementById('submitBtn').disabled = false;
+                } else if (data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    updateStatus('error', `❌ 拆分失败: ${data.message || '未知错误'}`);
+                    document.getElementById('submitBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Poll error:', error);
+            }
+        }
+
+        async function exportInputExcel() {
+            if (!currentSessionId) {
+                alert('没有可导出的Input Excel');
+                return;
+            }
+
+            try {
+                updateStatus('processing', '⏳ 正在导出拆分前Excel（input_state）...');
+
+                const response = await fetch(`${apiUrl()}/api/download/${currentSessionId}/input`);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    updateStatus('error', `❌ 导出失败：${errorData.detail || '未知错误'}`);
+                    return;
+                }
+
+                // 下载文件
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `input_state_${currentSessionId.substring(0, 8)}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                updateStatus('success',
+                    `✅ 拆分前Excel导出成功！\n` +
+                    `📄 文件名: input_state_${currentSessionId.substring(0, 8)}.xlsx\n\n` +
+                    `💡 打开此文件可查看拆分前的数据状态（input_state）：\n` +
+                    `  • 原始表格结构\n` +
+                    `  • 单元格内容\n` +
+                    `  • 继承的翻译结果（如果是从parent继承）`
+                );
+            } catch (error) {
+                updateStatus('error', `❌ 导出错误: ${error.message}`);
+            }
+        }
+
+        async function exportTasks() {
+            if (!currentSessionId) {
+                alert('没有可导出的任务表');
+                return;
+            }
+
+            try {
+                updateStatus('processing', '⏳ 正在导出任务表（拆分结果）...');
+
+                // 导出任务拆分表
+                const response = await fetch(`${apiUrl()}/api/tasks/export/${currentSessionId}?export_type=tasks`);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    updateStatus('error', `❌ 导出失败：${errorData.detail || '未知错误'}`);
+                    return;
+                }
+
+                // 下载文件
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tasks_${currentSessionId}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                updateStatus('success',
+                    `✅ 任务表导出成功！\n` +
+                    `📄 文件名: tasks_${currentSessionId}.xlsx\n\n` +
+                    `💡 打开此文件可查看拆分结果（TaskDataFrame）：\n` +
+                    `  • 任务类型分布\n` +
+                    `  • 源文本和目标语言\n` +
+                    `  • 任务优先级\n` +
+                    `  • 单元格位置信息`
+                );
+            } catch (error) {
+                updateStatus('error', `❌ 导出错误: ${error.message}`);
+            }
+        }
+
+        function updateStatus(type, message) {
+            const el = document.getElementById('status');
+            el.className = `status ${type}`;
+            el.style.display = 'block';
+            el.textContent = message;
+        }
+
+        function copySessionId() {
+            const sessionId = document.getElementById('sessionIdValue').textContent;
+            navigator.clipboard.writeText(sessionId).then(() => {
+                alert('Session ID已复制到剪贴板！\n\n可以粘贴到 "阶段2: 执行转换" 或本页面重新拆分');
+            });
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (pollInterval) clearInterval(pollInterval);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "$2b$12$1vec/1eq2yduGu848hETn.xJdJsWoBbWnP/AUVNvCpaFw6ug3z41u",
+      "token": "admin-demo-token-2025",
+      "displayName": "管理员",
+      "role": "admin",
+      "email": "admin@demo.com",
+      "status": "active",
+      "createdAt": "2025-01-20T00:00:00Z",
+      "lastLogin": null
+    },
+    {
+      "id": 2,
+      "username": "demo",
+      "password": "$2b$12$1hv5ABo.IZ91VkF.ivDhf.kVDGoVlv/h0bU/IQYCEWZg8Oa45kygC",
+      "token": "demo-user-token-2025",
+      "displayName": "演示用户",
+      "role": "user",
+      "email": "demo@demo.com",
+      "status": "active",
+      "createdAt": "2025-01-20T00:00:00Z",
+      "lastLogin": null
+    }
+  ]
+}
+

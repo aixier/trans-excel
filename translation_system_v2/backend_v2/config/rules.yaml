@@ -1,0 +1,58 @@
+# Rules configuration for task splitting
+#
+# Each rule identifies cells that need specific operations
+# Rules are applied in priority order (higher priority first)
+
+rules:
+  # Translation rules (normal translations)
+  empty:
+    class: services.splitter.rules.empty_cell.EmptyCellRule
+    description: "Match empty cells that need translation"
+    priority: 5
+    enabled: true
+
+  # Re-translation rules (modified source)
+  yellow:
+    class: services.splitter.rules.yellow_cell.YellowCellRule
+    description: "Match yellow-highlighted cells for re-translation"
+    priority: 9
+    enabled: true
+
+  # Shortening rules (reduce text length)
+  blue:
+    class: services.splitter.rules.blue_cell.BlueCellRule
+    description: "Match blue-highlighted cells for text shortening"
+    priority: 7
+    enabled: true
+
+  # CAPS rules (uppercase transformation)
+  # IMPORTANT: Should be applied AFTER translation is complete
+  # Input should be translated Excel, not raw Excel
+  caps:
+    class: services.splitter.rules.caps_sheet.CapsSheetRule
+    description: "Match cells in CAPS sheets for uppercase conversion"
+    priority: 3
+    enabled: true
+    requires_translation_first: true  # Flag: needs translated input
+
+# Rule sets for common scenarios
+rule_sets:
+  # Standard translation workflow (includes blue shortening for marked cells)
+  translation:
+    - empty
+    - yellow
+    - blue
+
+  # CAPS processing (use AFTER translation)
+  caps_only:
+    - caps
+
+  # Full workflow (not recommended - use separate sessions)
+  # translation_and_caps:
+  #   - empty
+  #   - yellow
+  #   - blue
+  #   - caps
+
+# Default rule set
+default_rule_set: translation

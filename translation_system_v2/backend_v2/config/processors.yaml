@@ -1,0 +1,80 @@
+# Processors configuration for task execution
+#
+# Each processor defines how to transform tasks into results
+
+processors:
+  # LLM-based translation processors
+  llm_qwen:
+    class: services.llm.qwen_provider.QwenProvider
+    description: "Qwen LLM translator"
+    type: llm_translation
+    config:
+      model: qwen-plus
+      temperature: 0.3
+    enabled: true
+
+  llm_openai:
+    class: services.llm.openai_provider.OpenAIProvider
+    description: "OpenAI GPT translator"
+    type: llm_translation
+    config:
+      model: gpt-4
+      temperature: 0.3
+    enabled: true
+
+  # Simple transformation processors
+  uppercase:
+    class: services.processors.uppercase_processor.UppercaseProcessor
+    description: "Convert text to uppercase"
+    type: text_transform
+    config: {}
+    enabled: true
+    requires_llm: false
+
+  lowercase:
+    class: services.processors.lowercase_processor.LowercaseProcessor
+    description: "Convert text to lowercase"
+    type: text_transform
+    config: {}
+    enabled: true
+    requires_llm: false
+
+  trim:
+    class: services.processors.trim_processor.TrimProcessor
+    description: "Trim whitespace and limit length"
+    type: text_transform
+    config:
+      max_length: 100
+      strip: true
+    enabled: false
+    requires_llm: false
+
+  # Validation processors
+  validate:
+    class: services.processors.validate_processor.ValidateProcessor
+    description: "Validate translation quality"
+    type: validation
+    config:
+      rules:
+        - no_empty
+        - no_special_chars
+        - length_check
+    enabled: false
+    requires_llm: false
+
+# Processor sets for common scenarios
+processor_sets:
+  # Default LLM translation
+  default_translation:
+    processor: llm_qwen
+    max_workers: 10
+    retry_count: 3
+
+  # CAPS transformation
+  caps_transform:
+    processor: uppercase
+    max_workers: 20  # Simple operation, can use more workers
+    retry_count: 1
+
+# Default processor
+default_processor: llm_qwen
