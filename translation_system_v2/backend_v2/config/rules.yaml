@@ -6,34 +6,42 @@
 rules:
   # Translation rules (normal translations)
   empty:
+    name: "空单元格翻译"
     class: services.splitter.rules.empty_cell.EmptyCellRule
-    description: "Match empty cells that need translation"
+    description: "匹配需要翻译的空单元格"
     priority: 5
     enabled: true
+    parameters: {}
 
   # Re-translation rules (modified source)
   yellow:
+    name: "黄色标记重译"
     class: services.splitter.rules.yellow_cell.YellowCellRule
-    description: "Match yellow-highlighted cells for re-translation"
+    description: "匹配黄色高亮的单元格进行重新翻译"
     priority: 9
     enabled: true
+    parameters: {}
 
   # Shortening rules (reduce text length)
   blue:
+    name: "蓝色标记简化"
     class: services.splitter.rules.blue_cell.BlueCellRule
-    description: "Match blue-highlighted cells for text shortening"
+    description: "匹配蓝色高亮的单元格进行文本缩短"
     priority: 7
     enabled: true
+    parameters: {}
 
   # CAPS rules (uppercase transformation)
   # IMPORTANT: Should be applied AFTER translation is complete
   # Input should be translated Excel, not raw Excel
   caps:
+    name: "CAPS大写转换"
     class: services.splitter.rules.caps_sheet.CapsSheetRule
-    description: "Match cells in CAPS sheets for uppercase conversion"
+    description: "匹配CAPS工作表中的单元格进行大写转换"
     priority: 3
     enabled: true
     requires_translation_first: true  # Flag: needs translated input
+    parameters: {}
 
 # Rule sets for common scenarios
 rule_sets:

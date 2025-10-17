@@ -22,7 +22,8 @@ class ExecuteRequest(BaseModel):
     processor: Optional[str] = None  # Processor name (e.g., 'llm_qwen', 'uppercase')
     provider: Optional[str] = None  # [DEPRECATED] Override LLM provider (use processor instead)
     max_workers: Optional[int] = None  # Override max workers
-    glossary_config: Optional[Dict] = None  # Glossary configuration
+    glossary_id: Optional[str] = None  # Glossary ID (simplified parameter)
+    glossary_config: Optional[Dict] = None  # Glossary configuration (advanced)
 
 
 @router.post("/start")
@@ -51,7 +52,14 @@ async def start_execution(request: ExecuteRequest):
         raise HTTPException(status_code=404, detail="Task manager not found. Please split tasks first.")
 
     # Validation 3 - Split is complete
-    if session.stage != TransformationStage.SPLIT_COMPLETE and session.stage != TransformationStage.COMPLETED:
+    # Check if task manager has tasks (more reliable than stage for backward compatibility)
+    if task_manager.df is None or len(task_manager.df) == 0:
+        detail = "No tasks found. Please split tasks first."
+        logger.error(f"Session {session_id}: {detail}")
+        raise HTTPException(status_code=400, detail=detail)
+
+    # Also check stage if it's set
+    if session.stage is not None and session.stage != TransformationStage.SPLIT_COMPLETE and session.stage != TransformationStage.COMPLETED:
         detail = f"Session not ready: stage is {session.stage.value}. Must complete split first."
         logger.error(f"Session {session_id}: {detail}")
         raise HTTPException(status_code=400, detail=detail)
@@ -104,11 +112,17 @@ async def start_execution(request: ExecuteRequest):
         llm_provider = processor_factory.create_processor(processor_name)
         logger.info(f"Created processor: {processor_name}")
 
+        # Build glossary_config from glossary_id if provided
+        glossary_config = request.glossary_config
+        if request.glossary_id and not glossary_config:
+            glossary_config = {'id': request.glossary_id}
+            logger.info(f"Using glossary_id: {request.glossary_id}")
+
         # Start execution
         result = await worker_pool.start_execution(
             session_id,
             llm_provider,
-            glossary_config=request.glossary_config  # ✨ Pass glossary config
+            glossary_config=glossary_config  # ✨ Pass glossary config
         )
 
         if result['status'] == 'error':

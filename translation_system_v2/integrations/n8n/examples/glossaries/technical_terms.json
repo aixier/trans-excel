@@ -1,0 +1,20 @@
+{
+  "数据库": "Database",
+  "服务器": "Server",
+  "接口": "API",
+  "前端": "Frontend",
+  "后端": "Backend",
+  "用户": "User",
+  "登录": "Login",
+  "注册": "Register",
+  "密码": "Password",
+  "权限": "Permission",
+  "配置": "Configuration",
+  "部署": "Deployment",
+  "测试": "Testing",
+  "日志": "Log",
+  "缓存": "Cache",
+  "队列": "Queue",
+  "异步": "Asynchronous",
+  "同步": "Synchronous"
+}

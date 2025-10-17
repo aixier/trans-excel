@@ -380,6 +380,14 @@ class PipelineSessionManager:
 
         return chain
 
+    def list_sessions(self) -> list[PipelineSession]:
+        """Get list of all active sessions.
+
+        Returns:
+            List of PipelineSession objects
+        """
+        return list(self._sessions.values())
+
     def cleanup_old_sessions(self):
         """Remove sessions that have timed out."""
         current_time = datetime.now()

@@ -324,6 +324,44 @@
             <small style="color: #666;">同时处理的任务批次数，建议5-10</small>
         </div>
 
+        <!-- 术语表配置 -->
+        <div class="form-group" style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 20px;">
+            <label style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="enableGlossary" onchange="toggleGlossarySection()" style="width: auto; margin: 0;">
+                📚 启用术语表（Glossary）
+            </label>
+            <div class="info-box">
+                💡 启用后，翻译时会根据术语表进行术语匹配和提示<br>
+                支持上传JSON格式术语表或选择已有术语表
+            </div>
+        </div>
+
+        <div id="glossarySection" style="display: none;">
+            <div class="form-group">
+                <label>📤 上传术语表（JSON格式）：</label>
+                <input type="file" id="glossaryFile" accept=".json" onchange="uploadGlossary()" />
+                <div class="info-box">
+                    支持两种格式：<br>
+                    <strong>1. 简化格式</strong>: {"术语": "translation"}<br>
+                    <strong>2. 标准格式</strong>: {"id": "xxx", "terms": [{...}]}<br>
+                    <br>
+                    <strong>示例文件</strong>: /mnt/d/work/trans_excel/teach/terms.json
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>🎯 选择术语表：</label>
+                <select id="glossaryId">
+                    <option value="">-- 请选择术语表 --</option>
+                </select>
+                <button onclick="loadGlossaryList()" style="margin-top: 10px; background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);">
+                    🔄 刷新术语表列表
+                </button>
+            </div>
+
+            <div id="glossaryStatus" class="status" style="margin-top: 10px;"></div>
+        </div>
+
         <button onclick="startExecution()" id="executeBtn">🚀 开始执行转换</button>
 
         <div id="progress" style="display: none;">
@@ -379,6 +417,11 @@
         let currentSessionId = null;
         let currentInputMode = 'session';
 
+        // 页面加载时加载术语表列表
+        window.addEventListener('DOMContentLoaded', () => {
+            loadGlossaryList();
+        });
+
         function switchInputMode(mode) {
             currentInputMode = mode;
 
@@ -396,6 +439,96 @@
                 document.getElementById('fileInput').classList.add('active');
             }
         }
+
+        // ======== 术语表功能 ========
+
+        function toggleGlossarySection() {
+            const enabled = document.getElementById('enableGlossary').checked;
+            document.getElementById('glossarySection').style.display = enabled ? 'block' : 'none';
+        }
+
+        async function loadGlossaryList() {
+            try {
+                const response = await fetch(`${apiUrl()}/api/glossaries/list`);
+                const data = await response.json();
+
+                const select = document.getElementById('glossaryId');
+                select.innerHTML = '<option value="">-- 请选择术语表 --</option>';
+
+                if (data.glossaries && data.glossaries.length > 0) {
+                    data.glossaries.forEach(glossary => {
+                        const option = document.createElement('option');
+                        option.value = glossary.id;
+                        option.textContent = `${glossary.name} (${glossary.term_count}个术语)`;
+                        select.appendChild(option);
+                    });
+
+                    updateGlossaryStatus('success', `✅ 已加载 ${data.count} 个术语表`);
+                } else {
+                    updateGlossaryStatus('error', '⚠️ 暂无术语表，请先上传');
+                }
+            } catch (error) {
+                updateGlossaryStatus('error', `❌ 加载失败: ${error.message}`);
+            }
+        }
+
+        async function uploadGlossary() {
+            const fileInput = document.getElementById('glossaryFile');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            try {
+                updateGlossaryStatus('processing', '⏳ 正在上传术语表...');
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // 使用文件名（不含扩展名）作为glossary_id
+                const glossaryId = file.name.replace('.json', '');
+                formData.append('glossary_id', glossaryId);
+
+                const response = await fetch(`${apiUrl()}/api/glossaries/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateGlossaryStatus('success',
+                        `✅ 术语表上传成功！\n` +
+                        `📋 ID: ${data.glossary_id}\n` +
+                        `📊 术语数量: ${data.term_count}`
+                    );
+
+                    // 刷新列表并自动选中
+                    await loadGlossaryList();
+                    document.getElementById('glossaryId').value = data.glossary_id;
+
+                    // 自动启用术语表
+                    document.getElementById('enableGlossary').checked = true;
+                    toggleGlossarySection();
+                } else {
+                    updateGlossaryStatus('error', `❌ 上传失败: ${data.detail || '未知错误'}`);
+                }
+
+                // 清空文件选择
+                fileInput.value = '';
+            } catch (error) {
+                updateGlossaryStatus('error', `❌ 上传错误: ${error.message}`);
+                fileInput.value = '';
+            }
+        }
+
+        function updateGlossaryStatus(type, message) {
+            const el = document.getElementById('glossaryStatus');
+            el.className = `status ${type}`;
+            el.style.display = 'block';
+            el.textContent = message;
+        }
+
+        // ======== 术语表功能结束 ========
 
         async function startExecution() {
             const processor = document.getElementById('processor').value;
@@ -472,6 +605,23 @@
                     requestBody.max_workers = maxWorkers;
                 }
 
+                // 添加术语表配置
+                const enableGlossary = document.getElementById('enableGlossary').checked;
+                if (enableGlossary) {
+                    const glossaryId = document.getElementById('glossaryId').value;
+                    if (glossaryId) {
+                        requestBody.glossary_config = {
+                            enabled: true,
+                            id: glossaryId
+                        };
+                        console.log('✅ 启用术语表:', glossaryId);
+                    } else {
+                        alert('⚠️ 已启用术语表但未选择，请选择一个术语表');
+                        document.getElementById('executeBtn').disabled = false;
+                        return;
+                    }
+                }
+
                 const response = await fetch(`${apiUrl()}/api/execute/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -483,13 +633,14 @@
 
                 if (response.ok) {
                     currentSessionId = sessionId;
-                    
+
                     // 显示Session ID
                     document.getElementById('sessionIdValue').textContent = sessionId;
                     document.getElementById('sessionIdDisplay').style.display = 'block';
 
                     const processorUsed = processor || '自动选择';
-                    updateStatus('processing', `✅ 执行已开始！\n处理器: ${processorUsed}\n正在处理任务...`);
+                    const glossaryUsed = requestBody.glossary_config ? `\n📚 术语表: ${requestBody.glossary_config.id}` : '';
+                    updateStatus('processing', `✅ 执行已开始！\n处理器: ${processorUsed}${glossaryUsed}\n正在处理任务...`);
 
                     const totalTasks = data.total_tasks || 0;
                     document.getElementById('totalTasks').textContent = totalTasks;

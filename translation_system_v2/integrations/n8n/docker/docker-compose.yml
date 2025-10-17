@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # n8n工作流引擎
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: translation_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # 基础配置
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Asia/Shanghai}
+
+      # 认证配置（可选，开发环境可以不启用）
+      # - N8N_BASIC_AUTH_ACTIVE=true
+      # - N8N_BASIC_AUTH_USER=${N8N_USER}
+      # - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+
+      # 加密密钥（如果不设置，n8n会自动生成）
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+
+      # 日志配置
+      - N8N_LOG_LEVEL=${N8N_LOG_LEVEL:-info}
+      - N8N_DIAGNOSTICS_ENABLED=false
+
+      # 执行配置
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+      - EXECUTIONS_DATA_MAX_AGE=168  # 7天
+
+      # API配置（启用API访问）
+      - N8N_API_KEY_ENABLED=true
+      - N8N_API_KEY=${N8N_API_KEY}
+
+    volumes:
+      # n8n数据持久化
+      - n8n_data:/home/node/.n8n
+
+      # 工作流模板（只读）
+      - ../workflows:/workflows:ro
+
+      # 数据文件（读写）
+      - ${DATA_PATH:-/mnt/d/work/trans_excel}:/data
+
+    networks:
+      - translation_network
+
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  translation_network:
+    driver: bridge
+
+volumes:
+  n8n_data:
+    driver: local

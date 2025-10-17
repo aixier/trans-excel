@@ -3,169 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>stringlock</title>
+    <title>StringLock - 智能翻译管理系统</title>
 
-    <!-- DaisyUI + Tailwind CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.css" rel="stylesheet" type="text/css" />
+    <!-- Tailwind CSS + DaisyUI -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 自定义样式 -->
-    <link rel="stylesheet" href="css/main.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
-    <!-- 图标 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <!-- Chart.js (for analytics) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- SheetJS (for Excel operations) -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        /* Custom styles */
+        .nav-link {
+            transition: all 0.2s;
+        }
+        .nav-link.active {
+            background-color: hsl(var(--p) / 0.1);
+            color: hsl(var(--p));
+            font-weight: 600;
+        }
+        .page-transition {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        #app {
+            min-height: calc(100vh - 64px);
+        }
+    </style>
 </head>
 <body>
-    <!-- SaaS后台布局 -->
-    <div class="flex h-screen overflow-hidden">
-        <!-- 左侧菜单 -->
-        <aside id="sidebar" class="w-64 bg-base-100 shadow-xl flex flex-col transition-all duration-300">
-            <!-- Logo区域 -->
-            <div class="h-16 flex items-center justify-between px-4 border-b border-base-300">
-                <div class="flex items-center gap-2">
-                    <i class="bi bi-translate text-2xl text-primary"></i>
-                    <span class="font-bold text-lg">stringlock</span>
-                </div>
-                <button class="btn btn-ghost btn-sm btn-circle lg:hidden" onclick="toggleSidebar()">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            </div>
-
-            <!-- 菜单区域 -->
-            <nav class="flex-1 overflow-y-auto p-4">
-                <ul class="menu menu-vertical gap-1">
-                    <li class="menu-title">
-                        <span>工作区</span>
-                    </li>
+    <!-- Navigation Bar -->
+    <div class="navbar bg-base-100 shadow-lg">
+        <div class="navbar-start">
+            <div class="dropdown">
+                <label tabindex="0" class="btn btn-ghost lg:hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
+                    </svg>
+                </label>
+                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+                    <li><a href="#/" class="nav-link"><i class="bi bi-house-door"></i> 工作台</a></li>
+                    <li><a href="#/sessions" class="nav-link"><i class="bi bi-folder2-open"></i> 会话管理</a></li>
+                    <li><a href="#/glossary" class="nav-link"><i class="bi bi-book"></i> 术语库</a></li>
+                    <li><a href="#/analytics" class="nav-link"><i class="bi bi-graph-up"></i> 数据分析</a></li>
                     <li>
-                        <a href="#/sessions" class="gap-3">
-                            <i class="bi bi-grid-3x3-gap"></i>
-                            <span>工作台</span>
-                        </a>
-                    </li>
-
-                    <li class="menu-title mt-4">
-                        <span>翻译管理</span>
-                    </li>
-                    <li>
-                        <a href="#/create" class="gap-3">
-                            <i class="bi bi-plus-circle"></i>
-                            <span>新建翻译</span>
-                        </a>
-                    </li>
-
-                    <li class="menu-title mt-4">
-                        <span>资源管理</span>
-                    </li>
-                    <li>
-                        <a href="#/glossary" class="gap-3">
-                            <i class="bi bi-book"></i>
-                            <span>术语管理</span>
-                        </a>
+                        <details>
+                            <summary>设置</summary>
+                            <ul>
+                                <li><a href="#/settings/llm" class="nav-link">LLM配置</a></li>
+                                <li><a href="#/settings/rules" class="nav-link">规则配置</a></li>
+                                <li><a href="#/settings/preferences" class="nav-link">用户偏好</a></li>
+                            </ul>
+                        </details>
                     </li>
                 </ul>
-            </nav>
-
-            <!-- 底部信息 -->
-            <div class="p-4 border-t border-base-300">
-                <div class="text-xs text-base-content/50 text-center">
-                    v2.26 • 运行正常
-                </div>
             </div>
-        </aside>
+            <a class="btn btn-ghost normal-case text-xl" href="#/">
+                <i class="bi bi-translate text-primary"></i>
+                <span class="ml-2">StringLock</span>
+            </a>
+        </div>
 
-        <!-- 主内容区域 -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- 顶部导航栏 -->
-            <header class="h-16 bg-base-100 shadow-md flex items-center justify-between px-6 border-b border-base-300">
-                <div class="flex items-center gap-4">
-                    <!-- 移动端菜单按钮 -->
-                    <button class="btn btn-ghost btn-sm btn-circle lg:hidden" onclick="toggleSidebar()">
-                        <i class="bi bi-list text-xl"></i>
-                    </button>
-
-                    <!-- 面包屑 -->
-                    <div id="breadcrumb" class="text-sm breadcrumbs">
-                        <ul>
-                            <li>首页</li>
+        <div class="navbar-center hidden lg:flex">
+            <ul class="menu menu-horizontal px-1">
+                <li><a href="#/" class="nav-link"><i class="bi bi-house-door"></i> 工作台</a></li>
+                <li><a href="#/sessions" class="nav-link"><i class="bi bi-folder2-open"></i> 会话管理</a></li>
+                <li><a href="#/glossary" class="nav-link"><i class="bi bi-book"></i> 术语库</a></li>
+                <li><a href="#/analytics" class="nav-link"><i class="bi bi-graph-up"></i> 数据分析</a></li>
+                <li>
+                    <details>
+                        <summary><i class="bi bi-gear"></i> 设置</summary>
+                        <ul class="p-2 bg-base-100 z-10">
+                            <li><a href="#/settings/llm" class="nav-link">LLM配置</a></li>
+                            <li><a href="#/settings/rules" class="nav-link">规则配置</a></li>
+                            <li><a href="#/settings/preferences" class="nav-link">用户偏好</a></li>
                         </ul>
-                    </div>
-                </div>
+                    </details>
+                </li>
+            </ul>
+        </div>
 
-                <div class="flex items-center gap-4">
-                    <!-- 会话倒计时 -->
-                    <div id="sessionTimer" class="hidden">
-                        <div class="badge badge-lg" id="sessionTimerBadge">
-                            <i class="bi bi-clock mr-1"></i>
-                            <span id="sessionTimerText">--:--</span>
-                        </div>
-                    </div>
+        <div class="navbar-end">
+            <!-- Quick Actions -->
+            <div class="dropdown dropdown-end mr-2">
+                <label tabindex="0" class="btn btn-primary btn-sm">
+                    <i class="bi bi-lightning-charge"></i>
+                    <span class="hidden sm:inline ml-1">快速操作</span>
+                </label>
+                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                    <li><a href="#/upload"><i class="bi bi-upload"></i> 上传文件</a></li>
+                    <li><a href="#/config"><i class="bi bi-sliders"></i> 配置任务</a></li>
+                    <li><a href="#/execution"><i class="bi bi-play-circle"></i> 执行翻译</a></li>
+                </ul>
+            </div>
 
-                    <!-- 主题切换 -->
-                    <label class="swap swap-rotate">
-                        <input type="checkbox" id="themeToggle" />
-                        <i class="bi bi-sun-fill swap-on text-xl"></i>
-                        <i class="bi bi-moon-fill swap-off text-xl"></i>
-                    </label>
-
-                    <!-- 用户信息 -->
-                    <div id="userInfo" class="hidden dropdown dropdown-end">
-                        <label tabindex="0" class="btn btn-ghost btn-sm gap-2">
-                            <div class="avatar placeholder">
-                                <div class="bg-neutral-focus text-neutral-content rounded-full w-8">
-                                    <span id="userAvatar" class="text-xs">U</span>
-                                </div>
-                            </div>
-                            <span id="userDisplayName" class="hidden sm:inline">用户</span>
-                        </label>
-                        <ul tabindex="0" class="mt-3 p-2 shadow menu dropdown-content bg-base-100 rounded-box w-52">
-                            <li><a id="logoutBtn"><i class="bi bi-box-arrow-right"></i> 登出</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </header>
-
-            <!-- 内容区域 -->
-            <main class="flex-1 overflow-y-auto bg-base-200 p-6" id="app">
-                <div id="pageContent">
-                    <!-- 动态页面内容 -->
-                </div>
-            </main>
+            <!-- Theme Toggle -->
+            <label class="swap swap-rotate btn btn-ghost btn-sm btn-circle">
+                <input type="checkbox" id="theme-toggle" />
+                <i class="bi bi-sun-fill swap-off text-lg"></i>
+                <i class="bi bi-moon-fill swap-on text-lg"></i>
+            </label>
         </div>
     </div>
 
-    <!-- 移动端侧边栏遮罩 -->
-    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+    <!-- Config Confirm Modal -->
+    <dialog id="configModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-lg mb-4">开始翻译</h3>
+            <div id="configModalContent">
+                <!-- Content will be dynamically rendered by ConfigConfirmModal -->
+            </div>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost">取消</button>
+                </form>
+                <button id="startProcessBtn" class="btn btn-primary">
+                    <i class="bi bi-rocket-takeoff"></i>
+                    开始翻译
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>关闭</button>
+        </form>
+    </dialog>
 
-    <!-- Toast提示容器 -->
-    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
-
-    <!-- 全局Loading -->
-    <div id="globalLoading" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-        <div class="loading loading-spinner loading-lg"></div>
+    <!-- Main Content Container -->
+    <div id="app" class="page-transition">
+        <!-- Pages will be loaded here dynamically -->
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <span class="loading loading-spinner loading-lg text-primary"></span>
+                <p class="mt-4 text-sm opacity-70">正在加载应用...</p>
+            </div>
+        </div>
     </div>
 
-    <!-- 核心JavaScript -->
-    <script src="js/config.js"></script>
-    <script src="js/utils/layout.js"></script>
-    <script src="js/utils/auth.js"></script>
-    <script src="js/utils/api.js"></script>
-    <script src="js/utils/storage.js"></script>
-    <script src="js/utils/session-manager.js"></script>
-    <script src="js/utils/websocket-manager.js"></script>
-    <script src="js/utils/ui-helper.js"></script>
-    <script src="js/router.js"></script>
+    <!-- API Configuration -->
+    <script>
+        // 定义API基础URL（全局配置）
+        window.API_BASE_URL = 'http://localhost:8013';
+    </script>
 
-    <!-- 页面组件 -->
-    <script src="js/pages/login.js"></script>
-    <script src="js/pages/sessions.js"></script>
+    <!-- Scripts - Core Modules (Engineer A) -->
+    <script src="js/core/router.js"></script>
+    <script src="js/services/api.js"></script>
+    <script src="js/services/websocket-manager.js"></script>
+
+    <!-- Scripts - Components (Engineer A) -->
+    <script src="js/components/stat-card.js"></script>
+    <script src="js/components/filter-bar.js"></script>
+    <script src="js/components/data-table.js"></script>
+    <script src="js/components/config-confirm-modal.js"></script>
+
+    <!-- Scripts - Workflows (Engineer B) -->
+    <script src="js/workflows/auto-workflow-orchestrator.js"></script>
+    <script src="js/workflows/sequential-workflow-controller.js"></script>
+
+    <!-- Scripts - Pages (Engineers B, C, D) -->
+    <script src="js/pages/dashboard-page.js"></script>
+    <script src="js/pages/sessions-page.js"></script>
     <script src="js/pages/glossary.js"></script>
-    <script src="js/pages/create.js"></script>
-    <script src="js/pages/config.js"></script>
-    <script src="js/pages/execute.js"></script>
-    <script src="js/pages/complete.js"></script>
+    <script src="js/pages/analytics.js"></script>
+    <script src="js/pages/upload-page.js"></script>
+    <script src="js/pages/simple-upload-page.js"></script>
+    <script src="js/pages/unified-workflow-page.js"></script>
+    <script src="js/pages/task-config-page.js"></script>
+    <script src="js/pages/execution-page.js"></script>
+    <script src="js/pages/settings-llm-page.js"></script>
 
-    <!-- 应用初始化 -->
+    <!-- Main Application -->
     <script src="js/app.js"></script>
+
+    <!-- Theme Toggle Script -->
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const currentTheme = localStorage.getItem('theme') || 'light';
+
+        // Set initial state
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        themeToggle.checked = (currentTheme === 'dark');
+
+        // Handle theme change
+        themeToggle.addEventListener('change', function() {
+            const theme = this.checked ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        });
+    </script>
 </body>
 </html>

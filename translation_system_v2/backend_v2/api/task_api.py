@@ -296,6 +296,10 @@ async def _perform_split_async(
         task_manager.df.to_parquet(task_file_path, index=False)
         pipeline_session_manager.set_metadata(session_id, 'task_file_path', task_file_path)
 
+        # Update session stage to SPLIT_COMPLETE
+        session.update_stage(TransformationStage.SPLIT_COMPLETE)
+        pipeline_session_manager._sync_to_cache(session)
+
         # Update progress
         splitting_progress[session_id] = {
             'status': 'completed',

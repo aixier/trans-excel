@@ -1,0 +1,74 @@
+{
+  "name": "Simple Form Translation",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "translate",
+        "formTitle": "📄 Excel Translation System",
+        "formDescription": "Upload Excel file for translation",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Excel File",
+              "fieldType": "file",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Target Language",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "English (EN)",
+                    "value": "EN"
+                  },
+                  {
+                    "option": "Thai (TH)",
+                    "value": "TH"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "formSubmittedText": "✅ Translation task submitted!\n\nProcessing your file..."
+      },
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "translate-form"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=Task submitted! Session ID: {{ $json.formData }}",
+        "options": {}
+      },
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

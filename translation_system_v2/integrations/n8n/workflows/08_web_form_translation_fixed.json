@@ -1,0 +1,508 @@
+{
+  "name": "Web Form Translation (网页表单翻译)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "📄 Excel 文件翻译系统",
+        "formDescription": "上传 Excel 文件，自动翻译为多种语言",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Excel 文件",
+              "fieldType": "file",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "目标语言",
+              "fieldType": "multiselect",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "英文 (EN)",
+                    "value": "EN"
+                  },
+                  {
+                    "option": "泰文 (TH)",
+                    "value": "TH"
+                  },
+                  {
+                    "option": "葡萄牙文 (PT)",
+                    "value": "PT"
+                  },
+                  {
+                    "option": "越南文 (VN)",
+                    "value": "VN"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "术语表",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "不使用",
+                    "value": ""
+                  },
+                  {
+                    "option": "游戏术语 (game_terms)",
+                    "value": "game_terms"
+                  },
+                  {
+                    "option": "商业术语 (business_terms)",
+                    "value": "business_terms"
+                  },
+                  {
+                    "option": "技术术语 (technical_terms)",
+                    "value": "technical_terms"
+                  }
+                ]
+              },
+              "requiredField": false
+            },
+            {
+              "fieldLabel": "翻译引擎",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "通义千问 (推荐)",
+                    "value": "llm_qwen"
+                  },
+                  {
+                    "option": "OpenAI GPT",
+                    "value": "llm_openai"
+                  }
+                ]
+              },
+              "requiredField": false
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "formSubmittedText": "✅ 翻译任务已提交！\n\n正在处理您的文件，请稍等片刻...\n\n您可以关闭此页面，稍后通过 Session ID 查询结果。"
+      },
+      "name": "Translation Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "id": "form-trigger-1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 处理表单数据\nconst formData = $input.item.json;\n\n// 获取目标语言（多选转为逗号分隔）\nconst targetLangs = Array.isArray(formData['目标语言']) \n  ? formData['目标语言'].join(',')\n  : formData['目标语言'] || 'EN';\n\n// 获取术语表ID\nconst glossaryId = formData['术语表'] || '';\n\n// 获取处理器\nconst processor = formData['翻译引擎'] || 'llm_qwen';\n\n// 获取文件\nconst fileData = formData['Excel 文件'];\n\nreturn {\n  json: {\n    target_langs: targetLangs,\n    glossary_id: glossaryId,\n    processor: processor,\n    file_name: fileData.filename || 'uploaded_file.xlsx'\n  },\n  binary: {\n    data: $input.item.binary.data\n  }\n};"
+      },
+      "name": "Process Form Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "id": "code-1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8013/api/tasks/split",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $binary.data }}"
+            },
+            {
+              "name": "source_lang",
+              "value": "CH"
+            },
+            {
+              "name": "target_langs",
+              "value": "={{ $json.target_langs }}"
+            },
+            {
+              "name": "rule_set",
+              "value": "translation"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "Upload & Split Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        650,
+        300
+      ],
+      "id": "http-1"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8013/api/tasks/split/status/{{ $json.session_id }}",
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Poll Split Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        850,
+        300
+      ],
+      "id": "http-2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equals",
+              "value2": "split_complete"
+            }
+          ]
+        }
+      },
+      "name": "Check Split Complete",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        300
+      ],
+      "id": "if-1"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "name": "Wait 2s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        500
+      ],
+      "webhookId": "wait-split"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8013/api/execute/start",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\n  \"session_id\": \"{{ $('Upload & Split Tasks').item.json.session_id }}\",\n  \"processor\": \"{{ $('Process Form Data').item.json.processor }}\",\n  \"max_workers\": 10,\n  {{ $('Process Form Data').item.json.glossary_id ? '\"glossary_config\": {\"enabled\": true, \"id\": \"' + $('Process Form Data').item.json.glossary_id + '\"}' : '' }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Execute Translation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1250,
+        200
+      ],
+      "id": "http-3"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8013/api/execute/status/{{ $('Upload & Split Tasks').item.json.session_id }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Poll Execution Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1450,
+        200
+      ],
+      "id": "http-4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equals",
+              "value2": "completed"
+            }
+          ]
+        }
+      },
+      "name": "Check Execution Complete",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1650,
+        200
+      ],
+      "id": "if-2"
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "name": "Wait 5s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1650,
+        400
+      ],
+      "webhookId": "wait-execute"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://backend:8013/api/download/{{ $('Upload & Split Tasks').item.json.session_id }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "name": "Download Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1850,
+        100
+      ],
+      "id": "http-5"
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $('Process Form Data').item.json.file_name.replace('.xlsx', '_translated.xlsx') }}",
+        "options": {}
+      },
+      "name": "Save Result File",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        2050,
+        100
+      ],
+      "id": "write-file-1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"翻译完成！\",\n  \"session_id\": \"{{ $('Upload & Split Tasks').item.json.session_id }}\",\n  \"file_name\": \"{{ $json.fileName }}\",\n  \"download_url\": \"http://localhost:8013/api/download/{{ $('Upload & Split Tasks').item.json.session_id }}\"\n}",
+        "options": {}
+      },
+      "name": "Return Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2250,
+        100
+      ],
+      "id": "respond-1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"message\": \"翻译失败\",\n  \"error\": \"{{ $json.error || '未知错误' }}\"\n}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "name": "Return Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2250,
+        300
+      ],
+      "id": "respond-2"
+    }
+  ],
+  "connections": {
+    "Translation Form": {
+      "main": [
+        [
+          {
+            "node": "Process Form Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Form Data": {
+      "main": [
+        [
+          {
+            "node": "Upload & Split Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload & Split Tasks": {
+      "main": [
+        [
+          {
+            "node": "Poll Split Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Split Status": {
+      "main": [
+        [
+          {
+            "node": "Check Split Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Split Complete": {
+      "main": [
+        [
+          {
+            "node": "Execute Translation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s": {
+      "main": [
+        [
+          {
+            "node": "Poll Split Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Translation": {
+      "main": [
+        [
+          {
+            "node": "Poll Execution Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Execution Status": {
+      "main": [
+        [
+          {
+            "node": "Check Execution Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Execution Complete": {
+      "main": [
+        [
+          {
+            "node": "Download Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 5s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5s": {
+      "main": [
+        [
+          {
+            "node": "Poll Execution Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Result": {
+      "main": [
+        [
+          {
+            "node": "Save Result File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Result File": {
+      "main": [
+        [
+          {
+            "node": "Return Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "versionId": "1"
+}

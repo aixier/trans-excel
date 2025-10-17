@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>顺序工作流测试 - 完整API时序</title>
+
+    <!-- Tailwind CSS + DaisyUI -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .log-entry {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            padding: 2px 8px;
+            border-left: 3px solid transparent;
+        }
+        .log-entry.info { border-left-color: #3b82f6; }
+        .log-entry.success { border-left-color: #10b981; }
+        .log-entry.warning { border-left-color: #f59e0b; }
+        .log-entry.error { border-left-color: #ef4444; }
+        #logOutput {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-2">顺序工作流测试</h1>
+        <p class="text-gray-600 mb-6">按照 API_SEQUENCE_DIAGRAM.md 的时序执行完整流程</p>
+
+        <!-- 控制面板 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- 文件上传 -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">步骤1: 选择文件</h2>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" class="file-input file-input-bordered w-full" />
+                    <div id="fileInfo" class="text-sm text-gray-500 mt-2"></div>
+                </div>
+            </div>
+
+            <!-- 配置选项 -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">步骤2: 配置选项</h2>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Source Language</span>
+                        </label>
+                        <select id="sourceLang" class="select select-bordered w-full">
+                            <option value="CH">中文 (CH)</option>
+                            <option value="EN">英文 (EN)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Target Languages</span>
+                        </label>
+                        <div class="space-y-2">
+                            <label class="cursor-pointer flex items-center">
+                                <input type="checkbox" value="EN" class="checkbox checkbox-primary" checked />
+                                <span class="ml-2">English (EN)</span>
+                            </label>
+                            <label class="cursor-pointer flex items-center">
+                                <input type="checkbox" value="JP" class="checkbox checkbox-primary" />
+                                <span class="ml-2">日本語 (JP)</span>
+                            </label>
+                            <label class="cursor-pointer flex items-center">
+                                <input type="checkbox" value="PT" class="checkbox checkbox-primary" />
+                                <span class="ml-2">Português (PT)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 执行按钮 -->
+        <div class="mb-6 text-center">
+            <button id="startBtn" class="btn btn-primary btn-lg" disabled>
+                开始执行工作流
+            </button>
+            <button id="stopBtn" class="btn btn-error btn-lg ml-4" disabled>
+                停止执行
+            </button>
+        </div>
+
+        <!-- 进度显示 -->
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h2 class="card-title">执行进度</h2>
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span id="progressMessage">等待开始...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <progress id="progressBar" class="progress progress-primary w-full" value="0" max="100"></progress>
+                </div>
+
+                <!-- 会话链显示 -->
+                <div id="sessionChain" class="hidden">
+                    <h3 class="font-semibold mb-2">Session链:</h3>
+                    <div id="sessionList" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日志输出 -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">执行日志</h2>
+                <div id="logOutput" class="rounded p-4">
+                    <div class="log-entry info">等待开始...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 下载按钮 -->
+        <div id="downloadSection" class="mt-6 text-center hidden">
+            <button id="downloadBtn" class="btn btn-success btn-lg">
+                下载最终结果
+            </button>
+        </div>
+    </div>
+
+    <!-- API配置 -->
+    <script>
+        window.API_BASE_URL = 'http://localhost:8013';
+    </script>
+
+    <!-- 加载工作流控制器 -->
+    <script src="js/workflows/sequential-workflow-controller.js"></script>
+
+    <!-- 测试脚本 -->
+    <script>
+        // 全局变量
+        let controller = null;
+        let selectedFile = null;
+        let finalSessionId = null;
+
+        // DOM元素
+        const fileInput = document.getElementById('fileInput');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const logOutput = document.getElementById('logOutput');
+        const progressBar = document.getElementById('progressBar');
+        const progressMessage = document.getElementById('progressMessage');
+        const progressPercent = document.getElementById('progressPercent');
+        const downloadSection = document.getElementById('downloadSection');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                document.getElementById('fileInfo').textContent =
+                    `已选择: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(2)} KB)`;
+                startBtn.disabled = false;
+                log(`文件已选择: ${selectedFile.name}`, 'info');
+            }
+        });
+
+        // 获取配置
+        function getConfig() {
+            const sourceLang = document.getElementById('sourceLang').value;
+            const targetLangs = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+
+            return {
+                analysis: {
+                    language_detection: {
+                        suggested_config: {
+                            source_lang: sourceLang,
+                            target_langs: targetLangs
+                        }
+                    },
+                    file_info: {
+                        sheets: ['Data', 'CAPS']  // 模拟包含CAPS的文件
+                    }
+                }
+            };
+        }
+
+        // 开始执行
+        startBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                alert('请先选择文件');
+                return;
+            }
+
+            // 清空日志
+            logOutput.innerHTML = '';
+            log('========== 开始执行顺序工作流 ==========', 'success');
+
+            // 禁用按钮
+            startBtn.disabled = true;
+            fileInput.disabled = true;
+            stopBtn.disabled = false;
+
+            // 创建控制器
+            controller = new SequentialWorkflowController();
+
+            // 设置回调
+            controller.onProgress((progress) => {
+                progressMessage.textContent = progress.message;
+                progressPercent.textContent = `${progress.percent}%`;
+                progressBar.value = progress.percent;
+
+                log(`进度: ${progress.percent}% - ${progress.message}`, 'info');
+
+                if (progress.details && progress.details.completed !== undefined) {
+                    log(`  任务: ${progress.details.completed}/${progress.details.total || '--'}`, 'info');
+                }
+            });
+
+            controller.onCompletion((result) => {
+                log(`========== 工作流完成 ==========`, 'success');
+                log(`最终Session: ${result.sessionId}`, 'success');
+                log(`Session链: ${result.sessionIds.join(' -> ')}`, 'info');
+
+                finalSessionId = result.sessionId;
+
+                // 显示Session链
+                document.getElementById('sessionChain').classList.remove('hidden');
+                document.getElementById('sessionList').innerHTML = result.sessionIds.map((id, idx) => `
+                    <div class="badge badge-primary">${idx + 1}. ${id}</div>
+                `).join('');
+
+                // 显示下载按钮
+                downloadSection.classList.remove('hidden');
+
+                // 重置按钮
+                startBtn.disabled = false;
+                fileInput.disabled = false;
+                stopBtn.disabled = true;
+            });
+
+            controller.onError((error) => {
+                log(`错误: ${error.message}`, 'error');
+
+                // 重置按钮
+                startBtn.disabled = false;
+                fileInput.disabled = false;
+                stopBtn.disabled = true;
+            });
+
+            // 执行工作流
+            try {
+                const config = getConfig();
+                log(`配置: ${JSON.stringify(config.analysis.language_detection.suggested_config)}`, 'info');
+                await controller.execute(selectedFile, config);
+            } catch (error) {
+                log(`执行失败: ${error.message}`, 'error');
+            }
+        });
+
+        // 停止执行（目前只是UI更新）
+        stopBtn.addEventListener('click', () => {
+            log('用户请求停止执行', 'warning');
+            // TODO: 实现停止逻辑
+            stopBtn.disabled = true;
+        });
+
+        // 下载结果
+        downloadBtn.addEventListener('click', async () => {
+            if (!finalSessionId) {
+                alert('没有可下载的结果');
+                return;
+            }
+
+            try {
+                log(`开始下载: ${finalSessionId}`, 'info');
+
+                const response = await fetch(`${window.API_BASE_URL}/api/download/${finalSessionId}`);
+                if (!response.ok) {
+                    throw new Error(`Download failed: ${response.statusText}`);
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `result_${finalSessionId.substring(0, 8)}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                log('下载成功', 'success');
+            } catch (error) {
+                log(`下载失败: ${error.message}`, 'error');
+            }
+        });
+
+        // 初始化
+        log('测试页面已就绪', 'info');
+        log('请选择包含CAPS sheet的Excel文件开始测试', 'info');
+    </script>
+</body>
+</html>

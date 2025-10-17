@@ -13,6 +13,8 @@ from api.pool_monitor_api import router as pool_monitor_router
 from api.auth_api import router as auth_router
 from api.session_api import router as session_router
 from api.glossary_api import router as glossary_router
+from api.analytics_api import router as analytics_router
+from api.config_api import router as config_router
 from api.debug_api import router as debug_router
 # Removed: analyze_api (merged into task_api split endpoint)
 # Removed: pipeline_api (直接修改existing APIs instead)
@@ -49,6 +51,8 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(session_router)
 app.include_router(glossary_router)
+app.include_router(analytics_router)
+app.include_router(config_router)
 app.include_router(task_router)  # Includes split (with merged analyze logic)
 app.include_router(execute_router)
 app.include_router(monitor_router)

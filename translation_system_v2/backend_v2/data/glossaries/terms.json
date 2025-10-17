@@ -1,0 +1,254 @@
+{
+  "id": "terms",
+  "name": "terms",
+  "description": "自动导入的术语表",
+  "version": "1.0",
+  "languages": [
+    "EN"
+  ],
+  "terms": [
+    {
+      "id": "term_001",
+      "source": "“斗王",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Brawler King"
+      }
+    },
+    {
+      "id": "term_002",
+      "source": "天梯赛",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Ladder Tournament"
+      }
+    },
+    {
+      "id": "term_003",
+      "source": "多重爆头",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Multi-Headshot"
+      }
+    },
+    {
+      "id": "term_004",
+      "source": "破甲弹",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Armor-Piercing"
+      }
+    },
+    {
+      "id": "term_005",
+      "source": "超重型弹药",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Super-Heavy Ammo"
+      }
+    },
+    {
+      "id": "term_006",
+      "source": "快枪手",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Gunslinger"
+      }
+    },
+    {
+      "id": "term_007",
+      "source": "伏击大师",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Ambush Master"
+      }
+    },
+    {
+      "id": "term_008",
+      "source": "透明护罩",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Transparent Shield"
+      }
+    },
+    {
+      "id": "term_009",
+      "source": "卫星定位",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Satellite Tracking"
+      }
+    },
+    {
+      "id": "term_010",
+      "source": "致残打击",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Crippling Strike"
+      }
+    },
+    {
+      "id": "term_011",
+      "source": "动力加速",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Power Surge"
+      }
+    },
+    {
+      "id": "term_012",
+      "source": "安全降落",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Safe Landing"
+      }
+    },
+    {
+      "id": "term_013",
+      "source": "兴奋药剂",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Stimulant"
+      }
+    },
+    {
+      "id": "term_014",
+      "source": "专业医生",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Field Medic"
+      }
+    },
+    {
+      "id": "term_015",
+      "source": "火力全开",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Firepower"
+      }
+    },
+    {
+      "id": "term_016",
+      "source": "高抛达人",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "High-Arc Thrower"
+      }
+    },
+    {
+      "id": "term_017",
+      "source": "血之滋味",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Desperation"
+      }
+    },
+    {
+      "id": "term_018",
+      "source": "玻璃大炮",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Blood Pact"
+      }
+    },
+    {
+      "id": "term_019",
+      "source": "攻击力下降",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "ATK Down"
+      }
+    },
+    {
+      "id": "term_020",
+      "source": "防御力下降",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "DEF Down"
+      }
+    },
+    {
+      "id": "term_021",
+      "source": "生命上限降低",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Max HP Down"
+      }
+    },
+    {
+      "id": "term_022",
+      "source": "SP上限降低",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Max SP Down"
+      }
+    },
+    {
+      "id": "term_023",
+      "source": "暴击下降",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "CRIT Down"
+      }
+    },
+    {
+      "id": "term_024",
+      "source": "沉默是金",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Restraint"
+      }
+    },
+    {
+      "id": "term_025",
+      "source": "咬牙切齿",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Reprisal"
+      }
+    },
+    {
+      "id": "term_026",
+      "source": "坚毅不倒",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Fortitude"
+      }
+    },
+    {
+      "id": "term_027",
+      "source": "苍月",
+      "category": "通用",
+      "priority": 5,
+      "translations": {
+        "EN": "Artemis"
+      }
+    }
+  ]
+}

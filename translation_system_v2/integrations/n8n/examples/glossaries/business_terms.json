@@ -1,0 +1,17 @@
+{
+  "订单": "Order",
+  "客户": "Customer",
+  "发票": "Invoice",
+  "付款": "Payment",
+  "收据": "Receipt",
+  "合同": "Contract",
+  "报价": "Quotation",
+  "库存": "Inventory",
+  "供应商": "Supplier",
+  "采购": "Procurement",
+  "销售": "Sales",
+  "利润": "Profit",
+  "成本": "Cost",
+  "预算": "Budget",
+  "审计": "Audit"
+}

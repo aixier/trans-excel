@@ -5,54 +5,85 @@
 processors:
   # LLM-based translation processors
   llm_qwen:
+    name: "通义千问翻译"
     class: services.llm.qwen_provider.QwenProvider
-    description: "Qwen LLM translator"
+    description: "使用阿里云通义千问进行智能翻译"
     type: llm_translation
     config:
       model: qwen-plus
       temperature: 0.3
     enabled: true
+    requires_llm: true
+    parameters:
+      maxWorkers:
+        type: number
+        label: "最大并发数"
+        default: 10
+        min: 1
+        max: 50
 
   llm_openai:
+    name: "OpenAI GPT翻译"
     class: services.llm.openai_provider.OpenAIProvider
-    description: "OpenAI GPT translator"
+    description: "使用OpenAI GPT模型进行翻译"
     type: llm_translation
     config:
       model: gpt-4
       temperature: 0.3
     enabled: true
+    requires_llm: true
+    parameters:
+      maxWorkers:
+        type: number
+        label: "最大并发数"
+        default: 10
+        min: 1
+        max: 50
 
   # Simple transformation processors
   uppercase:
+    name: "大写转换"
     class: services.processors.uppercase_processor.UppercaseProcessor
-    description: "Convert text to uppercase"
+    description: "将文本转换为大写形式"
     type: text_transform
     config: {}
     enabled: true
     requires_llm: false
+    parameters:
+      maxWorkers:
+        type: number
+        label: "最大并发数"
+        default: 20
+        min: 1
+        max: 100
 
   lowercase:
+    name: "小写转换"
     class: services.processors.lowercase_processor.LowercaseProcessor
-    description: "Convert text to lowercase"
+    description: "将文本转换为小写形式"
     type: text_transform
     config: {}
     enabled: true
     requires_llm: false
+    parameters: {}
 
   trim:
+    name: "文本修剪"
     class: services.processors.trim_processor.TrimProcessor
-    description: "Trim whitespace and limit length"
+    description: "去除空格并限制文本长度"
     type: text_transform
     config:
       max_length: 100
       strip: true
     enabled: false
     requires_llm: false
+    parameters: {}
 
   # Validation processors
   validate:
+    name: "质量验证"
     class: services.processors.validate_processor.ValidateProcessor
-    description: "Validate translation quality"
+    description: "验证翻译结果质量"
     type: validation
     config:
       rules:
@@ -61,6 +92,7 @@ processors:
         - length_check
     enabled: false
     requires_llm: false
+    parameters: {}
 
 # Processor sets for common scenarios
 processor_sets:

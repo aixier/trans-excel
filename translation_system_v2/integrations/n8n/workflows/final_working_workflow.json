@@ -1,0 +1,77 @@
+{
+  "name": "最终翻译表单",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "trans",
+        "formTitle": "📄 Excel翻译",
+        "formDescription": "上传Excel文件进行翻译",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Excel文件",
+              "fieldType": "file",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "目标语言",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {"option": "英文", "value": "EN"},
+                  {"option": "泰文", "value": "TH"}
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "onReceived"
+      },
+      "name": "表单",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8013/api/tasks/split",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {"name": "file", "value": "={{ $binary.data }}"},
+            {"name": "source_lang", "value": "CH"},
+            {"name": "target_langs", "value": "={{ $json['目标语言'] }}"}
+          ]
+        }
+      },
+      "name": "提交任务",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"成功\": true, \"会话ID\": $json.session_id, \"查询状态\": \"http://localhost:8013/api/tasks/split/status/\" + $json.session_id, \"下载地址\": \"http://localhost:8013/api/download/\" + $json.session_id} }}"
+      },
+      "name": "返回结果",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "表单": {
+      "main": [[{"node": "提交任务", "type": "main", "index": 0}]]
+    },
+    "提交任务": {
+      "main": [[{"node": "返回结果", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "tags": []
+}

@@ -1,4 +1,4 @@
-# Translation Hub - 前端应用
+# StringLock - 前端应用
 
 > 🌍 专业的 Excel 文件翻译系统前端应用
 >
@@ -8,7 +8,7 @@
 
 ## 📖 项目简介
 
-Translation Hub 是一个为游戏本地化团队设计的专业翻译工作台，支持批量 Excel 文件翻译、实时进度监控、成本分析等功能。
+StringLock 是一个为游戏本地化团队设计的专业翻译工作台，支持批量 Excel 文件翻译、实时进度监控、成本分析等功能。
 
 ### 核心特性
 
@@ -23,58 +23,45 @@ Translation Hub 是一个为游戏本地化团队设计的专业翻译工作台�
 
 ## 🚀 快速开始
 
-### 环境要求
+### 当前状态
 
-- 现代浏览器（Chrome 90+ / Firefox 88+ / Safari 14+ / Edge 90+）
-- 本地或远程后端服务（默认 `http://localhost:8013`）
+**📚 文档阶段完成** - 需求、设计、技术规格文档已完成
+**💻 代码开发** - 待开始
 
-### 安装步骤
+### 查看文档
 
-1. **克隆项目**
+所有设计文档位于 `docs/` 目录：
+
 ```bash
-git clone <repository-url>
-cd translation_system/frontend_v2
+# 查看完整文档导航
+cat docs/README.md
+
+# 在浏览器中查看文档
+# 可以使用任意 Markdown 查看器或 IDE
 ```
 
-2. **直接运行**
+### 测试页面
 
-由于是纯静态项目，可以通过以下任意方式运行：
+测试页面位于 `test_pages/` 目录，可独立运行：
 
-**方式1: Python HTTP Server**
 ```bash
+cd test_pages
 python -m http.server 8080
 # 访问 http://localhost:8080
 ```
 
-**方式2: Node.js HTTP Server**
-```bash
-npx http-server -p 8080
-# 访问 http://localhost:8080
-```
+---
 
-**方式3: VS Code Live Server**
-- 安装 Live Server 插件
-- 右键 `index.html` → "Open with Live Server"
+## 📚 文档导航
 
-**方式4: 直接打开**
-```bash
-# macOS/Linux
-open index.html
+完整的文档体系请查看 **[docs/README.md](docs/README.md)**
 
-# Windows
-start index.html
-```
-
-3. **配置后端地址**
-
-编辑 `js/api.js`，修改 `baseURL`:
-```javascript
-class API {
-  constructor(baseURL = 'http://localhost:8013') {
-    this.baseURL = baseURL;
-  }
-}
-```
+**快速链接**:
+- [功能需求](docs/requirements/REQUIREMENTS.md) - 产品功能和用户需求
+- [界面设计](docs/design/UI_DESIGN.md) - 设计系统和UI原型
+- [Pipeline可视化设计](docs/design/PIPELINE_UX_DESIGN.md) - Pipeline UX设计
+- [功能规格](docs/technical/FEATURE_SPEC.md) - 详细技术实现规范
+- [后端配置确认](docs/technical/BACKEND_CONFIG_CONFIRMATION.md) - 后端对接说明
 
 ---
 
@@ -82,51 +69,36 @@ class API {
 
 ```
 frontend_v2/
-├── index.html                    # 主入口文件
 ├── README.md                     # 本文档
-├── FRONTEND_DESIGN.md            # 详细设计文档
+├── .gitignore                    # Git 忽略规则
 │
-├── assets/                       # 静态资源
-│   ├── images/                   # 图片
-│   └── fonts/                    # 字体
+├── docs/                         # 📚 完整文档体系
+│   ├── README.md                 # 文档导航总览
+│   ├── requirements/             # 需求文档
+│   │   └── REQUIREMENTS.md
+│   ├── design/                   # 设计文档
+│   │   ├── UI_DESIGN.md
+│   │   └── PIPELINE_UX_DESIGN.md
+│   └── technical/                # 技术文档
+│       ├── FEATURE_SPEC.md
+│       └── BACKEND_CONFIG_CONFIRMATION.md
 │
-├── css/                          # 样式文件
-│   ├── design-tokens.css         # 设计变量
-│   ├── base.css                  # 基础样式
-│   ├── layout.css                # 布局
-│   ├── components.css            # 组件样式
-│   ├── pages.css                 # 页面样式
-│   └── utilities.css             # 工具类
+├── test_pages/                   # 🧪 测试页面
+│   ├── index.html                # 测试页面入口
+│   ├── 1_upload_and_split.html
+│   ├── 2_execute_transformation.html
+│   ├── 4_caps_transformation.html
+│   ├── README.md
+│   └── docs/                     # 测试相关文档
+│       ├── ARCHITECTURE_COMPLIANCE_UPDATE.md
+│       └── GLOSSARY_USAGE.md
 │
-├── js/                           # JavaScript
-│   ├── main.js                   # 主入口
-│   ├── router.js                 # 路由管理
-│   ├── store.js                  # 状态管理
-│   ├── api.js                    # API 封装
-│   │
-│   ├── utils/                    # 工具函数
-│   │   ├── dom.js
-│   │   ├── format.js
-│   │   ├── validate.js
-│   │   └── animation.js
-│   │
-│   ├── components/               # 可复用组件
-│   │   ├── Navbar.js
-│   │   ├── Sidebar.js
-│   │   ├── Toast.js
-│   │   ├── Modal.js
-│   │   ├── ProgressBar.js
-│   │   └── FileUpload.js
-│   │
-│   └── pages/                    # 页面组件
-│       ├── ProjectCreate.js      # 项目创建
-│       ├── TaskConfig.js         # 任务配置
-│       ├── TranslationExec.js    # 翻译执行
-│       ├── ResultExport.js       # 结果导出
-│       └── HistoryManager.js     # 历史管理
-│
-└── test_pages/                   # 测试页面（参考）
+└── nginx.conf                    # Nginx 配置示例
 ```
+
+**注意**：
+- 当前为文档阶段，正式前端代码待开发
+- 测试页面可独立运行用于后端API测试
 
 ---
 
@@ -316,32 +288,18 @@ feat(pages): 实现项目创建页面
 fix(api): 修复文件上传超时问题
 ```
 
-### 添加新页面
+### 开发新功能
 
-1. 在 `js/pages/` 创建页面组件
-2. 在 `router.js` 注册路由
-3. 在 `pages.css` 添加页面样式
-4. 在 `Sidebar.js` 添加导航链接
+**参考文档**：
+- [功能规格](docs/technical/FEATURE_SPEC.md) - 详细的功能实现说明
+- [UI设计](docs/design/UI_DESIGN.md) - 组件库和页面设计
+- [需求文档](docs/requirements/REQUIREMENTS.md) - 功能需求和优先级
 
-```javascript
-// 1. 创建页面组件
-class NewPage {
-  constructor(container) {
-    this.container = container;
-  }
-
-  render() {
-    this.container.innerHTML = `<h1>New Page</h1>`;
-  }
-
-  destroy() {
-    this.container.innerHTML = '';
-  }
-}
-
-// 2. 注册路由
-router.register('/new', NewPage);
-```
+**开发流程**：
+1. 阅读相关需求和设计文档
+2. 实现页面组件（参考 FEATURE_SPEC.md 中的代码示例）
+3. 编写单元测试
+4. 集成到主应用
 
 ---
 
@@ -366,43 +324,22 @@ router.register('/new', NewPage);
 
 ## 📦 部署
 
-### 静态托管
+### 当前阶段
 
-所有文件均为静态资源，可部署到：
+**前端代码尚未开发完成**，当前可部署的内容：
 
-- **GitHub Pages**
-  ```bash
-  git push origin main
-  # 在仓库设置中启用 GitHub Pages
-  ```
+1. **文档站点** - 将 `docs/` 目录部署为文档网站
+2. **测试页面** - 将 `test_pages/` 部署用于后端API测试
 
-- **Vercel**
-  ```bash
-  vercel deploy
-  ```
+### 未来部署方案
 
-- **Netlify**
-  - 拖拽 `frontend_v2` 文件夹到 Netlify
+完整前端应用开发完成后，可部署到：
+- GitHub Pages
+- Vercel
+- Netlify
+- Nginx/Apache
 
-- **Nginx**
-  ```nginx
-  server {
-    listen 80;
-    root /var/www/translation-hub/frontend_v2;
-    index index.html;
-
-    location / {
-      try_files $uri $uri/ /index.html;
-    }
-  }
-  ```
-
-### 生产环境配置
-
-1. 修改 `js/api.js` 中的 `baseURL` 为生产环境地址
-2. 启用 HTTPS
-3. 配置 CDN 加速静态资源
-4. 启用 Gzip 压缩
+详细部署配置参考 `nginx.conf.example`
 
 ---
 
@@ -452,7 +389,7 @@ router.register('/new', NewPage);
 
 ## 📞 联系方式
 
-- **文档**: [FRONTEND_DESIGN.md](./FRONTEND_DESIGN.md)
+- **完整文档**: [docs/README.md](./docs/README.md)
 - **后端仓库**: [backend_v2](../backend_v2)
 - **问题反馈**: GitHub Issues
 
@@ -460,20 +397,40 @@ router.register('/new', NewPage);
 
 ## 🗺️ 路线图
 
-- [x] 设计文档
-- [ ] 基础框架（Router / Store / API）
-- [ ] 公共组件（Toast / Modal / ProgressBar）
-- [ ] 页面1：项目创建
-- [ ] 页面2：任务配置
-- [ ] 页面3：翻译执行
-- [ ] 页面4：结果导出
-- [ ] 页面5：历史管理
+### Phase 1: 文档阶段 ✅（已完成）
+
+- [x] 功能需求文档（REQUIREMENTS.md）
+- [x] UI设计方案（UI_DESIGN.md）
+- [x] Pipeline UX设计（PIPELINE_UX_DESIGN.md）
+- [x] 功能规格说明（FEATURE_SPEC.md）
+- [x] 后端配置确认（BACKEND_CONFIG_CONFIRMATION.md）
+- [x] 文档重组和归档
+
+### Phase 2: 基础框架（待开始）
+
+- [ ] 路由系统（Hash Router）
+- [ ] 状态管理（LocalStorage）
+- [ ] API封装层
+- [ ] WebSocket管理器
+- [ ] 公共组件库
+
+### Phase 3: 核心页面开发（待开始）
+
+- [ ] 智能工作台（Dashboard）
+- [ ] 会话管理（Sessions）
+- [ ] 术语库管理（Glossary）
+- [ ] 数据分析（Analytics）
+- [ ] 翻译流程页面
+
+### Phase 4: 优化与发布（待开始）
+
 - [ ] 性能优化
-- [ ] 国际化支持
-- [ ] 主题切换（暗色模式）
+- [ ] 响应式适配
+- [ ] 浏览器兼容性测试
+- [ ] 生产环境部署
 
 ---
 
-**Version**: 2.0
-**Last Updated**: 2025-10-03
-**Powered by**: Pure Web Technologies ❤️
+**Version**: 2.0 (文档阶段)
+**Last Updated**: 2025-10-17
+**Status**: 📚 文档完成，代码开发待启动

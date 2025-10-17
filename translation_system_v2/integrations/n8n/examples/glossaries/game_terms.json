@@ -1,0 +1,153 @@
+{
+  "id": "game_terms",
+  "name": "游戏术语表",
+  "description": "常用游戏术语翻译",
+  "version": "1.0",
+  "languages": ["EN", "TH", "PT", "VN"],
+  "terms": [
+    {
+      "id": "term_001",
+      "source": "攻击力",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "ATK",
+        "TH": "พลังโจมตี",
+        "PT": "Ataque",
+        "VN": "Sức công"
+      }
+    },
+    {
+      "id": "term_002",
+      "source": "生命值",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "HP",
+        "TH": "พลังชีวิต",
+        "PT": "Vida",
+        "VN": "Máu"
+      }
+    },
+    {
+      "id": "term_003",
+      "source": "防御力",
+      "category": "属性",
+      "priority": 10,
+      "translations": {
+        "EN": "DEF",
+        "TH": "พลังป้องกัน",
+        "PT": "Defesa",
+        "VN": "Phòng thủ"
+      }
+    },
+    {
+      "id": "term_004",
+      "source": "暴击率",
+      "category": "属性",
+      "priority": 9,
+      "translations": {
+        "EN": "CRIT Rate",
+        "TH": "อัตราคริติคอล",
+        "PT": "Taxa Crítica",
+        "VN": "Tỷ lệ chí mạng"
+      }
+    },
+    {
+      "id": "term_005",
+      "source": "暴击伤害",
+      "category": "属性",
+      "priority": 9,
+      "translations": {
+        "EN": "CRIT DMG",
+        "TH": "ความเสียหายคริติคอล",
+        "PT": "Dano Crítico",
+        "VN": "Sát thương chí mạng"
+      }
+    },
+    {
+      "id": "term_006",
+      "source": "经验值",
+      "category": "系统",
+      "priority": 8,
+      "translations": {
+        "EN": "EXP",
+        "TH": "ค่าประสบการณ์",
+        "PT": "Experiência",
+        "VN": "Kinh nghiệm"
+      }
+    },
+    {
+      "id": "term_007",
+      "source": "等级",
+      "category": "系统",
+      "priority": 8,
+      "translations": {
+        "EN": "Level",
+        "TH": "ระดับ",
+        "PT": "Nível",
+        "VN": "Cấp độ"
+      }
+    },
+    {
+      "id": "term_008",
+      "source": "金币",
+      "category": "货币",
+      "priority": 9,
+      "translations": {
+        "EN": "Gold",
+        "TH": "เหรียญทอง",
+        "PT": "Ouro",
+        "VN": "Vàng"
+      }
+    },
+    {
+      "id": "term_009",
+      "source": "钻石",
+      "category": "货币",
+      "priority": 9,
+      "translations": {
+        "EN": "Diamond",
+        "TH": "เพชร",
+        "PT": "Diamante",
+        "VN": "Kim cương"
+      }
+    },
+    {
+      "id": "term_010",
+      "source": "技能",
+      "category": "战斗",
+      "priority": 8,
+      "translations": {
+        "EN": "Skill",
+        "TH": "ทักษะ",
+        "PT": "Habilidade",
+        "VN": "Kỹ năng"
+      }
+    },
+    {
+      "id": "term_011",
+      "source": "装备",
+      "category": "道具",
+      "priority": 8,
+      "translations": {
+        "EN": "Equipment",
+        "TH": "อุปกรณ์",
+        "PT": "Equipamento",
+        "VN": "Trang bị"
+      }
+    },
+    {
+      "id": "term_012",
+      "source": "背包",
+      "category": "系统",
+      "priority": 7,
+      "translations": {
+        "EN": "Inventory",
+        "TH": "กระเป๋า",
+        "PT": "Inventário",
+        "VN": "Túi đồ"
+      }
+    }
+  ]
+}

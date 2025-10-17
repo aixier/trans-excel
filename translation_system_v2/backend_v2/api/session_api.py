@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 logger = logging.getLogger(__name__)
 
 
+@router.get("")
 @router.get("/list")
 async def get_sessions_list(status: Optional[str] = None):
     """
@@ -45,7 +46,7 @@ async def get_sessions_list(status: Optional[str] = None):
                 # Build session info
                 session_info = {
                     'session_id': session_id,
-                    'filename': session_data.get('metadata', {}).get('filename', 'unknown'),
+                    'filename': session_data.get('metadata', {}).get('source_file', 'unknown'),
                     'created_at': session_data.get('created_at'),
                     'last_accessed': session_data.get('last_accessed'),
                     'stage': session_data.get('session_status', {}).get('stage', 'unknown'),
@@ -189,7 +190,7 @@ async def get_session_detail(session_id: str):
         # Build detailed info
         detail = {
             'session_id': session_id,
-            'filename': session_data.get('metadata', {}).get('filename'),
+            'filename': session_data.get('metadata', {}).get('source_file'),
             'created_at': session_data.get('created_at'),
             'last_accessed': session_data.get('last_accessed'),
             'stage': session_data.get('session_status', {}).get('stage'),
