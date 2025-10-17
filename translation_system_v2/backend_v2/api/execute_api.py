@@ -116,8 +116,11 @@ async def start_execution(request: ExecuteRequest):
         # Build glossary_config from glossary_id if provided
         glossary_config = request.glossary_config
         if request.glossary_id and not glossary_config:
-            glossary_config = {'id': request.glossary_id}
-            logger.info(f"Using glossary_id: {request.glossary_id}")
+            glossary_config = {
+                'id': request.glossary_id,
+                'enabled': True  # ✨ Enable glossary injection
+            }
+            logger.info(f"Using glossary_id: {request.glossary_id} (enabled=True)")
 
         # Start execution (no need to pass session_id, pool already knows it)
         result = await pool.start_execution(

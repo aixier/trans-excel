@@ -109,8 +109,8 @@ class TranslationHubApp {
      * Setup application routes
      */
     setupRoutes() {
-        // Dashboard (default page) - Engineer B
-        this.router.register('/', () => this.loadPage('dashboard'));
+        // Upload page as default - redirect / to /upload
+        this.router.register('/', () => this.loadPage('upload'));
         this.router.register('/dashboard', () => this.loadPage('dashboard'));
 
         // Sessions page - Engineer B

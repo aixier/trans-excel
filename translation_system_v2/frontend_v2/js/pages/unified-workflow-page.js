@@ -17,6 +17,7 @@ class UnifiedWorkflowPage {
     this.file = null;
     this.glossaryFile = null;
     this.glossaryId = null;  // 存储上传的术语库ID
+    this.glossarySource = null;  // 'upload' or 'select'
     this.sessionIds = [];  // 存储各阶段的session ID
     this.pollIntervals = [];  // 存储轮询定时器
   }
@@ -24,6 +25,7 @@ class UnifiedWorkflowPage {
   async init() {
     this.render();
     this.setupEventListeners();
+    await this.loadAvailableGlossaries();
   }
 
   render() {
@@ -143,15 +145,24 @@ class UnifiedWorkflowPage {
         <div class="phase-container phase-1">
           <h2 class="phase-header text-lg font-bold">📤 文件上传</h2>
 
-          <div class="grid grid-cols-2 gap-3 mb-3">
-            <div class="form-control">
-              <label class="label py-1"><span class="label-text font-semibold text-sm">Excel文件</span></label>
-              <input type="file" id="fileInput" accept=".xlsx,.xls" class="file-input file-input-bordered file-input-sm w-full" />
+          <div class="form-control mb-3">
+            <label class="label py-1"><span class="label-text font-semibold text-sm">Excel文件</span></label>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" class="file-input file-input-bordered file-input-sm w-full" />
+          </div>
+
+          <!-- 术语库选择 -->
+          <div class="form-control mb-3">
+            <label class="label py-1"><span class="label-text font-semibold text-sm">术语库 (可选)</span></label>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="glossarySelect" class="select select-bordered select-sm w-full" onchange="unifiedWorkflowPage.onGlossarySelectChange()">
+                <option value="">选择已有术语库...</option>
+              </select>
+              <label class="btn btn-sm btn-outline">
+                <input type="file" id="glossaryFileInput" accept=".json,.xlsx,.xls" class="hidden" onchange="unifiedWorkflowPage.onGlossaryFileChange()" />
+                📤 上传新术语库
+              </label>
             </div>
-            <div class="form-control">
-              <label class="label py-1"><span class="label-text font-semibold text-sm">术语库 (可选)</span></label>
-              <input type="file" id="glossaryInput" accept=".xlsx,.xls,.csv" class="file-input file-input-bordered file-input-sm w-full" />
-            </div>
+            <div id="glossaryStatus" class="text-xs mt-1 text-gray-600" style="display: none;"></div>
           </div>
 
           <!-- 隐藏Source和Target Languages输入框 -->
@@ -250,7 +261,7 @@ class UnifiedWorkflowPage {
           <div class="text-6xl mb-4">🎉</div>
           <h2 class="text-3xl font-bold mb-2">工作流完成！</h2>
           <p class="text-gray-600 mb-4">所有阶段已成功完成</p>
-          <button class="btn btn-primary btn-lg" onclick="location.reload()">
+          <button class="btn btn-primary btn-lg" onclick="unifiedWorkflowPage.resetForNewFile()">
             <i class="bi bi-arrow-repeat"></i>
             处理新文件
           </button>
@@ -261,6 +272,200 @@ class UnifiedWorkflowPage {
 
   setupEventListeners() {
     // 事件监听已在HTML中通过onclick绑定
+  }
+
+  /**
+   * 加载可用的术语库列表
+   */
+  async loadAvailableGlossaries() {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/glossaries/list`);
+      if (!response.ok) {
+        console.error('Failed to load glossaries');
+        return;
+      }
+
+      const data = await response.json();
+      const glossaries = data.glossaries || [];
+
+      const select = document.getElementById('glossarySelect');
+      if (!select) return;
+
+      // 清空现有选项（保留第一个默认选项）
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
+
+      // 添加术语库选项
+      glossaries.forEach(glossary => {
+        const option = document.createElement('option');
+        option.value = glossary.id;
+        option.textContent = `${glossary.name} (${glossary.term_count} 条术语)`;
+        select.appendChild(option);
+      });
+
+      console.log(`✅ Loaded ${glossaries.length} available glossaries`);
+    } catch (error) {
+      console.error('Error loading glossaries:', error);
+    }
+  }
+
+  /**
+   * 术语库下拉选择变化处理
+   */
+  onGlossarySelectChange() {
+    const select = document.getElementById('glossarySelect');
+    const selectedId = select.value;
+    const statusEl = document.getElementById('glossaryStatus');
+
+    if (selectedId) {
+      // 用户选择了已有术语库
+      this.glossaryId = selectedId;
+      this.glossarySource = 'select';
+      this.glossaryFile = null;
+
+      // 显示状态
+      statusEl.textContent = `✅ 已选择: ${select.options[select.selectedIndex].text}`;
+      statusEl.style.display = 'block';
+      statusEl.className = 'text-xs mt-1 text-success';
+
+      console.log(`Selected glossary: ${selectedId}`);
+    } else {
+      // 用户清除选择
+      if (this.glossarySource === 'select') {
+        this.glossaryId = null;
+        this.glossarySource = null;
+      }
+      statusEl.style.display = 'none';
+    }
+  }
+
+  /**
+   * 术语库文件上传变化处理
+   */
+  async onGlossaryFileChange() {
+    const fileInput = document.getElementById('glossaryFileInput');
+    const file = fileInput.files[0];
+    const statusEl = document.getElementById('glossaryStatus');
+
+    if (!file) return;
+
+    // 验证文件类型
+    const isJson = file.name.endsWith('.json');
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+
+    if (!isJson && !isExcel) {
+      statusEl.textContent = '❌ 只支持 .json, .xlsx, .xls 格式';
+      statusEl.style.display = 'block';
+      statusEl.className = 'text-xs mt-1 text-error';
+      fileInput.value = '';
+      return;
+    }
+
+    // 存储文件，稍后上传
+    this.glossaryFile = file;
+    this.glossarySource = 'upload';
+
+    // 清除下拉选择
+    const select = document.getElementById('glossarySelect');
+    select.value = '';
+
+    // 显示状态
+    statusEl.textContent = `📄 待上传: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    statusEl.style.display = 'block';
+    statusEl.className = 'text-xs mt-1 text-info';
+
+    console.log(`Glossary file selected: ${file.name}`);
+  }
+
+  /**
+   * 重置所有阶段显示状态
+   */
+  resetAllPhases() {
+    // 重置数据
+    this.sessionIds = [];
+    this.glossaryId = null;
+
+    // 隐藏所有阶段容器
+    document.getElementById('phase1Container').style.display = 'none';
+    document.getElementById('phase2Container').style.display = 'none';
+    document.getElementById('phase3Container').style.display = 'none';
+    document.getElementById('phase4Container').style.display = 'none';
+    document.getElementById('completionContainer').style.display = 'none';
+
+    // 重置所有进度条
+    for (let i = 1; i <= 4; i++) {
+      const progressBar = document.getElementById(`phase${i}Progress`);
+      if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
+      }
+
+      const progressText = document.getElementById(`phase${i}Text`);
+      if (progressText) {
+        progressText.textContent = '';
+      }
+
+      const status = document.getElementById(`phase${i}Status`);
+      if (status) {
+        status.className = 'status-box pending';
+        status.textContent = '等待开始...';
+      }
+
+      const sessionId = document.getElementById(`phase${i}SessionId`);
+      if (sessionId) {
+        sessionId.style.display = 'none';
+      }
+
+      const exports = document.getElementById(`phase${i}Exports`);
+      if (exports) {
+        exports.style.display = 'none';
+      }
+    }
+
+    console.log('✅ All phases reset');
+  }
+
+  /**
+   * 重置并准备处理新文件
+   * 由"处理新文件"按钮调用
+   */
+  resetForNewFile() {
+    // 重置所有阶段
+    this.resetAllPhases();
+
+    // 清除文件输入
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+
+    const glossaryFileInput = document.getElementById('glossaryFileInput');
+    if (glossaryFileInput) {
+      glossaryFileInput.value = '';
+    }
+
+    // 清除术语库选择
+    const glossarySelect = document.getElementById('glossarySelect');
+    if (glossarySelect) {
+      glossarySelect.value = '';
+    }
+
+    // 隐藏术语库状态
+    const glossaryStatus = document.getElementById('glossaryStatus');
+    if (glossaryStatus) {
+      glossaryStatus.style.display = 'none';
+    }
+
+    // 重置文件引用
+    this.file = null;
+    this.glossaryFile = null;
+    this.glossarySource = null;
+
+    // 滚动到页面顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    console.log('✅ Ready for new file');
   }
 
   /**
@@ -275,17 +480,26 @@ class UnifiedWorkflowPage {
       return;
     }
 
-    // 获取术语库文件（可选）
-    const glossaryInput = document.getElementById('glossaryInput');
-    this.glossaryFile = glossaryInput.files[0];
-
     const startBtn = document.getElementById('startBtn');
     startBtn.disabled = true;
 
     try {
-      // 如果有术语库文件，先上传术语库
-      if (this.glossaryFile) {
-        await this.uploadGlossary();
+      // 🔥 保存术语库信息（resetAllPhases会清除它）
+      const savedGlossaryId = this.glossaryId;
+      const savedGlossaryFile = this.glossaryFile;
+      const savedGlossarySource = this.glossarySource;
+
+      // 🔄 重置所有阶段显示状态
+      this.resetAllPhases();
+
+      // 🔥 恢复术语库信息
+      this.glossaryId = savedGlossaryId;
+      this.glossaryFile = savedGlossaryFile;
+      this.glossarySource = savedGlossarySource;
+
+      // 处理术语库（上传或使用已有）
+      if (this.glossaryId || this.glossaryFile) {
+        await this.handleGlossary();
       }
 
       // 显示阶段1和阶段2容器
@@ -329,39 +543,68 @@ class UnifiedWorkflowPage {
   }
 
   /**
-   * 上传术语库
+   * 处理术语库（上传或使用已有）
    */
-  async uploadGlossary() {
+  async handleGlossary() {
     try {
-      this.updatePhaseStatus(1, 'processing', '⏳ 正在上传术语库...');
-
-      const formData = new FormData();
-      formData.append('file', this.glossaryFile);
-      formData.append('name', this.glossaryFile.name.replace(/\.[^/.]+$/, '')); // 去掉扩展名
-      formData.append('description', '自动上传的术语库');
-
-      const response = await fetch(`${this.apiUrl}/api/glossaries/upload`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`术语库上传失败: ${error.detail || '未知错误'}`);
+      // 如果已经通过下拉选择了术语库，直接使用
+      if (this.glossarySource === 'select' && this.glossaryId) {
+        this.updatePhaseStatus(1, 'success', `✅ 使用术语库: ${this.glossaryId}`);
+        console.log(`Using existing glossary: ${this.glossaryId}`);
+        return;
       }
 
-      const data = await response.json();
-      this.glossaryId = data.glossary_id;
+      // 如果选择了文件，上传新术语库
+      if (this.glossarySource === 'upload' && this.glossaryFile) {
+        await this.uploadGlossary();
+        return;
+      }
 
-      console.log(`Glossary uploaded successfully: ${this.glossaryId}`);
-      this.updatePhaseStatus(1, 'success', `✅ 术语库上传成功 (ID: ${this.glossaryId})`);
-
+      // 没有术语库
+      console.log('No glossary selected');
     } catch (error) {
-      console.error('Glossary upload error:', error);
-      // 术语库上传失败不应该阻止工作流继续
-      this.updatePhaseStatus(1, 'error', `⚠️ 术语库上传失败: ${error.message}，将继续翻译流程`);
-      await this.delay(2000); // 显示错误信息2秒
+      console.error('Glossary handling error:', error);
+      // 术语库处理失败不应该阻止工作流继续
+      this.updatePhaseStatus(1, 'error', `⚠️ 术语库处理失败: ${error.message}，将继续翻译流程`);
+      await this.delay(2000);
     }
+  }
+
+  /**
+   * 上传新术语库文件
+   */
+  async uploadGlossary() {
+    this.updatePhaseStatus(1, 'processing', '⏳ 正在上传术语库...');
+
+    const formData = new FormData();
+    formData.append('file', this.glossaryFile);
+
+    // 生成术语库ID（使用文件名，去掉扩展名和特殊字符）
+    const glossaryId = this.glossaryFile.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9_\-]/g, '_')
+      .toLowerCase();
+
+    formData.append('glossary_id', glossaryId);
+
+    const response = await fetch(`${this.apiUrl}/api/glossaries/upload`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`术语库上传失败: ${error.detail || '未知错误'}`);
+    }
+
+    const data = await response.json();
+    this.glossaryId = data.glossary_id;
+
+    console.log(`Glossary uploaded successfully: ${this.glossaryId} (${data.term_count} terms)`);
+    this.updatePhaseStatus(1, 'success', `✅ 术语库上传成功 (${data.term_count} 条术语)`);
+
+    // 刷新术语库列表
+    await this.loadAvailableGlossaries();
   }
 
   /**
