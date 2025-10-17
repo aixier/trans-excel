@@ -1,2 +1,9 @@
 .env
 .env.example
+
+# Session data and cache files
+translation_system_v2/backend_v2/data/sessions/*.db
+translation_system_v2/backend_v2/data/sessions/*.db-shm
+translation_system_v2/backend_v2/data/sessions/*.db-wal
+translation_system_v2/backend_v2/data/sessions/*.pkl
+translation_system_v2/backend_v2/data/sessions/*.parquet
