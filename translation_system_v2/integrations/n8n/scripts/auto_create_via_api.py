@@ -273,32 +273,15 @@ def activate_workflow(workflow_id, headers):
     try:
         print(f"\n🚀 正在激活工作流 {workflow_id}...")
 
-        # 先获取完整工作流
-        get_response = requests.get(
-            f"{N8N_BASE_URL}/workflows/{workflow_id}",
+        # 使用专门的 activate 端点
+        response = requests.post(
+            f"{N8N_BASE_URL}/workflows/{workflow_id}/activate",
             headers=headers,
-            timeout=10
-        )
-
-        if get_response.status_code != 200:
-            print(f"❌ 无法获取工作流: {get_response.status_code}")
-            return False
-
-        workflow_data = get_response.json().get('data', get_response.json())
-
-        # 修改 active 状态
-        workflow_data['active'] = True
-
-        # 使用 PUT 方法更新整个工作流
-        response = requests.put(
-            f"{N8N_BASE_URL}/workflows/{workflow_id}",
-            headers=headers,
-            json=workflow_data,
             timeout=30
         )
 
         if response.status_code == 200:
-            workflow = response.json().get('data', response.json())
+            workflow = response.json()
             is_active = workflow.get('active', False)
 
             if is_active:

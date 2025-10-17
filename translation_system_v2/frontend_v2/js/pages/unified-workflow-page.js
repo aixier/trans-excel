@@ -1,10 +1,11 @@
 /**
  * 统一工作流页面 - 整合三个测试页面的进度条
  *
- * 功能：
- * - 阶段1: 上传文件并拆分任务 (来自 1_upload_and_split.html)
+ * 功能（4阶段工作流）：
+ * - 阶段1: 上传文件并拆分翻译任务 (来自 1_upload_and_split.html)
  * - 阶段2: 执行翻译 (来自 2_execute_transformation.html)
- * - 阶段3: CAPS转换 (来自 4_caps_transformation.html，可选)
+ * - 阶段3: CAPS任务拆分 (来自 4_caps_transformation.html，可选)
+ * - 阶段4: CAPS大写转换执行 (可选)
  *
  * @author Claude
  * @date 2025-10-17
@@ -44,6 +45,7 @@ class UnifiedWorkflowPage {
         .phase-1 .phase-header { border-color: #667eea; color: #667eea; }
         .phase-2 .phase-header { border-color: #ff6b6b; color: #ff6b6b; }
         .phase-3 .phase-header { border-color: #f093fb; color: #f093fb; }
+        .phase-4 .phase-header { border-color: #4ade80; color: #4ade80; }
 
         .progress-bar-container {
           width: 100%;
@@ -65,6 +67,7 @@ class UnifiedWorkflowPage {
         .phase-1 .progress-fill { background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); }
         .phase-2 .progress-fill { background: linear-gradient(90deg, #ff6b6b 0%, #ff8e53 100%); }
         .phase-3 .progress-fill { background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%); }
+        .phase-4 .progress-fill { background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%); }
 
         .status-box {
           padding: 15px;
@@ -152,8 +155,11 @@ class UnifiedWorkflowPage {
               </select>
             </div>
             <div class="form-control">
-              <label class="label"><span class="label-text">Target Languages</span></label>
-              <input type="text" id="targetLangs" value="EN" placeholder="EN,JP,PT" class="input input-bordered" />
+              <label class="label">
+                <span class="label-text">Target Languages</span>
+                <span class="label-text-alt text-gray-500">可选，留空自动检测</span>
+              </label>
+              <input type="text" id="targetLangs" value="" placeholder="留空=自动检测所有空白列，或输入：EN,TH,TW" class="input input-bordered" />
             </div>
           </div>
 
@@ -212,9 +218,9 @@ class UnifiedWorkflowPage {
           </div>
         </div>
 
-        <!-- 阶段3: CAPS转换 (可选) -->
+        <!-- 阶段3: CAPS任务拆分 (可选) -->
         <div id="phase3Container" class="phase-container phase-3" style="display: none;">
-          <h2 class="phase-header text-xl font-bold">🔠 阶段3: CAPS转换</h2>
+          <h2 class="phase-header text-xl font-bold">🔠 阶段3: CAPS任务拆分</h2>
 
           <div class="progress-bar-container">
             <div id="phase3Progress" class="progress-fill" style="width: 0%">0%</div>
@@ -228,10 +234,32 @@ class UnifiedWorkflowPage {
           </div>
 
           <div id="phase3Exports" style="display: none;">
-            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase3Output()">
+            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase3Tasks()">
+              📋 导出CAPS任务表
+            </button>
+          </div>
+        </div>
+
+        <!-- 阶段4: CAPS大写转换执行 (可选) -->
+        <div id="phase4Container" class="phase-container phase-4" style="display: none;">
+          <h2 class="phase-header text-xl font-bold">✨ 阶段4: CAPS大写转换</h2>
+
+          <div class="progress-bar-container">
+            <div id="phase4Progress" class="progress-fill" style="width: 0%">0%</div>
+          </div>
+          <div id="phase4Text" class="text-sm text-gray-600 mb-2"></div>
+
+          <div id="phase4Status" class="status-box pending">等待阶段3完成...</div>
+
+          <div id="phase4SessionId" class="session-id-display" style="display: none;" onclick="unifiedWorkflowPage.copySessionId(3)">
+            Session ID: <span id="phase4SessionValue"></span>
+          </div>
+
+          <div id="phase4Exports" style="display: none;">
+            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase4Output()">
               📄 导出最终结果Excel
             </button>
-            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase3DataFrame()">
+            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase4DataFrame()">
               📊 导出DataFrame
             </button>
           </div>
@@ -256,7 +284,7 @@ class UnifiedWorkflowPage {
   }
 
   /**
-   * 开始工作流
+   * 开始工作流（4阶段）
    */
   async startWorkflow() {
     const fileInput = document.getElementById('fileInput');
@@ -275,14 +303,30 @@ class UnifiedWorkflowPage {
       document.getElementById('phase1Container').style.display = 'block';
       document.getElementById('phase2Container').style.display = 'block';
 
-      // 执行阶段1: 上传并拆分
+      // 执行阶段1: 上传并拆分翻译任务
       await this.executePhase1();
 
-      // 执行阶段2: 翻译
+      // 执行阶段2: 执行翻译
       await this.executePhase2();
 
-      // 检测并执行阶段3: CAPS (可选)
-      await this.checkAndExecutePhase3();
+      // 检测是否需要CAPS
+      const hasCaps = await this.detectCapsSheets();
+
+      if (hasCaps) {
+        // 显示阶段3和阶段4容器
+        document.getElementById('phase3Container').style.display = 'block';
+        document.getElementById('phase4Container').style.display = 'block';
+
+        // 执行阶段3: CAPS任务拆分
+        await this.executePhase3();
+
+        // 执行阶段4: CAPS大写转换
+        await this.executePhase4();
+      } else {
+        // 无需CAPS，显示提示
+        document.getElementById('phase3Container').style.display = 'block';
+        this.updatePhaseStatus(3, 'success', '✅ 无需CAPS转换，工作流完成');
+      }
 
       // 显示完成页面
       document.getElementById('completionContainer').style.display = 'block';
@@ -301,19 +345,20 @@ class UnifiedWorkflowPage {
   async executePhase1() {
     this.updatePhaseStatus(1, 'processing', '⏳ 正在上传文件并拆分任务...');
 
-    // 验证并获取目标语言
+    // 获取目标语言（可选，如果为空则自动检测所有空白列）
     const targetLangsInput = document.getElementById('targetLangs').value.trim();
-    if (!targetLangsInput) {
-      throw new Error('请输入目标语言（例如：EN 或 EN,TH,TW）');
-    }
-    const targetLangs = targetLangsInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    if (targetLangs.length === 0) {
-      throw new Error('请输入有效的目标语言代码');
-    }
-
     const formData = new FormData();
     formData.append('file', this.file);
-    formData.append('target_langs', JSON.stringify(targetLangs));
+
+    // 只有当用户填写了目标语言时才传递该参数
+    if (targetLangsInput) {
+      const targetLangs = targetLangsInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      if (targetLangs.length > 0) {
+        formData.append('target_langs', JSON.stringify(targetLangs));
+      }
+    }
+    // 如果不传 target_langs，后端会自动检测所有空白列
+
     formData.append('rule_set', 'translation');
     formData.append('extract_context', 'true');
 
@@ -376,41 +421,44 @@ class UnifiedWorkflowPage {
   }
 
   /**
-   * 检测并执行阶段3: CAPS转换 (来自 4_caps_transformation.html)
+   * 检测是否需要CAPS转换
    */
-  async checkAndExecutePhase3() {
+  async detectCapsSheets() {
     const parentSessionId = this.sessionIds[0];
 
-    // 检测是否需要CAPS
     this.updatePhaseStatus(3, 'processing', '🔍 检测是否需要CAPS转换...');
-    document.getElementById('phase3Container').style.display = 'block';
 
     const sessionResponse = await fetch(`${this.apiUrl}/api/sessions/detail/${parentSessionId}`);
     const session = await sessionResponse.json();
     const sheets = session.metadata?.analysis?.file_info?.sheets || [];
     const hasCaps = sheets.some(sheet => sheet.toLowerCase().includes('caps'));
 
-    if (!hasCaps) {
-      this.updatePhaseStatus(3, 'success', '✅ 无需CAPS转换，工作流完成');
-      return;
-    }
+    console.log(`CAPS detection: ${hasCaps ? 'Found CAPS sheets' : 'No CAPS sheets'}`);
+    return hasCaps;
+  }
 
-    // 执行CAPS转换
+  /**
+   * 阶段3: CAPS任务拆分 (来自 4_caps_transformation.html - Split部分)
+   */
+  async executePhase3() {
+    const parentSessionId = this.sessionIds[0];
+
     this.updatePhaseStatus(3, 'processing', '⏳ 正在拆分CAPS任务...');
 
-    // 拆分CAPS任务 - 需要包含 target_langs
-    const targetLangsInput = document.getElementById('targetLangs').value.trim();
-    if (!targetLangsInput) {
-      throw new Error('请输入目标语言（CAPS阶段需要）');
-    }
-    const targetLangs = targetLangsInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    if (targetLangs.length === 0) {
-      throw new Error('请输入有效的目标语言代码');
-    }
-
+    // 拆分CAPS任务 - 目标语言可选（如果不传则自动继承父Session）
     const splitFormData = new FormData();
     splitFormData.append('parent_session_id', parentSessionId);
-    splitFormData.append('target_langs', JSON.stringify(targetLangs));  // ✅ 添加 target_langs
+
+    // 只有当用户填写了目标语言时才传递该参数
+    const targetLangsInput = document.getElementById('targetLangs').value.trim();
+    if (targetLangsInput) {
+      const targetLangs = targetLangsInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      if (targetLangs.length > 0) {
+        splitFormData.append('target_langs', JSON.stringify(targetLangs));
+      }
+    }
+    // 如果不传 target_langs，后端会自动从父Session继承
+
     splitFormData.append('rule_set', 'caps_only');
     splitFormData.append('extract_context', 'false');
 
@@ -432,8 +480,22 @@ class UnifiedWorkflowPage {
     // 等待拆分完成
     await this.pollSplitStatus(capsSessionId);
 
-    // 执行CAPS转换
-    this.updatePhaseStatus(3, 'processing', '⏳ 正在执行CAPS大写转换...');
+    this.updatePhaseStatus(3, 'success', `✅ CAPS任务拆分完成！任务数: ${splitData.task_count || 0}`);
+    document.getElementById('phase3Exports').style.display = 'block';
+  }
+
+  /**
+   * 阶段4: CAPS大写转换执行 (来自 4_caps_transformation.html - Execute部分)
+   */
+  async executePhase4() {
+    const capsSessionId = this.sessionIds[2];
+
+    this.updatePhaseStatus(4, 'processing', '⏳ 正在执行CAPS大写转换...');
+
+    // 使用相同的session ID执行CAPS转换
+    this.sessionIds[3] = capsSessionId;
+    document.getElementById('phase4SessionValue').textContent = capsSessionId;
+    document.getElementById('phase4SessionId').style.display = 'block';
 
     const execResponse = await fetch(`${this.apiUrl}/api/execute/start`, {
       method: 'POST',
@@ -451,10 +513,10 @@ class UnifiedWorkflowPage {
     }
 
     // 轮询执行状态
-    await this.pollExecutionStatus(capsSessionId, 3);
+    await this.pollExecutionStatus(capsSessionId, 4);
 
-    this.updatePhaseStatus(3, 'success', `✅ CAPS转换完成！`);
-    document.getElementById('phase3Exports').style.display = 'block';
+    this.updatePhaseStatus(4, 'success', `✅ CAPS大写转换完成！`);
+    document.getElementById('phase4Exports').style.display = 'block';
   }
 
   /**
@@ -603,19 +665,29 @@ class UnifiedWorkflowPage {
   }
 
   /**
-   * 导出方法 - 阶段3
+   * 导出方法 - 阶段3 (CAPS Split)
    */
-  async exportPhase3Output() {
+  async exportPhase3Tasks() {
     await this.downloadFile(
-      `${this.apiUrl}/api/download/${this.sessionIds[2]}`,
-      `final_result_${this.sessionIds[2].substring(0, 8)}.xlsx`
+      `${this.apiUrl}/api/tasks/export/${this.sessionIds[2]}?export_type=tasks`,
+      `caps_tasks_${this.sessionIds[2].substring(0, 8)}.xlsx`
     );
   }
 
-  async exportPhase3DataFrame() {
+  /**
+   * 导出方法 - 阶段4 (CAPS Execute)
+   */
+  async exportPhase4Output() {
     await this.downloadFile(
-      `${this.apiUrl}/api/tasks/export/${this.sessionIds[2]}?export_type=dataframe`,
-      `caps_dataframe_${this.sessionIds[2].substring(0, 8)}.xlsx`
+      `${this.apiUrl}/api/download/${this.sessionIds[3]}`,
+      `final_result_${this.sessionIds[3].substring(0, 8)}.xlsx`
+    );
+  }
+
+  async exportPhase4DataFrame() {
+    await this.downloadFile(
+      `${this.apiUrl}/api/tasks/export/${this.sessionIds[3]}?export_type=dataframe`,
+      `caps_dataframe_${this.sessionIds[3].substring(0, 8)}.xlsx`
     );
   }
 

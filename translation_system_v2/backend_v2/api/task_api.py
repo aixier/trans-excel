@@ -200,11 +200,18 @@ async def split_tasks(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to inherit from parent session")
 
+        # Auto-inherit target_langs from parent if not provided
+        if not target_langs_list and parent.metadata.get('analysis'):
+            lang_detection = parent.metadata['analysis'].get('language_detection', {})
+            target_langs_list = lang_detection.get('suggested_config', {}).get('target_langs', [])
+            if target_langs_list:
+                logger.info(f"Auto-inherited target_langs from parent: {target_langs_list}")
+
         logger.info(f"Created child session {session_id} from parent {parent_session_id}")
 
     # Validate that we have required parameters for splitting
     if not target_langs_list:
-        raise HTTPException(status_code=400, detail="target_langs is required")
+        raise HTTPException(status_code=400, detail="target_langs is required and could not be auto-detected")
 
     # Store rules configuration
     session.rules = rule_factory.config['rule_sets'].get(rule_set, [])

@@ -1,0 +1,147 @@
+{
+  "name": "Excel翻译表单（简化版）",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "trans",
+        "formTitle": "📄 Excel翻译服务",
+        "formDescription": "上传Excel文件进行AI翻译",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Excel文件",
+              "fieldType": "file",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "目标语言",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "英文",
+                    "value": "EN"
+                  },
+                  {
+                    "option": "泰文",
+                    "value": "TH"
+                  },
+                  {
+                    "option": "日文",
+                    "value": "JP"
+                  },
+                  {
+                    "option": "韩文",
+                    "value": "KR"
+                  },
+                  {
+                    "option": "葡萄牙文",
+                    "value": "PT"
+                  },
+                  {
+                    "option": "越南文",
+                    "value": "VN"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "术语库（可选）",
+              "fieldType": "text",
+              "requiredField": false,
+              "placeholder": "输入术语库名称，留空使用默认"
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "formSubmittedText": "翻译任务已提交！请保存返回的会话ID以便查询进度。"
+      },
+      "id": "form_trigger_node",
+      "name": "翻译表单",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": ""
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8013/api/tasks/split",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $binary.data }}"
+            },
+            {
+              "name": "source_lang",
+              "value": "CH"
+            },
+            {
+              "name": "target_langs",
+              "value": "={{ $json['目标语言'] }}"
+            },
+            {
+              "name": "glossary_name",
+              "value": "={{ $json['术语库（可选）'] || 'default' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "http_request_node",
+      "name": "提交翻译任务",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"session_id\": $json.session_id, \"message\": \"任务已创建\", \"status_url\": \"http://localhost:8013/api/tasks/split/status/\" + $json.session_id, \"download_url\": \"http://localhost:8013/api/download/\" + $json.session_id, \"tips\": \"请保存session_id，完成后访问download_url下载结果\" } }}"
+      },
+      "id": "respond_node",
+      "name": "返回结果",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "翻译表单": {
+      "main": [
+        [
+          {
+            "node": "提交翻译任务",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "提交翻译任务": {
+      "main": [
+        [
+          {
+            "node": "返回结果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "active": false
+}

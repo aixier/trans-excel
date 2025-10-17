@@ -344,32 +344,40 @@ class TaskSplitter:
                             )
                             tasks.append(task)
 
-                # ✅ CAPS task creation - only for CAPS sheets and when caps rule is enabled
-                # CAPS任务：对已翻译的单元格创建大写转换任务
-                if 'CAPS' in sheet_name.upper() and 'caps' in self.enabled_rules:
-                    # Create CAPS tasks for each target language column that has content
-                    for target_lang in target_langs:
-                        if target_lang in col_mapping:
-                            target_col_idx = col_mapping[target_lang]
+            # ✅ CAPS task creation - OUTSIDE row loop, runs ONCE per sheet
+            # CAPS任务：强制处理所有列（除了索引列），不受 target_langs 限制
+            if 'CAPS' in sheet_name.upper() and 'caps' in self.enabled_rules:
+                # 获取所有数据列（排除 color_* 和 comment_*）
+                all_data_cols = self.excel_df.get_data_columns(sheet_name)
 
-                            # Scan this column for non-empty cells
-                            for caps_row_idx in range(len(df)):
-                                cell_value = df.iloc[caps_row_idx, target_col_idx]
+                # 处理每一列（除了第一列索引）
+                for data_col_name in all_data_cols[1:]:  # 跳过第一列（索引列）
+                    # 获取实际的 DataFrame 列索引
+                    actual_col_idx = df.columns.get_loc(data_col_name)
 
-                                # If cell has content (translated text), create CAPS task
-                                if pd.notna(cell_value) and str(cell_value).strip():
-                                    task = self._create_task(
-                                        sheet_name,
-                                        caps_row_idx,
-                                        target_col_idx,  # source = target (transform in place)
-                                        target_col_idx,
-                                        str(cell_value),
-                                        target_lang,
-                                        target_lang,
-                                        start_counter + len(tasks),
-                                        'caps'  # CAPS transformation task
-                                    )
-                                    tasks.append(task)
+                    # 检查这个列名是否是索引列（双重保护）
+                    col_name_upper = str(data_col_name).upper()
+                    if col_name_upper in ['KEY', 'INDEX', 'ID']:
+                        continue  # 跳过索引列
+
+                    # 扫描这一列的所有行
+                    for caps_row_idx in range(len(df)):
+                        cell_value = df.iloc[caps_row_idx, actual_col_idx]
+
+                        # 如果单元格有内容（可能是源语言或目标语言），创建CAPS任务
+                        if pd.notna(cell_value) and str(cell_value).strip():
+                            task = self._create_task(
+                                sheet_name,
+                                caps_row_idx,
+                                actual_col_idx,  # source = target (transform in place)
+                                actual_col_idx,
+                                str(cell_value),
+                                data_col_name,  # 使用列名作为语言标识
+                                data_col_name,  # 使用列名作为语言标识
+                                start_counter + len(tasks),
+                                'caps'  # CAPS transformation task
+                            )
+                            tasks.append(task)
 
         else:
             # Fall back to language detection

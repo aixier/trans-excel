@@ -1,0 +1,8 @@
+# 已保存的 API Key（仅供参考，请勿提交到 Git）
+# 创建时间: 2025-10-17
+
+N8N_REAL_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5YWI2NGQ4Yi01NmFjLTQxOWQtOWNmZS03MjgzYThhMGY1MGUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYwNjg1ODU2LCJleHAiOjE3NjMyMjI0MDB9.4KZSwDix7zGmSQ-H4fOn9hxnxJWZ4vVltbQY_i22waE
+
+# 使用方式：
+# source .api_key_saved
+# python3 auto_create_via_api.py

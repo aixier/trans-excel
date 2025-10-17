@@ -11,18 +11,16 @@ class CapsSheetRule(SplitRule):
 
     This rule matches cells that:
     1. Are in sheets with 'CAPS' in their name
-    2. Are in target language columns (not source columns)
-    3. Need to be converted to uppercase after translation
+    2. Are in ANY language columns (source AND target languages)
+    3. Excludes only the first index column (KEY)
+    4. Need to be converted to uppercase
 
     IMPORTANT: This rule creates tasks with operation='uppercase', NOT 'translate'.
-    The uppercase conversion should happen AFTER translation is complete.
+    The uppercase conversion processes both source and target language columns.
     """
 
-    # Target language columns that can be uppercase
-    TARGET_COLUMNS = ['TH', 'TW', 'PT', 'EN', 'VN', 'ID', 'ES', 'FR', 'DE', 'RU', 'AR', 'JA', 'KO']
-
-    # Columns to exclude from uppercase (source columns)
-    EXCLUDE_COLUMNS = ['KEY', 'CH', 'CN']
+    # Columns to exclude from uppercase (only index columns)
+    EXCLUDE_COLUMNS = ['KEY', 'key', 'Key', 'INDEX', 'index', 'Index', 'ID', 'id', 'Id']
 
     def match(self, cell: Any, context: Dict[str, Any]) -> bool:
         """Check if cell is in a CAPS sheet and should be uppercased.
@@ -39,19 +37,20 @@ class CapsSheetRule(SplitRule):
         if 'CAPS' not in sheet_name:
             return False
 
-        # Check if column is a target language column
-        column_name = context.get('column_name', '').upper()
+        # Get column information
+        column_name = context.get('column_name', '')
+        col_idx = context.get('col_idx', 0)
 
-        # Exclude source columns
-        if column_name in self.EXCLUDE_COLUMNS:
+        # Exclude index columns (first column or columns in EXCLUDE_COLUMNS)
+        if col_idx == 0:  # First column is always the index
             return False
 
-        # Include only target language columns
-        if column_name not in self.TARGET_COLUMNS:
+        if column_name.upper() in [c.upper() for c in self.EXCLUDE_COLUMNS]:
             return False
 
+        # Match all other columns (source and target languages)
         # For CAPS tasks, we match all cells (empty or not)
-        # because they will be uppercased after translation
+        # because they will be uppercased
         return True
 
     def create_task(self, cell: Any, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -67,7 +66,7 @@ class CapsSheetRule(SplitRule):
         sheet_name = context['sheet_name']
         row_idx = context['row_idx']
         col_idx = context['col_idx']
-        column_name = context.get('column_name', '').upper()
+        column_name = context.get('column_name', '')
 
         # Generate task ID
         task_id = f"CAPS_{sheet_name}_{row_idx}_{col_idx}"
@@ -75,8 +74,8 @@ class CapsSheetRule(SplitRule):
         # Generate cell reference
         cell_ref = self._generate_cell_ref(row_idx, col_idx)
 
-        # For CAPS tasks, source_text is initially empty
-        # It will be filled by the transformer from the translation result
+        # For CAPS tasks, source_text is the current value (may be source or target language)
+        # It will be converted to uppercase
         current_value = str(cell) if not pd.isna(cell) and cell else ''
 
         return {
@@ -87,14 +86,14 @@ class CapsSheetRule(SplitRule):
             'row_idx': row_idx,
             'col_idx': col_idx,
             'cell_ref': cell_ref,
-            'source_text': current_value,  # Current value (may be empty or translated)
+            'source_text': current_value,  # Current value (source or target language)
             'source_lang': '',  # Not applicable for uppercase
-            'target_lang': column_name,
+            'target_lang': column_name,  # Column name (can be any language)
             'status': 'pending',
             'result': '',
             'metadata': {
                 'rule': 'CapsSheetRule',
-                'requires_translation_first': current_value == '',
+                'column_type': 'all_languages',  # Process all language columns
                 'original_value': current_value
             }
         }
