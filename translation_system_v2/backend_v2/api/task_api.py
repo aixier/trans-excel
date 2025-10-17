@@ -166,30 +166,81 @@ async def split_tasks(
         if not parent:
             raise HTTPException(status_code=404, detail=f"Parent session {parent_session_id} not found")
 
-        # Validate parent has output or is completed
-        # Note: output_state might be None due to pickle deserialization failure after restart
-        # In that case, check if session is completed and has input_state
-        if not parent.output_state and parent.stage != TransformationStage.COMPLETED:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Parent session {parent_session_id} has no output. Must complete execution first."
-            )
+        # ✅ Critical fix: Wait for parent session to complete execution
+        # If parent is still executing, wait up to 30 seconds for completion
+        if parent.stage != TransformationStage.COMPLETED:
+            logger.info(f"Parent session {parent_session_id} is still executing (stage: {parent.stage.value}), waiting for completion...")
 
-        # If output_state is None but session is completed, use input_state as fallback
-        if not parent.output_state and parent.stage == TransformationStage.COMPLETED:
-            if not parent.input_state:
-                # Try to reload from file
-                input_file_path = parent.metadata.get('input_file_path')
-                if input_file_path and os.path.exists(input_file_path):
-                    logger.warning(f"output_state unavailable for completed session, reloading from file")
-                    excel_df = ExcelLoader.load_excel(input_file_path)
+            max_wait_time = 30  # Maximum wait time in seconds
+            check_interval = 0.5  # Check every 0.5 seconds
+            elapsed = 0
+
+            while elapsed < max_wait_time:
+                await asyncio.sleep(check_interval)
+                elapsed += check_interval
+
+                # Refresh parent session state
+                parent = pipeline_session_manager.get_session(parent_session_id)
+                if not parent:
+                    raise HTTPException(status_code=404, detail=f"Parent session {parent_session_id} not found")
+
+                if parent.stage == TransformationStage.COMPLETED:
+                    logger.info(f"Parent session {parent_session_id} completed after {elapsed:.1f}s")
+                    break
+
+                if parent.stage == TransformationStage.FAILED:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Parent session {parent_session_id} execution failed"
+                    )
+
+            # Check if we timed out
+            if parent.stage != TransformationStage.COMPLETED:
+                raise HTTPException(
+                    status_code=408,  # Request Timeout
+                    detail=f"Parent session {parent_session_id} did not complete within {max_wait_time}s (current stage: {parent.stage.value})"
+                )
+
+        # Validate parent has output or is completed
+        # Note: After backend restart, output_state is None but files still exist on disk
+        # Try to load output_state from file if it's not in memory
+        if not parent.output_state:
+            logger.info(f"output_state not in memory for parent {parent_session_id}, attempting to load from file")
+
+            # Priority 1: Try to load from output_file_path (translated result)
+            output_file_path = parent.metadata.get('output_file_path')
+            if output_file_path and os.path.exists(output_file_path):
+                try:
+                    import pickle
+                    with open(output_file_path, 'rb') as f:
+                        excel_df = pickle.load(f)
                     pipeline_session_manager.set_output_state(parent_session_id, excel_df)
                     parent = pipeline_session_manager.get_session(parent_session_id)
-                else:
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Parent session {parent_session_id} has no accessible output state"
-                    )
+                    logger.info(f"✅ Loaded output_state from {output_file_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load output_state from pickle file: {e}")
+                    # Fall through to next option
+
+            # Priority 2: If output_file_path failed, try input_file_path (original file)
+            # This is a fallback for sessions that completed before output_file_path was added
+            if not parent.output_state:
+                input_file_path = parent.metadata.get('input_file_path')
+                if input_file_path and os.path.exists(input_file_path):
+                    try:
+                        logger.warning(f"Using input_file as fallback for parent session")
+                        excel_df = ExcelLoader.load_excel(input_file_path)
+                        pipeline_session_manager.set_output_state(parent_session_id, excel_df)
+                        parent = pipeline_session_manager.get_session(parent_session_id)
+                        logger.info(f"✅ Loaded from input_file_path (fallback)")
+                    except Exception as e:
+                        logger.error(f"Failed to load from input_file_path: {e}")
+
+            # If still no output_state, execution hasn't completed
+            if not parent.output_state:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Parent session {parent_session_id} has no output. Must complete execution first."
+                )
 
         # Create child session
         session = pipeline_session_manager.create_session(parent_session_id=parent_session_id)

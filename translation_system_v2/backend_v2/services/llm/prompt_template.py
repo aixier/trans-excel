@@ -63,6 +63,7 @@ class PromptTemplate:
 
         # 东亚语言
         'JP': '日语',
+        'JA': '日语',
         'KR': '韩语',
 
         # 欧洲语言
@@ -96,6 +97,7 @@ class PromptTemplate:
         'CH': '中国',
         'TW': '台湾',
         'JP': '日本',
+        'JA': '日本',
         'KR': '韩国',
         'ES': '西班牙/拉丁美洲',
         'PT': '葡萄牙',

@@ -115,6 +115,15 @@ class LanguageMetadata:
             'can_be_target': True,
             'enabled': True
         },
+        'JA': {
+            'code': 'JA',
+            'name': '日语',
+            'abbr': 'JA',
+            'english_name': 'Japanese',
+            'can_be_source': False,
+            'can_be_target': True,
+            'enabled': True
+        },
         'KR': {
             'code': 'KR',
             'name': '韩语',

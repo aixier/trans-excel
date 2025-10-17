@@ -25,21 +25,23 @@ class ExecutionStatus(Enum):
 
 
 class WorkerPool:
-    """Manage concurrent workers for batch execution."""
+    """Manage concurrent workers for batch execution (per-session instance)."""
 
-    def __init__(self, max_workers: int = 10):
+    def __init__(self, session_id: str, max_workers: int = 10):
         """
-        Initialize worker pool.
+        Initialize worker pool for a specific session.
 
         Args:
+            session_id: Session identifier this pool manages
             max_workers: Maximum concurrent workers
         """
+        self.session_id = session_id
         self.max_workers = max_workers
         self.active_workers = []
         self.queue = asyncio.Queue()
         self.caps_queue = asyncio.Queue()  # Separate queue for caps tasks
         self.status = ExecutionStatus.IDLE
-        self.current_session_id = None
+        self.current_session_id = session_id  # Keep for backward compatibility
         self.llm_provider = None
         self.statistics = {
             'total_batches': 0,
@@ -51,38 +53,37 @@ class WorkerPool:
             'start_time': None,
             'end_time': None
         }
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}[{session_id[:8]}]")
 
     async def start_execution(
         self,
-        session_id: str,
         llm_provider: BaseLLMProvider,
         glossary_config: Dict[str, Any] = None  # ✨ Glossary configuration
     ) -> Dict[str, Any]:
         """
-        Start translation execution.
+        Start translation execution for this pool's session.
 
         Args:
-            session_id: Session ID
             llm_provider: LLM provider instance
             glossary_config: Glossary configuration
 
         Returns:
             Execution status
         """
+        # Check if THIS pool is already running (not global check)
         if self.status == ExecutionStatus.RUNNING:
             return {
                 'status': 'error',
-                'message': 'Execution already in progress'
+                'message': f'Execution already in progress for session {self.session_id}'
             }
 
-        self.current_session_id = session_id
+        # session_id is already set in __init__, no need to pass it
         self.llm_provider = llm_provider
         self.glossary_config = glossary_config  # ✨ Store glossary config
         self.status = ExecutionStatus.RUNNING
 
-        # Get task manager from session
-        task_manager = pipeline_session_manager.get_tasks(session_id)
+        # Get task manager from session (use self.session_id)
+        task_manager = pipeline_session_manager.get_tasks(self.session_id)
         if not task_manager or task_manager.df is None:
             self.status = ExecutionStatus.FAILED
             return {
@@ -91,7 +92,7 @@ class WorkerPool:
             }
 
         # Get game info from session (if available)
-        session = pipeline_session_manager.get_session(session_id)
+        session = pipeline_session_manager.get_session(self.session_id)
         game_info = session.metadata.get('game_info', {}) if session else {}
 
         # Group tasks by batch_id and separate caps tasks
@@ -119,7 +120,7 @@ class WorkerPool:
         }
 
         self.logger.info(
-            f"Starting execution for session {session_id}: "
+            f"Starting execution for session {self.session_id}: "
             f"{len(batches)} normal batches, {len(caps_batches)} caps batches, "
             f"{self.statistics['total_tasks']} total tasks"
         )
@@ -372,10 +373,8 @@ class WorkerPool:
 
             # Check if all workers (including caps) are done
             if all(worker.done() for worker in self.active_workers):
-                self.status = ExecutionStatus.COMPLETED
-                self.statistics['end_time'] = datetime.now()
-
-                # ✅ FIX: Merge task results back to ExcelDataFrame (output_state)
+                # ✅ IMPORTANT: Save output_state BEFORE updating status to COMPLETED
+                # This ensures parent session has output_file_path before any child session tries to inherit
                 if self.current_session_id:
                     try:
                         # Use pipeline_session_manager (NEW architecture)
@@ -448,6 +447,10 @@ class WorkerPool:
                     except Exception as e:
                         self.logger.error(f"Failed to save final state: {e}")
 
+                # ✅ NOW update execution status to COMPLETED (after output_state is saved)
+                self.status = ExecutionStatus.COMPLETED
+                self.statistics['end_time'] = datetime.now()
+
                 # Log final progress (100%)
                 final_status = self.get_status()
                 self.logger.info(
@@ -457,13 +460,23 @@ class WorkerPool:
                 self.logger.info("Execution completed")
                 break
 
-            # Log progress every 10 seconds
-            await asyncio.sleep(10)
-            status = self.get_status()
-            self.logger.info(
-                f"Progress: {status['completion_rate']:.1f}% "
-                f"({status['progress']['completed']}/{status['progress']['total']})"
-            )
+            # Check more frequently to reduce race window with Progress Tracker
+            # Progress Tracker checks every 2s, so we check every 1s to ensure
+            # output_state is saved before any WebSocket completion message
+            await asyncio.sleep(1)
+
+            # Log detailed progress every 10 iterations (every 10 seconds)
+            if hasattr(self, '_monitor_iteration_count'):
+                self._monitor_iteration_count += 1
+            else:
+                self._monitor_iteration_count = 1
+
+            if self._monitor_iteration_count % 10 == 0:
+                status = self.get_status()
+                self.logger.info(
+                    f"Progress: {status['completion_rate']:.1f}% "
+                    f"({status['progress']['completed']}/{status['progress']['total']})"
+                )
 
     def _group_tasks_by_batch_with_deps(
         self,
@@ -512,5 +525,5 @@ class WorkerPool:
         return batches
 
 
-# Global worker pool instance
-worker_pool = WorkerPool()
+# Note: Global worker_pool instance removed - use WorkerPoolManager instead
+# from services.executor.worker_pool_manager import worker_pool_manager

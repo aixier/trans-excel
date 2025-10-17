@@ -173,176 +173,201 @@ class TaskSplitter:
             elif col in ['ES', 'SPANISH', '西班牙语', '西语']:
                 col_mapping['ES'] = actual_col_idx
                 has_explicit_columns = True
+            elif col in ['FR', 'FRENCH', '法语', '法文']:
+                col_mapping['FR'] = actual_col_idx
+                has_explicit_columns = True
+            elif col in ['DE', 'GERMAN', '德语', '德文']:
+                col_mapping['DE'] = actual_col_idx
+                has_explicit_columns = True
+            elif col in ['IT', 'ITALIAN', '意大利语', '意语']:
+                col_mapping['IT'] = actual_col_idx
+                has_explicit_columns = True
+            elif col in ['JA', 'JP', 'JAPANESE', '日语', '日文']:
+                col_mapping['JA'] = actual_col_idx
+                has_explicit_columns = True
+            elif col in ['KR', 'KO', 'KOREAN', '韩语', '韩文']:
+                col_mapping['KR'] = actual_col_idx
+                has_explicit_columns = True
+            elif col in ['RU', 'RUSSIAN', '俄语', '俄文']:
+                col_mapping['RU'] = actual_col_idx
+                has_explicit_columns = True
             elif col in ['TW', '繁体', '繁中', 'TAIWAN', 'TCHINESE', '繁體中文', '繁體']:
                 col_mapping['TW'] = actual_col_idx
                 has_explicit_columns = True
 
         # If we have explicit columns, use them directly
         if has_explicit_columns:
-            # Determine source column based on source_lang or default to CH if exists
-            if source_lang == 'CH' and 'CH' in col_mapping:
-                source_col_idx = col_mapping['CH']
-                actual_source_lang = 'CH'
-            elif source_lang == 'EN' and 'EN' in col_mapping:
-                source_col_idx = col_mapping['EN']
-                actual_source_lang = 'EN'
-            elif 'CH' in col_mapping:  # Default to CH if available
-                source_col_idx = col_mapping['CH']
-                actual_source_lang = 'CH'
-            elif 'EN' in col_mapping:  # Otherwise try EN
-                source_col_idx = col_mapping['EN']
-                actual_source_lang = 'EN'
-            else:
-                # Fall back to language detection
-                lang_analysis = self.language_detector.analyze_sheet(df)
-                lang_columns = lang_analysis['language_columns']
-                if lang_columns['source_columns']:
-                    source_col_idx = lang_columns['source_columns'][0]
-                    actual_source_lang = source_lang or 'CH'
+            # ⚠️ CAPS Sheet特殊处理：如果是CAPS sheet，不需要source列，直接跳到CAPS逻辑
+            is_caps_sheet = 'CAPS' in sheet_name.upper() and 'caps' in self.enabled_rules
+
+            if not is_caps_sheet:
+                # Determine source column based on source_lang or default to CH if exists
+                if source_lang == 'CH' and 'CH' in col_mapping:
+                    source_col_idx = col_mapping['CH']
+                    actual_source_lang = 'CH'
+                elif source_lang == 'EN' and 'EN' in col_mapping:
+                    source_col_idx = col_mapping['EN']
+                    actual_source_lang = 'EN'
+                elif 'CH' in col_mapping:  # Default to CH if available
+                    source_col_idx = col_mapping['CH']
+                    actual_source_lang = 'CH'
+                elif 'EN' in col_mapping:  # Otherwise try EN
+                    source_col_idx = col_mapping['EN']
+                    actual_source_lang = 'EN'
                 else:
-                    return []
+                    # Fall back to language detection
+                    lang_analysis = self.language_detector.analyze_sheet(df)
+                    lang_columns = lang_analysis['language_columns']
+                    if lang_columns['source_columns']:
+                        source_col_idx = lang_columns['source_columns'][0]
+                        actual_source_lang = source_lang or 'CH'
+                    else:
+                        # 对于非CAPS sheet，找不到source列就跳过
+                        # 但对于CAPS sheet，仍然继续执行CAPS逻辑
+                        pass
 
-            # Process each row with explicit columns
-            for row_idx in range(len(df)):
-                # Get source text
-                source_text = df.iloc[row_idx, source_col_idx]
-                if pd.isna(source_text) or not str(source_text).strip():
-                    continue
+            # Process each row with explicit columns (skip for CAPS-only sheets)
+            if not is_caps_sheet:
+                for row_idx in range(len(df)):
+                    # Get source text
+                    source_text = df.iloc[row_idx, source_col_idx]
+                    if pd.isna(source_text) or not str(source_text).strip():
+                        continue
 
-                source_text = str(source_text)
+                    source_text = str(source_text)
 
-                # Check source cell color (important for yellow re-translation)
-                source_cell_color = self._get_cell_color(df, row_idx, source_col_idx)
-                source_is_yellow = source_cell_color and is_yellow_color(source_cell_color)
-                source_is_blue = source_cell_color and is_blue_color(source_cell_color)
+                    # Check source cell color (important for yellow re-translation)
+                    source_cell_color = self._get_cell_color(df, row_idx, source_col_idx)
+                    source_is_yellow = source_cell_color and is_yellow_color(source_cell_color)
+                    source_is_blue = source_cell_color and is_blue_color(source_cell_color)
 
-                # ✨ Check if EN column is yellow or blue
-                en_reference = None
-                en_is_yellow = False
-                en_is_blue = False  # ✨ EN需要缩短
-                en_as_source = False  # ✨ EN作为主源文本
-                en_col_idx = col_mapping.get('EN')
+                    # ✨ Check if EN column is yellow or blue
+                    en_reference = None
+                    en_is_yellow = False
+                    en_is_blue = False  # ✨ EN需要缩短
+                    en_as_source = False  # ✨ EN作为主源文本
+                    en_col_idx = col_mapping.get('EN')
 
-                if en_col_idx is not None:
-                    # Check if EN cell is yellow or blue
-                    en_cell_color = self._get_cell_color(df, row_idx, en_col_idx)
-                    if en_cell_color and is_yellow_color(en_cell_color):
-                        en_is_yellow = True
-                        # EN is yellow → use as main source (not just reference)
-                        en_value = df.iloc[row_idx, en_col_idx]
-                        if pd.notna(en_value) and str(en_value).strip():
-                            en_reference = str(en_value)
+                    if en_col_idx is not None:
+                        # Check if EN cell is yellow or blue
+                        en_cell_color = self._get_cell_color(df, row_idx, en_col_idx)
+                        if en_cell_color and is_yellow_color(en_cell_color):
+                            en_is_yellow = True
+                            # EN is yellow → use as main source (not just reference)
+                            en_value = df.iloc[row_idx, en_col_idx]
+                            if pd.notna(en_value) and str(en_value).strip():
+                                en_reference = str(en_value)
 
-                            # ✅ If only EN is yellow (CH not yellow), EN becomes main source
-                            if not source_is_yellow:
-                                en_as_source = True
+                                # ✅ If only EN is yellow (CH not yellow), EN becomes main source
+                                if not source_is_yellow:
+                                    en_as_source = True
 
-                    elif en_cell_color and is_blue_color(en_cell_color):
-                        # ✨ EN is blue → needs shortening, mark for blue task creation
-                        en_is_blue = True
-                        en_value = df.iloc[row_idx, en_col_idx]
-                        if pd.notna(en_value) and str(en_value).strip():
-                            en_reference = str(en_value)
+                        elif en_cell_color and is_blue_color(en_cell_color):
+                            # ✨ EN is blue → needs shortening, mark for blue task creation
+                            en_is_blue = True
+                            en_value = df.iloc[row_idx, en_col_idx]
+                            if pd.notna(en_value) and str(en_value).strip():
+                                en_reference = str(en_value)
 
-                # If source cell has blue color, create a blue task for shortening (only if blue rule enabled)
-                if source_is_blue and 'blue' in self.enabled_rules:
-                    task = self._create_task(
-                        sheet_name,
-                        row_idx,
-                        source_col_idx,
-                        source_col_idx,
-                        source_text,
-                        actual_source_lang,
-                        actual_source_lang,
-                        start_counter + len(tasks),
-                        'blue'
-                    )
-                    tasks.append(task)
-
-                # ✨ Blue 规则：如果 EN 单元格是蓝色，无条件创建自我缩短任务（不受 target_langs 限制）
-                # ⚠️ 但如果 EN 已经是源语言，则跳过（避免重复创建）
-                if en_is_blue and en_reference and 'blue' in self.enabled_rules:
-                    # Skip if EN is already the source language (already handled above)
-                    if actual_source_lang != 'EN' or source_col_idx != en_col_idx:
+                    # If source cell has blue color, create a blue task for shortening (only if blue rule enabled)
+                    if source_is_blue and 'blue' in self.enabled_rules:
                         task = self._create_task(
                             sheet_name,
                             row_idx,
-                            en_col_idx,
-                            en_col_idx,  # Target is the same as source (shorten itself)
-                            en_reference,
-                            'EN',
-                            'EN',  # Target lang is same as source lang
+                            source_col_idx,
+                            source_col_idx,
+                            source_text,
+                            actual_source_lang,
+                            actual_source_lang,
                             start_counter + len(tasks),
                             'blue'
                         )
                         tasks.append(task)
 
-                # Check each target language
-                for target_lang in target_langs:
-                    # ✨ Skip EN if it's yellow (already finalized) or blue (will be shortened)
-                    if target_lang == 'EN' and (en_is_yellow or en_is_blue):
-                        continue  # EN is yellow/blue = special handling, skip normal translation
-
-                    if target_lang in col_mapping:
-                        target_col = col_mapping[target_lang]
-
-                        # Get target cell value
-                        target_value = df.iloc[row_idx, target_col]
-
-                        # Check target cell color
-                        target_color = self._get_cell_color(df, row_idx, target_col)
-
-                        # Determine if needs translation and task type
-                        needs_translation = False
-                        task_type = 'normal'
-
-                        # ✅ Priority 1: Target cell is yellow → Skip (already modified, final version)
-                        if target_color and is_yellow_color(target_color):
-                            needs_translation = False
-                            continue  # Yellow target = already finalized, skip translation
-
-                        # ✅ Priority 2: Target cell is blue → Shortening task (only if blue rule enabled)
-                        if target_color and is_blue_color(target_color) and 'blue' in self.enabled_rules:
-                            needs_translation = True
-                            task_type = 'blue'
-
-                        # ✅ Priority 3: Source or EN is yellow → Force re-translate (only if yellow rule enabled)
-                        elif (source_is_yellow or en_is_yellow) and 'yellow' in self.enabled_rules:
-                            needs_translation = True
-                            task_type = 'yellow'  # Force re-translate all right columns
-
-                        # Priority 4: Empty target cell needs normal translation (only if empty rule enabled)
-                        elif pd.isna(target_value) or str(target_value).strip() == '':
-                            if source_text and source_text.strip() and 'empty' in self.enabled_rules:
-                                needs_translation = True
-                                task_type = 'normal'
-
-                        if needs_translation:
-                            # ✅ Determine actual source text and language
-                            # If EN is yellow and CH is not, use EN as main source
-                            if en_as_source:
-                                actual_task_source = en_reference
-                                actual_task_source_lang = 'EN'
-                                actual_reference = source_text  # CH becomes context reference
-                            else:
-                                actual_task_source = source_text
-                                actual_task_source_lang = actual_source_lang
-                                actual_reference = en_reference or ''
-
-                            # Create task with type
+                    # ✨ Blue 规则：如果 EN 单元格是蓝色，无条件创建自我缩短任务（不受 target_langs 限制）
+                    # ⚠️ 但如果 EN 已经是源语言，则跳过（避免重复创建）
+                    if en_is_blue and en_reference and 'blue' in self.enabled_rules:
+                        # Skip if EN is already the source language (already handled above)
+                        if actual_source_lang != 'EN' or source_col_idx != en_col_idx:
                             task = self._create_task(
                                 sheet_name,
                                 row_idx,
-                                source_col_idx,
-                                target_col,
-                                actual_task_source,  # ✨ 可能是EN内容
-                                actual_task_source_lang,  # ✨ 可能是'EN'
-                                target_lang,
+                                en_col_idx,
+                                en_col_idx,  # Target is the same as source (shorten itself)
+                                en_reference,
+                                'EN',
+                                'EN',  # Target lang is same as source lang
                                 start_counter + len(tasks),
-                                task_type,
-                                reference_en=actual_reference  # ✨ CH作为参考
+                                'blue'
                             )
                             tasks.append(task)
+
+                    # Check each target language
+                    for target_lang in target_langs:
+                        # ✨ Skip EN if it's yellow (already finalized) or blue (will be shortened)
+                        if target_lang == 'EN' and (en_is_yellow or en_is_blue):
+                            continue  # EN is yellow/blue = special handling, skip normal translation
+
+                        if target_lang in col_mapping:
+                            target_col = col_mapping[target_lang]
+
+                            # Get target cell value
+                            target_value = df.iloc[row_idx, target_col]
+
+                            # Check target cell color
+                            target_color = self._get_cell_color(df, row_idx, target_col)
+
+                            # Determine if needs translation and task type
+                            needs_translation = False
+                            task_type = 'normal'
+
+                            # ✅ Priority 1: Target cell is yellow → Skip (already modified, final version)
+                            if target_color and is_yellow_color(target_color):
+                                needs_translation = False
+                                continue  # Yellow target = already finalized, skip translation
+
+                            # ✅ Priority 2: Target cell is blue → Shortening task (only if blue rule enabled)
+                            if target_color and is_blue_color(target_color) and 'blue' in self.enabled_rules:
+                                needs_translation = True
+                                task_type = 'blue'
+
+                            # ✅ Priority 3: Source or EN is yellow → Force re-translate (only if yellow rule enabled)
+                            elif (source_is_yellow or en_is_yellow) and 'yellow' in self.enabled_rules:
+                                needs_translation = True
+                                task_type = 'yellow'  # Force re-translate all right columns
+
+                            # Priority 4: Empty target cell needs normal translation (only if empty rule enabled)
+                            elif pd.isna(target_value) or str(target_value).strip() == '':
+                                if source_text and source_text.strip() and 'empty' in self.enabled_rules:
+                                    needs_translation = True
+                                    task_type = 'normal'
+
+                            if needs_translation:
+                                # ✅ Determine actual source text and language
+                                # If EN is yellow and CH is not, use EN as main source
+                                if en_as_source:
+                                    actual_task_source = en_reference
+                                    actual_task_source_lang = 'EN'
+                                    actual_reference = source_text  # CH becomes context reference
+                                else:
+                                    actual_task_source = source_text
+                                    actual_task_source_lang = actual_source_lang
+                                    actual_reference = en_reference or ''
+
+                                # Create task with type
+                                task = self._create_task(
+                                    sheet_name,
+                                    row_idx,
+                                    source_col_idx,
+                                    target_col,
+                                    actual_task_source,  # ✨ 可能是EN内容
+                                    actual_task_source_lang,  # ✨ 可能是'EN'
+                                    target_lang,
+                                    start_counter + len(tasks),
+                                    task_type,
+                                    reference_en=actual_reference  # ✨ CH作为参考
+                                )
+                                tasks.append(task)
 
             # ✅ CAPS task creation - OUTSIDE row loop, runs ONCE per sheet
             # CAPS任务：强制处理所有列（除了索引列），不受 target_langs 限制

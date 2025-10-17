@@ -15,6 +15,8 @@ class UnifiedWorkflowPage {
   constructor() {
     this.apiUrl = window.API_BASE_URL || 'http://localhost:8013';
     this.file = null;
+    this.glossaryFile = null;
+    this.glossaryId = null;  // 存储上传的术语库ID
     this.sessionIds = [];  // 存储各阶段的session ID
     this.pollIntervals = [];  // 存储轮询定时器
   }
@@ -29,13 +31,13 @@ class UnifiedWorkflowPage {
 
     container.innerHTML = `
       <style>
-        /* 复用测试页面的样式 */
+        /* 复用测试页面的样式 - 紧凑布局 */
         .phase-container {
           background: white;
-          border-radius: 8px;
-          padding: 25px;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          margin-bottom: 20px;
+          border-radius: 6px;
+          padding: 15px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          margin-bottom: 12px;
         }
         .phase-header {
           border-bottom: 2px solid #667eea;
@@ -131,39 +133,32 @@ class UnifiedWorkflowPage {
       </style>
 
       <!-- 上传区域 -->
-      <div class="container mx-auto p-6 max-w-5xl">
-        <div class="text-center mb-8">
-          <h1 class="text-4xl font-bold mb-3">🚀 统一工作流</h1>
-          <p class="text-base-content/70">上传Excel文件，自动完成翻译和CAPS转换</p>
+      <div class="container mx-auto p-4 max-w-5xl">
+        <div class="text-center mb-4">
+          <h1 class="text-3xl font-bold mb-2">🚀 统一工作流</h1>
+          <p class="text-base-content/70 text-sm">上传Excel文件和术语库，自动完成翻译和CAPS转换</p>
         </div>
 
         <!-- 文件上传 -->
         <div class="phase-container phase-1">
-          <h2 class="phase-header text-xl font-bold">📤 文件上传</h2>
+          <h2 class="phase-header text-lg font-bold">📤 文件上传</h2>
 
-          <div class="form-control mb-4">
-            <label class="label"><span class="label-text font-semibold">选择Excel文件</span></label>
-            <input type="file" id="fileInput" accept=".xlsx,.xls" class="file-input file-input-bordered w-full" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="grid grid-cols-2 gap-3 mb-3">
             <div class="form-control">
-              <label class="label"><span class="label-text">Source Language</span></label>
-              <select id="sourceLang" class="select select-bordered">
-                <option value="CH">中文 (CH)</option>
-                <option value="EN">英文 (EN)</option>
-              </select>
+              <label class="label py-1"><span class="label-text font-semibold text-sm">Excel文件</span></label>
+              <input type="file" id="fileInput" accept=".xlsx,.xls" class="file-input file-input-bordered file-input-sm w-full" />
             </div>
             <div class="form-control">
-              <label class="label">
-                <span class="label-text">Target Languages</span>
-                <span class="label-text-alt text-gray-500">可选，留空自动检测</span>
-              </label>
-              <input type="text" id="targetLangs" value="" placeholder="留空=自动检测所有空白列，或输入：EN,TH,TW" class="input input-bordered" />
+              <label class="label py-1"><span class="label-text font-semibold text-sm">术语库 (可选)</span></label>
+              <input type="file" id="glossaryInput" accept=".xlsx,.xls,.csv" class="file-input file-input-bordered file-input-sm w-full" />
             </div>
           </div>
 
-          <button id="startBtn" class="btn btn-primary w-full" onclick="unifiedWorkflowPage.startWorkflow()">
+          <!-- 隐藏Source和Target Languages输入框 -->
+          <input type="hidden" id="sourceLang" value="CH" />
+          <input type="hidden" id="targetLangs" value="" />
+
+          <button id="startBtn" class="btn btn-primary btn-sm w-full" onclick="unifiedWorkflowPage.startWorkflow()">
             🚀 开始工作流
           </button>
         </div>
@@ -183,14 +178,8 @@ class UnifiedWorkflowPage {
             Session ID: <span id="phase1SessionValue"></span>
           </div>
 
-          <div id="phase1Exports" style="display: none;">
-            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase1Input()">
-              📄 导出拆分前Excel
-            </button>
-            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase1Tasks()">
-              📋 导出任务表
-            </button>
-          </div>
+          <!-- 阶段1导出按钮已隐藏 -->
+          <div id="phase1Exports" style="display: none;"></div>
         </div>
 
         <!-- 阶段2: 执行翻译 -->
@@ -212,9 +201,6 @@ class UnifiedWorkflowPage {
             <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase2Output()">
               📄 导出翻译结果Excel
             </button>
-            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase2DataFrame()">
-              📊 导出DataFrame
-            </button>
           </div>
         </div>
 
@@ -233,11 +219,8 @@ class UnifiedWorkflowPage {
             Session ID: <span id="phase3SessionValue"></span>
           </div>
 
-          <div id="phase3Exports" style="display: none;">
-            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase3Tasks()">
-              📋 导出CAPS任务表
-            </button>
-          </div>
+          <!-- 阶段3导出按钮已隐藏 -->
+          <div id="phase3Exports" style="display: none;"></div>
         </div>
 
         <!-- 阶段4: CAPS大写转换执行 (可选) -->
@@ -258,9 +241,6 @@ class UnifiedWorkflowPage {
           <div id="phase4Exports" style="display: none;">
             <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase4Output()">
               📄 导出最终结果Excel
-            </button>
-            <button class="export-btn" onclick="unifiedWorkflowPage.exportPhase4DataFrame()">
-              📊 导出DataFrame
             </button>
           </div>
         </div>
@@ -295,10 +275,19 @@ class UnifiedWorkflowPage {
       return;
     }
 
+    // 获取术语库文件（可选）
+    const glossaryInput = document.getElementById('glossaryInput');
+    this.glossaryFile = glossaryInput.files[0];
+
     const startBtn = document.getElementById('startBtn');
     startBtn.disabled = true;
 
     try {
+      // 如果有术语库文件，先上传术语库
+      if (this.glossaryFile) {
+        await this.uploadGlossary();
+      }
+
       // 显示阶段1和阶段2容器
       document.getElementById('phase1Container').style.display = 'block';
       document.getElementById('phase2Container').style.display = 'block';
@@ -336,6 +325,42 @@ class UnifiedWorkflowPage {
       alert('工作流执行失败: ' + error.message);
     } finally {
       startBtn.disabled = false;
+    }
+  }
+
+  /**
+   * 上传术语库
+   */
+  async uploadGlossary() {
+    try {
+      this.updatePhaseStatus(1, 'processing', '⏳ 正在上传术语库...');
+
+      const formData = new FormData();
+      formData.append('file', this.glossaryFile);
+      formData.append('name', this.glossaryFile.name.replace(/\.[^/.]+$/, '')); // 去掉扩展名
+      formData.append('description', '自动上传的术语库');
+
+      const response = await fetch(`${this.apiUrl}/api/glossaries/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`术语库上传失败: ${error.detail || '未知错误'}`);
+      }
+
+      const data = await response.json();
+      this.glossaryId = data.glossary_id;
+
+      console.log(`Glossary uploaded successfully: ${this.glossaryId}`);
+      this.updatePhaseStatus(1, 'success', `✅ 术语库上传成功 (ID: ${this.glossaryId})`);
+
+    } catch (error) {
+      console.error('Glossary upload error:', error);
+      // 术语库上传失败不应该阻止工作流继续
+      this.updatePhaseStatus(1, 'error', `⚠️ 术语库上传失败: ${error.message}，将继续翻译流程`);
+      await this.delay(2000); // 显示错误信息2秒
     }
   }
 
@@ -379,10 +404,10 @@ class UnifiedWorkflowPage {
     document.getElementById('phase1SessionValue').textContent = sessionId;
     document.getElementById('phase1SessionId').style.display = 'block';
 
-    // 轮询拆分状态
-    await this.pollSplitStatus(sessionId);
+    // 轮询拆分状态并获取任务数
+    const splitResult = await this.pollSplitStatus(sessionId);
 
-    this.updatePhaseStatus(1, 'success', `✅ 拆分完成！任务数: ${data.task_count || 0}`);
+    this.updatePhaseStatus(1, 'success', `✅ 拆分完成！任务数: ${splitResult.task_count || 0}`);
     document.getElementById('phase1Exports').style.display = 'block';
   }
 
@@ -393,14 +418,23 @@ class UnifiedWorkflowPage {
     const sessionId = this.sessionIds[0];
     this.updatePhaseStatus(2, 'processing', '⏳ 正在执行AI翻译...');
 
+    // 构建请求体，如果有术语库ID则传递
+    const requestBody = {
+      session_id: sessionId,
+      processor: 'llm_qwen',
+      max_workers: 10
+    };
+
+    // 如果上传了术语库，添加术语库ID
+    if (this.glossaryId) {
+      requestBody.glossary_id = this.glossaryId;
+      console.log(`Using glossary: ${this.glossaryId}`);
+    }
+
     const response = await fetch(`${this.apiUrl}/api/execute/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: sessionId,
-        processor: 'llm_qwen',
-        max_workers: 10
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
@@ -477,10 +511,10 @@ class UnifiedWorkflowPage {
     document.getElementById('phase3SessionValue').textContent = capsSessionId;
     document.getElementById('phase3SessionId').style.display = 'block';
 
-    // 等待拆分完成
-    await this.pollSplitStatus(capsSessionId);
+    // 等待拆分完成并获取任务数
+    const capsResult = await this.pollSplitStatus(capsSessionId);
 
-    this.updatePhaseStatus(3, 'success', `✅ CAPS任务拆分完成！任务数: ${splitData.task_count || 0}`);
+    this.updatePhaseStatus(3, 'success', `✅ CAPS任务拆分完成！任务数: ${capsResult.task_count || 0}`);
     document.getElementById('phase3Exports').style.display = 'block';
   }
 
@@ -541,7 +575,7 @@ class UnifiedWorkflowPage {
 
         if (data.status === 'completed') {
           console.log(`Split completed: ${data.task_count || 0} tasks`);
-          return;
+          return data; // Return the complete status data with task_count
         } else if (data.status === 'failed') {
           throw new Error(data.message || '拆分失败');
         }
@@ -573,12 +607,28 @@ class UnifiedWorkflowPage {
         const response = await fetch(`${this.apiUrl}/api/execute/status/${sessionId}`);
         const data = await response.json();
 
-        const stats = data.statistics || {};
-        const byStatus = stats.by_status || {};
-        const total = stats.total || 0;
-        const completed = byStatus.completed || 0;
-        const processing = byStatus.processing || 0;
-        const failed = byStatus.failed || 0;
+        // Handle both data formats: worker_pool format (progress) and idle format (statistics)
+        let total, completed, processing, failed;
+
+        if (data.progress) {
+          // Running status from worker_pool - uses progress object
+          total = data.progress.total || 0;
+          completed = data.progress.completed || 0;
+          processing = data.progress.pending || 0;  // pending = processing in worker_pool
+          failed = data.progress.failed || 0;
+        } else if (data.statistics) {
+          // Idle/stopped status - uses statistics object
+          const stats = data.statistics;
+          const byStatus = stats.by_status || {};
+          total = stats.total || 0;
+          completed = byStatus.completed || 0;
+          processing = byStatus.processing || 0;
+          failed = byStatus.failed || 0;
+        } else {
+          // No data available
+          total = completed = processing = failed = 0;
+        }
+
         const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
         // 更新进度条
@@ -587,15 +637,22 @@ class UnifiedWorkflowPage {
         document.getElementById(`phase${phaseNum}Text`).textContent =
           `已完成 ${completed}/${total} | 处理中: ${processing} | 失败: ${failed}`;
 
-        // 更新状态
-        if (data.status === 'completed') {
+        // 更新状态 - 智能判断完成状态
+        // 如果所有任务都完成了（completed == total 且 total > 0），即使status不是'completed'也认为完成了
+        const isActuallyCompleted = (total > 0 && completed >= total && processing === 0);
+
+        if (data.status === 'completed' || isActuallyCompleted) {
           this.updatePhaseStatus(phaseNum, 'success', `✅ 已完成 ${completed}/${total} 任务`);
+          console.log(`Phase ${phaseNum} completed: ${completed}/${total} tasks`);
           return;
         } else if (data.status === 'failed') {
           this.updatePhaseStatus(phaseNum, 'error', `❌ 执行失败 (${failed} 个任务失败)`);
           throw new Error('执行失败');
         } else if (data.status === 'running' || data.status === 'processing') {
           this.updatePhaseStatus(phaseNum, 'processing', `⚡ 正在处理... ${completed}/${total}`);
+        } else if (data.status === 'idle') {
+          // Idle status with tasks - show waiting
+          this.updatePhaseStatus(phaseNum, 'processing', `⏳ 准备开始... 0/${total}`);
         }
 
       } catch (error) {
@@ -657,13 +714,6 @@ class UnifiedWorkflowPage {
     );
   }
 
-  async exportPhase2DataFrame() {
-    await this.downloadFile(
-      `${this.apiUrl}/api/tasks/export/${this.sessionIds[1]}?export_type=dataframe`,
-      `dataframe_${this.sessionIds[1].substring(0, 8)}.xlsx`
-    );
-  }
-
   /**
    * 导出方法 - 阶段3 (CAPS Split)
    */
@@ -681,13 +731,6 @@ class UnifiedWorkflowPage {
     await this.downloadFile(
       `${this.apiUrl}/api/download/${this.sessionIds[3]}`,
       `final_result_${this.sessionIds[3].substring(0, 8)}.xlsx`
-    );
-  }
-
-  async exportPhase4DataFrame() {
-    await this.downloadFile(
-      `${this.apiUrl}/api/tasks/export/${this.sessionIds[3]}?export_type=dataframe`,
-      `caps_dataframe_${this.sessionIds[3].substring(0, 8)}.xlsx`
     );
   }
 

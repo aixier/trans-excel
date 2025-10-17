@@ -7,7 +7,7 @@ import os
 import logging
 
 from models.pipeline_session import TransformationStage
-from services.executor.worker_pool import worker_pool
+from services.executor.worker_pool_manager import worker_pool_manager
 from services.factories.processor_factory import processor_factory
 from utils.pipeline_session_manager import pipeline_session_manager
 from utils.config_manager import config_manager
@@ -84,9 +84,10 @@ async def start_execution(request: ExecuteRequest):
                 task_manager.df.loc[task_manager.df['status'].isin([TaskStatus.PENDING]), 'error'] = None
                 logger.info(f"Reset {completed_count + failed_count} tasks to PENDING for re-execution")
 
-    # Override max workers if specified
-    if request.max_workers:
-        worker_pool.max_workers = request.max_workers
+    # Get or create worker pool for this session
+    max_workers = request.max_workers if request.max_workers else 10
+    pool = worker_pool_manager.get_or_create_pool(session_id, max_workers=max_workers)
+    logger.info(f"Using worker pool for session {session_id} with {max_workers} workers")
 
     # === Processor Selection Logic ===
     # Priority:
@@ -118,15 +119,16 @@ async def start_execution(request: ExecuteRequest):
             glossary_config = {'id': request.glossary_id}
             logger.info(f"Using glossary_id: {request.glossary_id}")
 
-        # Start execution
-        result = await worker_pool.start_execution(
-            session_id,
+        # Start execution (no need to pass session_id, pool already knows it)
+        result = await pool.start_execution(
             llm_provider,
             glossary_config=glossary_config  # ✨ Pass glossary config
         )
 
         if result['status'] == 'error':
-            raise HTTPException(status_code=400, detail=result['message'])
+            error_msg = result.get('message', 'Unknown error from worker pool')
+            logger.error(f"Worker pool returned error: {error_msg}, full result: {result}")
+            raise HTTPException(status_code=400, detail=error_msg)
 
         # Start progress monitoring for WebSocket updates
         try:
@@ -156,10 +158,15 @@ async def start_execution(request: ExecuteRequest):
         logger.info(f"Started execution for session {session_id}")
         return response
 
+    except HTTPException:
+        # Re-raise HTTPException as-is (don't wrap it)
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to start execution: {str(e)}")
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"Failed to start execution: {str(e)}\n{error_traceback}")
         raise HTTPException(status_code=500, detail=f"Execution start failed: {str(e)}")
 
 
@@ -174,18 +181,20 @@ async def stop_execution(session_id: str):
     Returns:
         Stop status
     """
-    if worker_pool.current_session_id != session_id:
+    # Get pool for this session
+    pool = worker_pool_manager.get_pool(session_id)
+    if not pool:
         raise HTTPException(
-            status_code=400,
-            detail="Session ID does not match current execution"
+            status_code=404,
+            detail=f"No worker pool found for session {session_id}"
         )
 
-    result = await worker_pool.stop_execution()
+    result = await pool.stop_execution()
 
     if result['status'] == 'error':
         raise HTTPException(status_code=400, detail=result['message'])
 
-    logger.info(f"Stopped execution for session {session_id} (memory-only mode)")
+    logger.info(f"Stopped execution for session {session_id}")
     return result
 
 
@@ -200,13 +209,15 @@ async def pause_execution(session_id: str):
     Returns:
         Pause status
     """
-    if worker_pool.current_session_id != session_id:
+    # Get pool for this session
+    pool = worker_pool_manager.get_pool(session_id)
+    if not pool:
         raise HTTPException(
-            status_code=400,
-            detail="Session ID does not match current execution"
+            status_code=404,
+            detail=f"No worker pool found for session {session_id}"
         )
 
-    result = await worker_pool.pause_execution()
+    result = await pool.pause_execution()
 
     if result['status'] == 'error':
         raise HTTPException(status_code=400, detail=result['message'])
@@ -226,13 +237,15 @@ async def resume_execution(session_id: str):
     Returns:
         Resume status
     """
-    if worker_pool.current_session_id != session_id:
+    # Get pool for this session
+    pool = worker_pool_manager.get_pool(session_id)
+    if not pool:
         raise HTTPException(
-            status_code=400,
-            detail="Session ID does not match current execution"
+            status_code=404,
+            detail=f"No worker pool found for session {session_id}"
         )
 
-    result = await worker_pool.resume_execution()
+    result = await pool.resume_execution()
 
     if result['status'] == 'error':
         raise HTTPException(status_code=400, detail=result['message'])
@@ -257,10 +270,11 @@ async def get_execution_status(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Check if this session is currently executing
-    if worker_pool.current_session_id == session_id:
+    # Check if this session has an active worker pool
+    pool = worker_pool_manager.get_pool(session_id)
+    if pool and pool.status.value in ['running', 'paused']:
         # Get real-time status from worker_pool
-        return worker_pool.get_status()
+        return pool.get_status()
 
     # Not currently executing - check stage and tasks
     task_manager = pipeline_session_manager.get_tasks(session_id)
@@ -309,6 +323,7 @@ async def get_execution_status(session_id: str):
         return {
             'status': 'idle',
             'session_id': session_id,
+            'statistics': stats,  # Include statistics so frontend can show total task count
             'message': 'No execution started for this session',
             'ready_for_execution': True
         }

@@ -294,24 +294,26 @@ output.xlsx                   # 格式1：Excel文件
 
 ### Backend Setup and Running
 
+⚠️ **IMPORTANT**: Always use `python3` command, NOT `python`, to avoid compatibility issues.
+
 ```bash
 # Navigate to backend
 cd backend_v2
 
 # Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
-# Run the backend server
-python main.py
+# Run the backend server (MUST use python3)
+python3 main.py
 # Server runs on http://localhost:8013 by default
 
 # Run specific test files
-python test_api_flow.py
-python test_batch_allocator_max_chars.py
-python test_translation_flow.py
+python3 test_api_flow.py
+python3 test_batch_allocator_max_chars.py
+python3 test_translation_flow.py
 
 # Run unit tests
-python -m pytest tests/
+python3 -m pytest tests/
 ```
 
 ### Frontend Setup
@@ -577,11 +579,21 @@ Main columns in the task DataFrame (`backend_v2/models/task_dataframe.py`):
 
 ### Worker Pool Architecture
 
-Located in `backend_v2/services/executor/worker_pool.py`:
-- Configurable concurrent workers (1-50)
-- Automatic retry with exponential backoff
-- Rate limiting for API calls
-- Dynamic batch size adjustment
+**多用户并发架构** (`backend_v2/services/executor/`):
+- **WorkerPoolManager** (`worker_pool_manager.py`): 管理多个session的worker pool
+  - 为每个session创建独立的WorkerPool实例
+  - 提供session级别的生命周期管理
+  - 支持自动清理已完成的pool
+- **WorkerPool** (`worker_pool.py`): 单个session的并发执行器
+  - 每个实例绑定一个session_id
+  - Configurable concurrent workers (1-50 per session)
+  - Automatic retry with exponential backoff
+  - Rate limiting for API calls
+  - Dynamic batch size adjustment
+- **多用户场景**:
+  - 用户A执行session_1翻译，用户B同时执行session_2的CAPS，互不干扰
+  - 每个session可独立控制（start/stop/pause/resume）
+  - API通过session_id路由到对应的WorkerPool实例
 
 ## Testing
 
@@ -781,11 +793,9 @@ GET /api/download/{session_id_2}  # 最终Excel
 ### 当前架构限制
 
 1. **Memory-Only Architecture**: No data persistence, sessions lost on restart
-2. **Single Session Execution**: Can only process one session at a time
-3. **No Horizontal Scaling**: Cannot distribute across multiple servers
-4. **Global Singletons**: High coupling through session_manager and worker_pool (将在新架构中改善)
-5. **8-Hour Session Timeout**: Fixed timeout, not configurable per session
-6. **CAPS任务数据完整性问题**: CAPS任务在翻译前创建，source_text为空（新架构已解决）
+2. **No Horizontal Scaling**: Cannot distribute across multiple servers
+3. **8-Hour Session Timeout**: Fixed timeout, not configurable per session
+4. **CAPS任务数据完整性问题**: CAPS任务在翻译前创建，source_text为空（新架构已解决）
 
 ### 新架构改进
 
@@ -794,6 +804,11 @@ GET /api/download/{session_id_2}  # 最终Excel
 - CAPS任务在翻译后创建，数据完整性保证
 - 配置驱动，扩展性强
 - 显式依赖管理，易于理解
+- **多用户并发支持** ⭐ NEW:
+  - 每个session拥有独立的WorkerPool实例
+  - 多个用户可以同时执行不同session的任务
+  - WorkerPoolManager统一管理所有session的执行状态
+  - 支持session级别的独立控制（start/stop/pause/resume）
 
 ⚠️ **仍然存在的限制:**
 - Memory-Only（短期内不变）

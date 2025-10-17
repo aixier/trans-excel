@@ -19,28 +19,38 @@ import sys
 import os
 import argparse
 import getpass
+from pathlib import Path
+
+# 尝试导入本地配置模块
+try:
+    from config import get_api_key, get_api_headers, get_n8n_url
+    HAS_CONFIG = True
+except ImportError:
+    HAS_CONFIG = False
 
 # n8n API 配置
 N8N_HOST = os.getenv('N8N_HOST', 'localhost')
 N8N_PORT = os.getenv('N8N_PORT', '5678')
 N8N_BASE_URL = f"http://{N8N_HOST}:{N8N_PORT}/api/v1"
 
-# 默认尝试从多个环境变量读取 API Key
-N8N_API_KEY = (
-    os.getenv('N8N_REAL_API_KEY') or  # 优先使用实际的 API Key
-    os.getenv('N8N_API_KEY') or       # 兼容旧配置
-    None
-)
+# 默认尝试从多个环境变量读取 API Key（如果没有 config 模块）
+if not HAS_CONFIG:
+    N8N_API_KEY = (
+        os.getenv('N8N_API_KEY') or
+        os.getenv('N8N_REAL_API_KEY') or
+        None
+    )
 
-def get_api_headers(api_key):
-    """生成 API 请求头"""
-    return {
-        'X-N8N-API-KEY': api_key,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    }
+    def get_api_headers_fallback(api_key):
+        """生成 API 请求头（后备方法）"""
+        return {
+            'X-N8N-API-KEY': api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
 
-# 工作流定义（完整的Form Trigger工作流）
+# 工作流定义（使用 Form Trigger 内置响应，不使用 Respond to Webhook）
+# 重要：根据 n8n GitHub Issue #12371，Form Trigger 不能与 Respond to Webhook 节点一起使用
 WORKFLOW_DEFINITION = {
     "name": "Excel翻译表单_自动创建",
     # 注意：创建时不能设置 active 字段，需要创建后再激活
@@ -62,10 +72,10 @@ WORKFLOW_DEFINITION = {
                             "fieldType": "dropdown",
                             "fieldOptions": {
                                 "values": [
-                                    {"option": "英文", "value": "EN"},
-                                    {"option": "泰文", "value": "TH"},
-                                    {"option": "日文", "value": "JP"},
-                                    {"option": "韩文", "value": "KR"}
+                                    {"option": "英文"},
+                                    {"option": "泰文"},
+                                    {"option": "日文"},
+                                    {"option": "韩文"}
                                 ]
                             },
                             "requiredField": True
@@ -78,8 +88,10 @@ WORKFLOW_DEFINITION = {
                         }
                     ]
                 },
-                "responseMode": "onReceived",
-                "formSubmittedText": "翻译任务已提交！请保存返回的会话ID以便查询进度。"
+                # ⭐ 关键配置：Form Trigger 内置响应
+                "responseMode": "onReceived",  # 立即响应，不等待工作流完成
+                "respondWith": "json",
+                "responseBody": "={{ { \"success\": true, \"message\": \"任务已提交\", \"session_id\": $json.session_id, \"status_url\": \"http://localhost:8013/api/tasks/split/status/\" + $json.session_id, \"download_url\": \"http://localhost:8013/api/download/\" + $json.session_id } }}"
             },
             "id": "form_trigger_node",
             "name": "翻译表单",
@@ -123,18 +135,8 @@ WORKFLOW_DEFINITION = {
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
             "position": [460, 300]
-        },
-        {
-            "parameters": {
-                "respondWith": "json",
-                "responseBody": "={{ { \"success\": true, \"session_id\": $json.session_id, \"message\": \"任务已创建\", \"status_url\": \"http://localhost:8013/api/tasks/split/status/\" + $json.session_id, \"download_url\": \"http://localhost:8013/api/download/\" + $json.session_id, \"tips\": \"请保存session_id，完成后访问download_url下载结果\" } }}"
-            },
-            "id": "respond_node",
-            "name": "返回结果",
-            "type": "n8n-nodes-base.respondToWebhook",
-            "typeVersion": 1,
-            "position": [680, 300]
         }
+        # ⚠️ 不包含 Respond to Webhook 节点 - Form Trigger 已内置响应功能
     ],
     "connections": {
         "翻译表单": {
@@ -147,18 +149,8 @@ WORKFLOW_DEFINITION = {
                     }
                 ]
             ]
-        },
-        "提交翻译任务": {
-            "main": [
-                [
-                    {
-                        "node": "返回结果",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
         }
+        # HTTP Request 节点不再连接到 Respond to Webhook
     },
     "settings": {
         "executionOrder": "v1"
@@ -403,7 +395,7 @@ def main():
     # 解析命令行参数
     args = parse_arguments()
 
-    # 获取 API Key（优先级：命令行参数 > 交互式输入 > 环境变量）
+    # 获取 API Key（优先级：命令行参数 > 交互式输入 > 配置文件 > 环境变量）
     api_key = None
 
     if args.api_key:
@@ -413,20 +405,38 @@ def main():
         api_key = get_api_key_interactive()
         if not api_key:
             sys.exit(1)
-    elif N8N_API_KEY:
+    elif HAS_CONFIG:
+        # 尝试从配置模块读取
+        try:
+            api_key = get_api_key()
+            if api_key:
+                print("\n✅ 使用配置文件中的 API Key (.env.local)")
+            else:
+                print("\n⚠️  配置模块未返回 API Key")
+        except Exception as e:
+            print(f"\n⚠️  读取配置失败: {e}")
+    elif 'N8N_API_KEY' in locals():
         api_key = N8N_API_KEY
         print(f"\n✅ 使用环境变量中的 API Key")
-    else:
+
+    if not api_key:
         print("\n❌ 错误: 未提供 API Key")
         print("\n请使用以下方式之一提供 API Key：")
-        print("  1. 环境变量: export N8N_REAL_API_KEY='your_key'")
-        print("  2. 命令行参数: --api-key 'your_key'")
-        print("  3. 交互式输入: --interactive")
-        print("\n💡 如何生成 API Key? 查看文档: N8N_API_KEY_SETUP.md")
+        print("  1. 配置文件: 编辑 n8n/.env.local")
+        print("  2. 环境变量: export N8N_API_KEY='your_key'")
+        print("  3. 命令行参数: --api-key 'your_key'")
+        print("  4. 交互式输入: --interactive")
+        print("\n💡 如何生成 API Key? 查看文档: scripts/N8N_API_KEY_SETUP.md")
         sys.exit(1)
 
     # 生成请求头
-    headers = get_api_headers(api_key)
+    if HAS_CONFIG:
+        try:
+            headers = get_api_headers()
+        except:
+            headers = get_api_headers_fallback(api_key)
+    else:
+        headers = get_api_headers_fallback(api_key)
 
     # 步骤1: 健康检查
     print("\n[步骤1] 健康检查...")

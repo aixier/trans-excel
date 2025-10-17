@@ -5,7 +5,7 @@ from typing import Optional, List
 import pandas as pd
 import logging
 
-from services.executor.worker_pool import worker_pool
+from services.executor.worker_pool_manager import worker_pool_manager
 from services.monitor.performance_monitor import performance_monitor
 from utils.pipeline_session_manager import pipeline_session_manager
 from utils.json_converter import convert_numpy_types
@@ -36,18 +36,19 @@ async def get_execution_progress(session_id: str):
     if not task_manager:
         raise HTTPException(status_code=404, detail="Task manager not found")
 
-    # ✅ Check if session is executing (prioritize session.stage for cross-worker)
+    # ✅ Check if session is executing (check if pool exists and is running)
     from models.pipeline_session import TransformationStage
+    pool = worker_pool_manager.get_pool(session_id)
     is_executing = (
-        worker_pool.current_session_id == session_id or
+        (pool and pool.status.value in ['running', 'paused']) or
         session.stage == TransformationStage.EXECUTING
     )
 
     if is_executing:
         # Executing: Return real-time status
-        if worker_pool.current_session_id == session_id:
-            # Same worker: use worker_pool status
-            status = worker_pool.get_status()
+        if pool and pool.status.value in ['running', 'paused']:
+            # Pool exists: use pool status
+            status = pool.get_status()
         else:
             # Different worker: use real-time statistics from cache
             from utils.session_cache import session_cache
